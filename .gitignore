@@ -100,3 +100,34 @@ temp/
 exp/
 .playwright-mcp/
 bridge/node_modules/
+
+# ── NanoScope: secrets / privacy / runtime data (NEVER commit) ──
+# 密钥与凭据（除示例外一律不入库）
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+credentials*.json
+config.json
+config.local.json
+!config.example.json
+.nanobot/
+~/.nanobot/
+
+# 真实用户记忆 / 个人隐私数据 / 结构化语料 DB
+# 注意：不用裸文件名(MEMORY.md 等)以免误伤 nanobot/templates 下的框架模板；
+# 真实运行时记忆落在下面这些目录，只忽略目录。
+data/
+*.db
+*.sqlite
+*.sqlite3
+memory_store/
+workspace/
+run_workspace/
+
+# B1 trace / benchmark 产物（可复现、不入库）
+traces/
+benchmarks/results/
+*.trace.jsonl
+report*.html
