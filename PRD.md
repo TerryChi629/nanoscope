@@ -1,4 +1,4 @@
-# NanoScope 项目 PRD:多用户 IM Bot 的 Principal/Audience-aware 记忆隔离改造
+# NanoScope 项目 PRD:多用户 IM Bot 的 Principal/Audience-aware 记忆隔离改造 0719
 
 > 版本:v3.0(定稿·可执行 PRD) · 编写日期:2026-07-19
 > 定位:**本文件是自包含的 PRD**。一个全新的对话框只读这一份,就能从"为什么做 → 做什么 → 怎么一步步做完"完整实施整个项目。三部分:
