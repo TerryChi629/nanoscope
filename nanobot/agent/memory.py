@@ -66,6 +66,9 @@ class MemoryStore:
     def __init__(self, workspace: Path, max_history_entries: int = _DEFAULT_MAX_HISTORY):
         self.workspace = workspace
         self.max_history_entries = max_history_entries
+        # NanoScope (PRD §7, M5): multi_user 下 Dream 禁写 MEMORY/USER/SOUL 三文件
+        # （长期记忆改由 owner-aware SQLite 承载）。由 AgentLoop 运行时置位。
+        self.multi_user_isolation = False
         self.memory_dir = ensure_dir(workspace / "memory")
         self.memory_file = self.memory_dir / "MEMORY.md"
         self.history_file = self.memory_dir / "history.jsonl"
@@ -256,6 +259,7 @@ class MemoryStore:
         *,
         max_chars: int | None = None,
         session_key: str | None = None,
+        principal_id: str | None = None,
     ) -> int:
         """Append *entry* to history.jsonl and return its auto-incrementing cursor.
 
@@ -298,6 +302,9 @@ class MemoryStore:
             record = {"cursor": cursor, "timestamp": ts, "content": content}
             if session_key:
                 record["session_key"] = session_key
+            # NanoScope (PRD §5, M1): 持久化 principal_id，供 Dream/审计事后追溯 owner。
+            if principal_id:
+                record["principal_id"] = principal_id
             with open(self.history_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
             self._cursor_file.write_text(str(cursor), encoding="utf-8")
@@ -605,7 +612,12 @@ class MemoryStore:
         skills_dir.mkdir(parents=True, exist_ok=True)
 
         extra_read = [BUILTIN_SKILLS_DIR] if BUILTIN_SKILLS_DIR.exists() else None
-        editable_files = [self.memory_file, self.soul_file, self.user_file]
+        # NanoScope (PRD §7, M5): multi_user 下闭合 Dream 后门——三文件从可写集移除，
+        # Dream 只能读 + 写 skills，无法把私聊事实蒸馏进全局 MEMORY/USER/SOUL。
+        editable_files = (
+            [] if self.multi_user_isolation
+            else [self.memory_file, self.soul_file, self.user_file]
+        )
 
         tools.register(ReadFileTool(
             workspace=workspace,

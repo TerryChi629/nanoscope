@@ -31,6 +31,11 @@ class InboundMessage:
     media: list[str] = field(default_factory=list)  # Media URLs
     metadata: dict[str, Any] = field(default_factory=dict)  # Channel-specific data
     session_key_override: str | None = None  # Optional override for thread-scoped sessions
+    # NanoScope (PRD §5, M1): Principal/Audience 安全上下文载体。渠道边界确定性填充；
+    # 单用户/未接入 multi_user 时保持 None，行为与基线一致（前向兼容）。
+    principal_id: str | None = None  # tenant:channel:platform_user_id（渠道验签后）
+    audience_type: str | None = None  # dm / group / thread（从渠道 chat_type 确定性读出）
+    audience_id: str | None = None  # 回答最终发往的会话 id（前向兼容钩子）
 
     @property
     def session_key(self) -> str:

@@ -58,6 +58,15 @@ class ContextBuilder:
         self.timezone = timezone
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace, disabled_skills=set(disabled_skills) if disabled_skills else None)
+        # NanoScope (PRD §7, M5): multi_user 下 USER.md 停止注入（其内容属个人记忆，
+        # 改由 owner-aware SQLite 承载）；SOUL.md/AGENTS.md 仍只读注入。由 AgentLoop 置位。
+        self.multi_user_isolation = False
+
+    @property
+    def _bootstrap_files(self) -> list[str]:
+        if self.multi_user_isolation:
+            return [f for f in self.BOOTSTRAP_FILES if f != "USER.md"]
+        return list(self.BOOTSTRAP_FILES)
 
     def build_system_prompt(
         self,
@@ -68,6 +77,7 @@ class ContextBuilder:
         include_memory_recent_history: bool = True,
         session_key: str | None = None,
         unified_session: bool = False,
+        scoped_memory: str | None = None,
     ) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
         root = workspace or self.workspace
@@ -79,9 +89,16 @@ class ContextBuilder:
 
         parts.append(render_template("agent/tool_contract.md"))
 
-        memory = self.memory.get_memory_context()
-        if memory and not self._is_template_content(self.memory.read_memory(), "memory/MEMORY.md"):
-            parts.append(f"# Memory\n\n{memory}")
+        # NanoScope (PRD §6, M4): multi_user 下用 Repository.search_visible 的可见集合
+        # 替换基线全量 Core 注入（scoped_memory 非 None 即多用户模式，隔离墙已在
+        # Repository 内确定性强制；空串表示无可见项，绝不回退到全局 MEMORY.md）。
+        if scoped_memory is not None:
+            if scoped_memory:
+                parts.append(f"# Memory\n\n{scoped_memory}")
+        else:
+            memory = self.memory.get_memory_context()
+            if memory and not self._is_template_content(self.memory.read_memory(), "memory/MEMORY.md"):
+                parts.append(f"# Memory\n\n{memory}")
 
         always_skills = self.skills.get_always_skills()
         if always_skills:
@@ -150,7 +167,7 @@ class ContextBuilder:
         parts = []
         root = workspace or self.workspace
 
-        for filename in self.BOOTSTRAP_FILES:
+        for filename in self._bootstrap_files:
             file_path = root / filename
             if file_path.exists():
                 content = file_path.read_text(encoding="utf-8")
@@ -183,6 +200,7 @@ class ContextBuilder:
         include_memory_recent_history: bool = True,
         session_key: str | None = None,
         unified_session: bool = False,
+        scoped_memory: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build the complete message list for an LLM call."""
         root = workspace or self.workspace
@@ -200,6 +218,7 @@ class ContextBuilder:
                     include_memory_recent_history=include_memory_recent_history,
                     session_key=session_key,
                     unified_session=unified_session,
+                    scoped_memory=scoped_memory,
                 ),
             },
             *history,

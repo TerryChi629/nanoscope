@@ -7,6 +7,9 @@
 .web
 .orion
 
+# NanoScope local runtime (config with feishu creds/API keys, workspace, SQLite memory) — never commit
+.nanobot/
+
 # Claude / AI assistant artifacts
 docs/superpowers/
 docs/plans/

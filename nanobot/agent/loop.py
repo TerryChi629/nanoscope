@@ -286,8 +286,10 @@ class AgentLoop:
         runtime_model_publisher: Callable[[str, str | None], None] | None = None,
         restart_mode: str = "auto",
         local_trigger_store: Any | None = None,
+        multi_user: Any | None = None,
     ):
-        from nanobot.config.schema import ToolsConfig
+        from nanobot.config.schema import MultiUserConfig, ToolsConfig
+        from nanoscope.identity import IdentityResolver
 
         _tc = tools_config or ToolsConfig()
         defaults = AgentDefaults()
@@ -352,6 +354,18 @@ class AgentLoop:
         self._hook_factories: list[AgentTurnHookFactory] = hook_factories or []
 
         self.context = ContextBuilder(workspace, timezone=timezone, disabled_skills=disabled_skills)
+        # NanoScope (PRD §5, M1): 多用户隔离配置 + 身份解析器。
+        self.multi_user = multi_user or MultiUserConfig()
+        self._identity_resolver = IdentityResolver() if self.multi_user.enabled else None
+        # NanoScope (PRD §6, M2/M3): 结构化长期记忆 Repository（唯一动态写入口）。
+        self.memory_repository = None
+        if self.multi_user.enabled:
+            from nanoscope.memory import Repository
+
+            self.memory_repository = Repository(workspace / "memory" / "nanoscope.db")
+            # NanoScope (PRD §7, M5): 闭合 Dream 后门 + 停注 USER.md（个人记忆改由 SQLite 承载）。
+            self.context.multi_user_isolation = True
+            self.context.memory.multi_user_isolation = True
         self.sessions = session_manager or SessionManager(workspace)
         self.tools = ToolRegistry()
         # One file-read/write tracker per logical session. The tool registry is
@@ -476,6 +490,7 @@ class AgentLoop:
             session_ttl_minutes=defaults.session_ttl_minutes,
             consolidation_ratio=defaults.consolidation_ratio,
             tools_config=config.tools,
+            multi_user=defaults.multi_user,
             model_presets=preset_helpers.configured_model_presets(config),
             model_preset=defaults.model_preset,
             restart_mode=config.gateway.restart_mode,
@@ -561,6 +576,14 @@ class AgentLoop:
             )
             registered.append("my")
 
+        # NanoScope (PRD §6, M3): memory_remember 是个人记忆唯一显式写入口。
+        # 仅 multi_user 下注册（需 Repository + 运行时安全上下文）。
+        if self.memory_repository is not None:
+            from nanoscope.memory import MemoryRememberTool
+
+            self.tools.register(MemoryRememberTool(self.memory_repository))
+            registered.append("memory_remember")
+
         logger.info("Registered {} tools: {}", len(registered), registered)
 
     async def _connect_mcp(self) -> None:
@@ -643,6 +666,9 @@ class AgentLoop:
         if has_text or media_paths or runtime_context_blocks:
             extra: dict[str, Any] = ({"media": list(media_paths)} if media_paths else {}) | agent_context.session_extra(msg.metadata)
             extra.update(kwargs)
+            # NanoScope (PRD §5, M1): 落 principal_id 供 Dream/审计事后追溯 owner。
+            if msg.principal_id:
+                extra.setdefault("principal_id", msg.principal_id)
             text = msg.content if isinstance(msg.content, str) else ""
             text_override, automation_extra = automation_history_overrides(msg.metadata)
             if text_override is not None:
@@ -685,10 +711,29 @@ class AgentLoop:
             include_memory_recent_history=include_memory_recent_history,
             session_key=session.key,
             unified_session=self._unified_session,
+            scoped_memory=self._scoped_memory_for_message(msg),
         )
+
+    def _scoped_memory_for_message(self, msg: InboundMessage) -> str | None:
+        """NanoScope (PRD §6, M4): 多用户下用 Repository.search_visible 的可见集合
+        替换全量 Core 注入。返回 None 表示走基线全局 MEMORY.md；返回字符串（含空串）
+        表示多用户模式下已由隔离墙确定性过滤出的可见项（空串=无可见项，不回退全局）。
+        """
+        if self.memory_repository is None or self._identity_resolver is None:
+            return None
+        ctx = self.resolve_security_context(msg)
+        if ctx is None:
+            return None
+        records = self.memory_repository.search_visible(ctx)
+        if not records:
+            return ""
+        return "\n".join(f"- {r.content}" for r in records)
 
     def _request_context_for_turn(self, ctx: TurnContext) -> RequestContext:
         scope = self.workspace_scopes.for_message(ctx.msg, ctx.session.metadata)
+        # NanoScope (PRD §6, M3): multi_user 下把安全上下文注入 RequestContext，
+        # 供 memory_remember 运行时决定 owner/scope（模型无法伪造）。
+        sec_tenant = self.multi_user.tenant_id if self._identity_resolver else None
         return RequestContext(
             channel=ctx.msg.channel,
             chat_id=ctx.msg.chat_id,
@@ -700,6 +745,9 @@ class AgentLoop:
             sender_id=ctx.msg.sender_id,
             turn_id=ctx.turn_id,
             workspace=scope.project_path,
+            tenant_id=sec_tenant,
+            principal_id=ctx.msg.principal_id if self._identity_resolver else None,
+            audience_type=ctx.msg.audience_type if self._identity_resolver else None,
         )
 
     async def _resolve_runtime_context_for_turn(
@@ -747,6 +795,30 @@ class AgentLoop:
         if self._unified_session and not msg.session_key_override:
             return UNIFIED_SESSION_KEY
         return msg.session_key
+
+    def resolve_security_context(self, msg: InboundMessage) -> Any | None:
+        """NanoScope (PRD §5, M1): 用 IdentityResolver 把入站消息解析成 SecurityContext。
+
+        multi_user 关闭时返回 None（行为与基线一致）。开启但缺 tenant_id 时
+        fail-closed 抛错（PRD §5：tenant 缺失必须显式配置）。
+        """
+        if self._identity_resolver is None:
+            return None
+        tenant_id = self.multi_user.tenant_id
+        if not tenant_id:
+            raise ValueError(
+                "multi_user.enabled=True 但未配置 tenant_id（PRD §5 fail-closed）"
+            )
+        is_dm = (msg.audience_type or "group") == "dm"
+        return self._identity_resolver.resolve(
+            tenant_id=tenant_id,
+            channel=msg.channel,
+            platform_user_id=msg.sender_id,
+            chat_id=msg.chat_id,
+            is_dm=is_dm,
+            session_key=self._effective_session_key(msg),
+            workspace_key=str(self.workspace),
+        )
 
     @staticmethod
     def _replay_token_budget(runtime: LLMRuntime) -> int:
@@ -1085,6 +1157,12 @@ class AgentLoop:
         session_key = self._effective_session_key(msg)
         if session_key != msg.session_key:
             msg = dataclasses.replace(msg, session_key_override=session_key)
+        # NanoScope (PRD §5, M1): 渠道验签后解析 principal_id，stamp 到消息上，
+        # 供 _persist_user_message_early 落 history（Dream/审计追溯 owner）。
+        if self._identity_resolver is not None and msg.principal_id is None:
+            ctx = self.resolve_security_context(msg)
+            if ctx is not None:
+                msg = dataclasses.replace(msg, principal_id=ctx.principal_id)
         lock = self._session_locks.setdefault(session_key, asyncio.Lock())
         gate = self._concurrency_gate or nullcontext()
 

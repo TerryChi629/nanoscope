@@ -82,6 +82,21 @@ class DreamConfig(Base):
         return f"every {hours}h"
 
 
+class MultiUserConfig(Base):
+    """NanoScope 多用户隔离配置 (PRD §5/§7)。
+
+    enabled=False 时行为与基线完全一致（单用户假设）。
+    enabled=True 时开启 Principal/Audience 安全上下文与记忆隔离内核。
+    """
+
+    enabled: bool = False  # 总开关：开启记忆隔离内核
+    tenant_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("tenantId", "tenant_id"),
+        serialization_alias="tenantId",
+    )  # 组织标识；enabled 时缺失必须显式配置（PRD §5）
+
+
 class InlineFallbackConfig(Base):
     """One inline fallback model configuration."""
 
@@ -162,6 +177,11 @@ class AgentDefaults(Base):
         serialization_alias="consolidationRatio",
     )  # Consolidation target ratio (0.5 = 50% of budget retained after compression)
     dream: DreamConfig = Field(default_factory=DreamConfig)
+    multi_user: MultiUserConfig = Field(
+        default_factory=MultiUserConfig,
+        validation_alias=AliasChoices("multiUser", "multi_user"),
+        serialization_alias="multiUser",
+    )  # NanoScope 多用户隔离内核 (PRD §5/§7)
 
 
 class AgentsConfig(Base):

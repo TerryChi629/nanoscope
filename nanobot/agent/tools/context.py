@@ -29,6 +29,11 @@ class RequestContext:
     sender_id: str | None = None
     turn_id: str | None = None
     workspace: Path | None = None
+    # NanoScope (PRD §5/§6, M3): 运行时安全上下文，供 memory_remember 注入
+    # owner/scope（模型无法伪造）。multi_user 关闭时保持 None。
+    tenant_id: str | None = None
+    principal_id: str | None = None
+    audience_type: str | None = None
 
 
 @runtime_checkable

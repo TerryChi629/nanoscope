@@ -261,6 +261,9 @@ class BaseChannel(ABC):
         if self.supports_streaming:
             meta = {**meta, "_wants_stream": True}
 
+        # NanoScope (PRD §5, M1): 在渠道边界确定性填充受众。is_dm 来自各渠道
+        # chat_type（确定性，非概率判断）。principal_id 需 tenant，留待 AgentLoop
+        # 用 IdentityResolver 结合 multi_user 配置解析。
         msg = InboundMessage(
             channel=self.name,
             sender_id=str(sender_id),
@@ -269,6 +272,8 @@ class BaseChannel(ABC):
             media=media or [],
             metadata=meta,
             session_key_override=session_key,
+            audience_type="dm" if is_dm else "group",
+            audience_id=str(sender_id) if is_dm else str(chat_id),
         )
 
         await self.bus.publish_inbound(msg)
