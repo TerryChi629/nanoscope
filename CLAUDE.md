@@ -91,6 +91,11 @@
       doc_id asc)`（消除 dict 插入顺序依赖）；`GrepRetriever._trigrams` 用 `casefold()`（大小写
       不敏感）；`Bm25Retriever` 默认 `":memory:"`（除 tempfile.mktemp 泄漏）。累计 118 测试绿（scope）。
       代码：`nanoscope/eval/retrieval.py`；测试：`tests/scope/test_m14_retrieval_quality.py`（Q1~Q6 共 10 项）。
+- [x] M15 规模曲线重做（修 H4，P1）：新建 `nanoscope/eval/scale_dataset_v2.py`（保留 v1 对照），
+      `zipf_lambda` 主题热度衰减 + `build_at_scale_v2` 干扰数 `round(λ_t·N)` 连续增长（消除手工
+      `_BURY_AT` 阈值）；`SeedStat` 多种子 mean/std/ci95；`run_curve_v2` 聚合 + gold rank 分布；
+      `format_curve_v2` 带 CI 诚实标注"合成集/不写单点绝对值"。累计 125 测试绿（scope）。
+      测试：`tests/scope/test_m15_scale_v2.py`（S1~S5 共 7 项）。外部脱敏验证集接入点预留待补。
 
 ## 新会话开工前
 1. `git rev-parse --abbrev-ref HEAD` 确认在 `ljj/scope_v0`。

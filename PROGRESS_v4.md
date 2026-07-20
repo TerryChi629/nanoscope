@@ -13,7 +13,7 @@
 | M13 | 端到端有界准入：admission 前移 + bus 背压 + 拒绝回执（修 H3） | P1 | ✅ 已完成 |
 | M12 | 不可信记忆 data-block 包裹 + 防注入（修 H2） | P1 | ✅ 已完成 |
 | M14 | 检索质量硬化：min_score + tie-break + abstention（修 H5） | P1 | ✅ 已完成 |
-| M15 | 规模曲线重做：Zipf 自然增长 + 多种子 CI（修 H4） | P1 | ⬜ 待办 |
+| M15 | 规模曲线重做：Zipf 自然增长 + 多种子 CI（修 H4） | P1 | ✅ 已完成 |
 | M16 | 压测闭环 v2：端到端背压证据 + 排队论 + 多目标 | P1 | ⬜ 待办 |
 | M17 | 项目门面与可复现闭环 + 统一报告 v2（修 H6） | P2 | ⬜ 待办 |
 | M18 | 权限感知机密文档 RAG（可选纵深，独立分支） | P2·可选 | ⬜ 待办 |
@@ -26,7 +26,7 @@
 - [x] M13 · 端到端有界准入（admission 前移 + 入口非阻塞预检 + 优雅拒绝回执）
 - [x] M12 · 不可信记忆 data-block 包裹 + 防注入
 - [x] M14 · 检索质量硬化（min_score + 确定性 tie-break + abstention）
-- [ ] M15 · 规模曲线重做（Zipf 自然增长 + 多种子置信区间）
+- [x] M15 · 规模曲线重做（Zipf 自然增长 + 多种子置信区间）
 - [ ] M16 · 压测闭环 v2（端到端背压证据 + 排队论 + 多目标）
 - [ ] M17 · 项目门面与可复现闭环 + 统一报告 v2
 - [ ] M18 · 权限感知机密文档 RAG（可选纵深，独立分支）
@@ -219,3 +219,54 @@ query 与全库无关时仍返回一批零分文档；`rrf_fuse` 再给这些无
 - `tests/scope` 累计：108 → **118 passed**（+10）；`ruff check` 相关文件全绿。
 
 **完成信号**：Q1~Q6 全绿；M15 规模曲线将基于硬化后的检索器（含 min_score + 确定性 tie-break）重算。
+
+---
+
+## M15 · 规模曲线重做（Zipf 自然增长 + 多种子 CI，修 H4）✅
+
+**动机**：v1（`scale_dataset.py`）用手工 `_BURY_AT=[15,40,…]` **预设每个 gold 在哪个规模
+被埋**，达阈值注入固定 5 条干扰——曲线证明的是"到达手工阈值后 grep 会掉"，而非"真实语料
+规模增长导致噪声自然增多"。**M₀ 本质是数据生成参数，不是系统拐点**，这是最易被面试官击穿的点。
+
+**决策记录（本轮按推荐选定）**：
+- 保留 v1（`scale_dataset.py`）供对照，新建 `scale_dataset_v2.py`，不覆盖既有冻结集与 M7 曲线。
+- Zipf 参数选 `density=0.02, s=1.0`：热门主题(t=0) λ=0.02、长尾(t=7) λ≈0.0025，
+  干扰数 = `round(λ_t · N)` 随 N **连续增长**，无阶梯阈值。
+- 外部真实/脱敏验证集（§M15.2 第 5 条）：**框架预留、暂缓**——需用户提供脱敏语料，
+  按新工作方式"先搭框架跳过、明天补"。当前 `format_curve_v2` 已诚实标注"合成集 + 真实集作
+  定性佐证、脱敏数据不入库"，接入点为 `run_curve_v2` 的 docs/queries 注入。
+
+**关键改动**（新建 `nanoscope/eval/scale_dataset_v2.py`）：
+- `zipf_lambda(t, density, s)`：主题 t 干扰强度 `density/(t+1)^s`（Zipf 热度衰减）。
+- `build_at_scale_v2(n, seed, density, s)`：无 `_BURY_AT`，同主题 look-alike 干扰数
+  `round(λ_t·N)` 连续增长；gold 最旧、干扰更新；inert 噪声填满规模。
+- `SeedStat`：多种子 Recall@K 聚合——`mean` / `std` / `ci95`（95% CI 半宽 = 1.96·std/√n）。
+- `ScalePointV2`：含 `gold_ranks`（各 query gold 的 grep rank，0=未召回）+ `candidate_sizes`（候选集大小分布）。
+- `run_curve_v2(scales, seeds, k)`：多种子 A/B，聚合均值/方差/CI + rank 分布（基于 M14 硬化检索器）。
+- `find_crossover_v2`（在**均值**曲线定位拐点）、`format_curve_v2`（带 CI 文本表 + 诚实标注"合成集/不写单点绝对值"）。
+
+**验收数字**（来自 `tests/scope` 同源可复现代码）：
+
+| 验收点 | 覆盖测试 | 结果 |
+|---|---|---|
+| S1 无阈值（v2 无 `_BURY_AT` + 干扰随 N 连续增长 + Zipf 热度衰减） | `test_s1_*`（2 项） | ✅ |
+| S2 单调性（grep 均值随 N 下降跌破 SLA、BM25 守高位、有拐点） | `test_s2_grep_degrades_bm25_holds_under_ci` | ✅ |
+| S3 可复现 + 方差（固定种子确定 + 多种子 mean/std/ci95） | `test_s3_*`（2 项） | ✅ |
+| S4 rank 分布（gold rank + 候选集大小可观测） | `test_s4_reports_gold_rank_distribution` | ✅ |
+| S5 诚实标注（"合成集" + CI，不写单点绝对结论） | `test_s5_report_text_is_honest` | ✅ |
+
+- 验收测试 `tests/scope/test_m15_scale_v2.py`：S1~S5 共 7 项全绿。
+- `tests/scope` 累计：118 → **125 passed**（+7）；`ruff check` 相关文件全绿。
+
+**完成信号**：S1~S5 全绿；曲线以带 CI 的区间表述替代旧的 `M₀≈20/50` 单点结论；
+外部脱敏验证集接入点已预留（待用户补语料）。
+
+---
+
+## 待办事项与需用户补充（新工作方式 · 框架先搭）
+
+以下为按用户"先搭框架跳过、明天补"指令预留的接入点，均不 blocking 主线：
+
+- **M15 外部脱敏验证集**：`run_curve_v2` 支持注入外部 docs/queries；需用户提供 20~50 条
+  匿名化 gold + 干扰（不入库、gitignore），用于合成集之外的第二数据点方向一致性佐证。
+- **M18 机密文档 RAG**：需用户提供 API（embedding/向量库凭证走环境变量）+ 合成/脱敏机密语料。
