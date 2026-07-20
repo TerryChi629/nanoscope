@@ -11,6 +11,9 @@
 from __future__ import annotations
 
 import asyncio
+import math
+import random
+import statistics
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -21,7 +24,14 @@ from nanoscope.concurrency.admission import (
     BaselineGate,
     FairAdmissionController,
 )
-from nanoscope.eval.load import LoadReport, TurnRecord, analyze
+from nanoscope.eval.load import (
+    LoadReport,
+    TurnRecord,
+    analyze,
+    effective_goodput,
+    peak_concurrency,
+    rejection_ratio,
+)
 
 
 @dataclass(frozen=True)
@@ -219,3 +229,185 @@ CASES = {
     "U4_mixed_fairness": workload_u4_mixed_fairness,
     "U5_overload": workload_u5_overload,
 }
+
+
+# ---------------------------------------------------------------------------
+# M16 压测闭环 v2 (PRD_v4 §M16)：变到达率 / 持续过载 workload + 多轮聚合 CI。
+# ---------------------------------------------------------------------------
+
+def workload_u6_poisson(
+    *,
+    rate: float,
+    duration: float,
+    service_time: float = 0.01,
+    seed: int = 0,
+    n_principals: int = 20,
+) -> list[TurnSpec]:
+    """U6 泊松变到达率：到达间隔 ~ Exp(rate)，在 [0, duration) 上生成到达序列。
+
+    真实 IM 流量是突发的泊松过程而非均匀节拍；用它检验有界准入在随机洪峰下的
+    goodput/拒绝率稳定性（M16.3）。给定 seed 可复现，供多轮聚合时逐轮换 seed。
+    """
+    if rate <= 0 or duration <= 0:
+        return []
+    rng = random.Random(seed)
+    specs: list[TurnSpec] = []
+    t = 0.0
+    i = 0
+    while True:
+        # 指数分布到达间隔（泊松过程的等价刻画）。
+        gap = rng.expovariate(rate)
+        t += gap
+        if t >= duration:
+            break
+        specs.append(
+            TurnSpec(
+                principal_id=f"u{i % n_principals}",
+                arrival_at=t,
+                service_time=service_time,
+            )
+        )
+        i += 1
+    return specs
+
+
+def workload_u7_sustained_overload(
+    *,
+    burst: int = 120,
+    service_time: float = 0.01,
+) -> list[TurnSpec]:
+    """U7 持续过载：瞬时灌入远超容量的请求（全部 t=0 到达），验证背压峰值有界性。
+
+    与 U5 同构但显式面向 M16 的 peak_queue 度量：改前无界排队 → peak_queue 随
+    burst 线性增长；改后有界 admission → peak_queue 收敛到 max_queue 上界（L2）。
+    """
+    return [
+        TurnSpec(principal_id=f"u{i % 20}", arrival_at=0.0, service_time=service_time)
+        for i in range(burst)
+    ]
+
+
+@dataclass(frozen=True)
+class RoundStat:
+    """多轮压测某一指标的聚合：均值 ± 95% CI（复用 M15 SeedStat 的 CI 公式）。"""
+
+    values: list[float]
+
+    @property
+    def mean(self) -> float:
+        return statistics.fmean(self.values) if self.values else 0.0
+
+    @property
+    def std(self) -> float:
+        return statistics.stdev(self.values) if len(self.values) > 1 else 0.0
+
+    @property
+    def ci95(self) -> float:
+        """95% 置信区间半宽 = 1.96 · std / sqrt(n)。"""
+        n = len(self.values)
+        if n <= 1:
+            return 0.0
+        return 1.96 * self.std / math.sqrt(n)
+
+
+@dataclass(frozen=True)
+class RoundsAbResult:
+    """多轮 A/B 聚合结果：每个指标改前/改后各一份 RoundStat。"""
+
+    case: str
+    rounds: int
+    baseline_peak_queue: RoundStat
+    improved_peak_queue: RoundStat
+    baseline_goodput: RoundStat
+    improved_goodput: RoundStat
+    baseline_rejection_ratio: RoundStat
+    improved_rejection_ratio: RoundStat
+
+
+async def _one_round(
+    controller: AdmissionController,
+    specs: Sequence[TurnSpec],
+) -> tuple[float, float, float]:
+    """跑一轮 workload，返回 (peak_queue, goodput, rejection_ratio)。"""
+    t0 = time.perf_counter()
+    records = await collect_records(controller, specs)
+    wall = time.perf_counter() - t0
+    _peak_inflight, peak_queue = peak_concurrency(records)
+    return (
+        float(peak_queue),
+        effective_goodput(records, wall=wall),
+        rejection_ratio(records),
+    )
+
+
+async def _run_case_ab_rounds(
+    case: str,
+    specs: Sequence[TurnSpec],
+    *,
+    rounds: int,
+    global_limit: int,
+    per_principal_limit: int,
+    max_queue: int,
+) -> RoundsAbResult:
+    b_peak: list[float] = []
+    i_peak: list[float] = []
+    b_good: list[float] = []
+    i_good: list[float] = []
+    b_rej: list[float] = []
+    i_rej: list[float] = []
+    for _r in range(rounds):
+        # 改前：全局 FIFO Semaphore，无 max_queue（无界排队）。
+        bp, bg, br = await _one_round(BaselineGate(limit=global_limit), specs)
+        b_peak.append(bp)
+        b_good.append(bg)
+        b_rej.append(br)
+        # 改后：有界 admission + per-principal 配额。
+        ip, ig, ir = await _one_round(
+            FairAdmissionController(
+                global_limit=global_limit,
+                per_principal_limit=per_principal_limit,
+                max_queue=max_queue,
+            ),
+            specs,
+        )
+        i_peak.append(ip)
+        i_good.append(ig)
+        i_rej.append(ir)
+    return RoundsAbResult(
+        case=case,
+        rounds=rounds,
+        baseline_peak_queue=RoundStat(b_peak),
+        improved_peak_queue=RoundStat(i_peak),
+        baseline_goodput=RoundStat(b_good),
+        improved_goodput=RoundStat(i_good),
+        baseline_rejection_ratio=RoundStat(b_rej),
+        improved_rejection_ratio=RoundStat(i_rej),
+    )
+
+
+def run_case_ab_rounds(
+    case: str,
+    specs: Sequence[TurnSpec],
+    *,
+    rounds: int = 5,
+    global_limit: int = 3,
+    per_principal_limit: int = 1,
+    max_queue: int = 64,
+) -> RoundsAbResult:
+    """同一 workload 在基线 gate（无界）与公平 controller（有界）下各跑 R 轮并聚合。
+
+    每轮各自新建 controller（清零账本），采集三项指标；R 轮汇成 RoundStat 出 CI，
+    使"改后峰值有界 / goodput 稳定"这类结论带区间可证伪（L4）。
+
+    同步入口（内部自建事件循环），供纯函数式测试/报告脚本直接调用。
+    """
+    return asyncio.run(
+        _run_case_ab_rounds(
+            case,
+            specs,
+            rounds=rounds,
+            global_limit=global_limit,
+            per_principal_limit=per_principal_limit,
+            max_queue=max_queue,
+        )
+    )

@@ -96,6 +96,12 @@
       `_BURY_AT` 阈值）；`SeedStat` 多种子 mean/std/ci95；`run_curve_v2` 聚合 + gold rank 分布；
       `format_curve_v2` 带 CI 诚实标注"合成集/不写单点绝对值"。累计 125 测试绿（scope）。
       测试：`tests/scope/test_m15_scale_v2.py`（S1~S5 共 7 项）。外部脱敏验证集接入点预留待补。
+- [x] M16 压测闭环 v2（PRD_v4 §M16，P1）：`load.py` 新增 `rejection_ratio`/`effective_goodput`/
+      `group_percentiles`（per-principal 尾延迟拆分）/`jain_queue_wait`/`peak_concurrency`（sweep-line
+      峰值在飞/排队）/`littles_law`（L=λ·W 校验）；`loadtest.py` 新增 `workload_u6_poisson`（泊松变到达）/
+      `workload_u7_sustained_overload`/`RoundStat`（mean/std/ci95）/`run_case_ab_rounds`（多轮 A/B 聚合，
+      同步入口内部 asyncio.run）。验收：U7 peak_queue 117(无界)→32(=max_queue 有界)、Little's Law rel_err≈0。
+      累计 133 测试绿（scope）。测试：`tests/scope/test_m16_loadtest_v2.py`（L1~L5 共 8 项）；报告 §9 in `M9_LOADTEST_REPORT.md`。
 
 ## 新会话开工前
 1. `git rev-parse --abbrev-ref HEAD` 确认在 `ljj/scope_v0`。

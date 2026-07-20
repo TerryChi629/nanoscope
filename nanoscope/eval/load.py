@@ -190,3 +190,104 @@ def format_ab(baseline: LoadReport, improved: LoadReport) -> str:
         if i == 0:
             lines.append(f"| {'-' * w0} | {'-' * w1} | {'-' * w2} |")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# M16 压测闭环 v2 (PRD_v4 §M16)：拒绝-延迟联合视图 + 背压峰值 + 排队论。
+# ---------------------------------------------------------------------------
+
+def rejection_ratio(records: Sequence[TurnRecord]) -> float:
+    """拒绝率 = 被优雅拒绝数 / 总请求数（M16.1 修 M9 的样本选择偏差）。
+
+    与 completed-only 尾延迟分开报告，避免把"拒绝了大量请求"误读成"尾延迟改善"。
+    """
+    if not records:
+        return 0.0
+    rejected = sum(1 for r in records if r.rejected)
+    return rejected / len(records)
+
+
+def effective_goodput(records: Sequence[TurnRecord], *, wall: float) -> float:
+    """有效吞吐 = 单位时间成功**完成**数（不含被拒/未完成）。"""
+    if wall <= 0:
+        return 0.0
+    completed = sum(1 for r in records if not r.rejected and r.finished_at is not None)
+    return completed / wall
+
+
+def group_percentiles(records: Sequence[TurnRecord], principals: set[str]) -> Percentiles:
+    """指定 principal 子集的 queue_wait 分位数（M16.1 公平真信号：per-principal 拆分）。
+
+    聚合 p99 会被限流的 hog 自身等待污染——固定拆出"普通用户"与"hog"两条线才是公平信号。
+    """
+    waits = [
+        r.queue_wait
+        for r in records
+        if r.principal_id in principals and not r.rejected and r.admitted_at is not None
+    ]
+    return summarize(waits)
+
+
+def jain_queue_wait(records: Sequence[TurnRecord]) -> float:
+    """Jain(per-principal queue_wait)（M16.2）：调度改时序不改总量，故用 queue_wait 作 xᵢ。"""
+    return jain_index(_per_principal(records, "queue_wait"))
+
+
+def peak_concurrency(records: Sequence[TurnRecord]) -> tuple[int, int]:
+    """sweep-line 重建时间轴上的 (峰值在飞数, 峰值排队数)（M16.1 背压证据，L2）。
+
+    - 在飞：admitted_at ≤ t < finished_at 的记录数，其最大值即 active_tasks 峰值。
+    - 排队：enqueued_at ≤ t < admitted_at 的记录数（含被拒前的等待），其最大值即 queue 峰值。
+      被拒记录在 enqueued_at 瞬间入队又离开，用零宽区间近似（对峰值贡献可忽略）。
+    """
+    events: list[tuple[float, int, int]] = []  # (time, d_inflight, d_queue)
+    for r in records:
+        if r.rejected or r.admitted_at is None:
+            continue
+        events.append((r.enqueued_at, 0, +1))  # 入队
+        events.append((r.admitted_at, +1, -1))  # 入场：离队 + 在飞
+        if r.finished_at is not None:
+            events.append((r.finished_at, -1, 0))  # 完成：离飞
+    # 同一时刻先处理离开（-1）再处理进入（+1），避免峰值虚高。
+    events.sort(key=lambda e: (e[0], e[1] + e[2]))
+    inflight = queue = peak_inflight = peak_queue = 0
+    for _t, d_in, d_q in events:
+        inflight += d_in
+        queue += d_q
+        peak_inflight = max(peak_inflight, inflight)
+        peak_queue = max(peak_queue, queue)
+    return peak_inflight, peak_queue
+
+
+@dataclass(frozen=True)
+class LittlesLaw:
+    """Little's Law 校验：L = λ·W（M16.2 排队论闭环）。
+
+    - lam：到达率（完成数 / 墙钟）。
+    - w_mean：平均逗留时间（queue_wait + service_time）。
+    - l_predicted = λ·W；l_measured = Σ逗留时间 / 墙钟（时间加权平均在系统内数）。
+    - rel_error：两者相对误差，佐证"有界准入把 L 钉在上界"。
+    """
+
+    lam: float
+    w_mean: float
+    l_predicted: float
+    l_measured: float
+    rel_error: float
+
+
+def littles_law(records: Sequence[TurnRecord], *, wall: float) -> LittlesLaw:
+    """用实测到达率 λ 与平均逗留 W 验证在途数 L（M16.2 数学闭环，L3）。"""
+    completed = [r for r in records if not r.rejected and r.finished_at is not None]
+    n = len(completed)
+    if n == 0 or wall <= 0:
+        return LittlesLaw(0.0, 0.0, 0.0, 0.0, 0.0)
+    lam = n / wall
+    sojourns = [r.queue_wait + r.service_time for r in completed]
+    w_mean = sum(sojourns) / n
+    l_predicted = lam * w_mean
+    # 时间加权在系统内数 = Σ逗留时间 / 墙钟（等价于对 inflight 曲线积分再除以墙钟）。
+    l_measured = sum(sojourns) / wall
+    denom = l_predicted if l_predicted > 0 else 1.0
+    rel_error = abs(l_measured - l_predicted) / denom
+    return LittlesLaw(lam, w_mean, l_predicted, l_measured, rel_error)

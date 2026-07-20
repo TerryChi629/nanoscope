@@ -14,7 +14,7 @@
 | M12 | 不可信记忆 data-block 包裹 + 防注入（修 H2） | P1 | ✅ 已完成 |
 | M14 | 检索质量硬化：min_score + tie-break + abstention（修 H5） | P1 | ✅ 已完成 |
 | M15 | 规模曲线重做：Zipf 自然增长 + 多种子 CI（修 H4） | P1 | ✅ 已完成 |
-| M16 | 压测闭环 v2：端到端背压证据 + 排队论 + 多目标 | P1 | ⬜ 待办 |
+| M16 | 压测闭环 v2：端到端背压证据 + 排队论 + 多目标 | P1 | ✅ 已完成 |
 | M17 | 项目门面与可复现闭环 + 统一报告 v2（修 H6） | P2 | ⬜ 待办 |
 | M18 | 权限感知机密文档 RAG（可选纵深，独立分支） | P2·可选 | ⬜ 待办 |
 
@@ -27,7 +27,7 @@
 - [x] M12 · 不可信记忆 data-block 包裹 + 防注入
 - [x] M14 · 检索质量硬化（min_score + 确定性 tie-break + abstention）
 - [x] M15 · 规模曲线重做（Zipf 自然增长 + 多种子置信区间）
-- [ ] M16 · 压测闭环 v2（端到端背压证据 + 排队论 + 多目标）
+- [x] M16 · 压测闭环 v2（端到端背压证据 + 排队论 + 多目标）
 - [ ] M17 · 项目门面与可复现闭环 + 统一报告 v2
 - [ ] M18 · 权限感知机密文档 RAG（可选纵深，独立分支）
 
@@ -260,6 +260,56 @@ query 与全库无关时仍返回一批零分文档；`rrf_fuse` 再给这些无
 
 **完成信号**：S1~S5 全绿；曲线以带 CI 的区间表述替代旧的 `M₀≈20/50` 单点结论；
 外部脱敏验证集接入点已预留（待用户补语料）。
+
+---
+
+## M16 · 压测闭环 v2（端到端背压证据 + 排队论 + 多目标，PRD_v4 §M16）✅
+
+**动机**：M9 报告（v1）证明了"改后 queue_wait 尾延迟下降"，但存在三个削弱证据可信度的方法学
+缺口：① 只看 completed-only 尾延迟，会把"拒绝了大量请求"误读成"尾延迟改善"（样本选择偏差）；
+② 单次运行无区间，无法排除随机波动；③ 缺"背压峰值有界"的直接压测级证据（v1 只有推断）。
+
+**决策记录（本轮按推荐选定）**：
+- `run_case_ab_rounds` 做成**同步入口**（内部 `asyncio.run`），供纯函数式测试/报告脚本直接调用，
+  与 M15 `run_curve_v2` 风格一致；异步实现拆到 `_run_case_ab_rounds`。
+- CI 公式复用 M15 `SeedStat` 的 `1.96·std/√n`（`RoundStat` 与 `SeedStat` 同构，不引入新统计口径）。
+- `peak_concurrency` 用 **sweep-line 事件重建**（入队 +queue / 入场 +inflight−queue / 完成 −inflight），
+  同刻先处理离开再进入（避免峰值虚高）——纯 records 后处理，不侵入压测 harness。
+- U6/U7 复用既有 `TurnSpec` + `collect_records`，只新增 workload 工厂，最小改动面。
+
+**关键改动**：
+- `nanoscope/eval/load.py`（分析函数，纯函数）：新增 `rejection_ratio`、`effective_goodput`、
+  `group_percentiles`（per-principal 子集尾延迟拆分）、`jain_queue_wait`、`peak_concurrency`
+  （sweep-line 峰值在飞/排队）、`LittlesLaw` dataclass + `littles_law`（L=λ·W 校验）。
+- `nanoscope/eval/loadtest.py`：新增 `workload_u6_poisson`（Exp(rate) 到达间隔，泊松变到达）、
+  `workload_u7_sustained_overload`（瞬时灌入）、`RoundStat`（values/mean/std/ci95）、
+  `RoundsAbResult`、`run_case_ab_rounds`（多轮 A/B 聚合，每轮采 peak_queue/goodput/rejection）。
+- `M9_LOADTEST_REPORT.md`：新增 §9「M16 压测闭环 v2」（新增度量表 + 排队论解释 + U6/U7 结果 + v2 结论）。
+
+**验收数字**（来自 `tests/scope` 同源可复现代码，`run_case_ab_rounds` rounds=5）：
+
+| 用例 / 指标 | baseline | nanoscope | 读数 |
+|---|---|---|---|
+| **U7 峰值排队 peak_queue**（burst=120, max_queue=32） | 117.0 ± 0.00 | **32.0 ± 0.00** | 无界线性堆积 → **精确收敛到 max_queue**（L2 铁证） |
+| U7 rejection_ratio | 0.000 | 0.708 | 优雅拒绝换有界资源 |
+| U7 goodput(完成/s) | 256.9 ± 2.56 | 249.6 ± 1.88 | 基本持平 |
+| U6 峰值排队（rate=50, 欠载） | 1.0 | 1.0 | 欠载区无回退 |
+| U6 rejection_ratio | — | 0.000 | 欠载不拒绝（L5 基线路径不变） |
+| **Little's Law**（U7 改后） | — | rel_err ≈ 0.000 | L_meas=L_pred=18.23，L=λ·W 数学闭环（L3） |
+
+| 验收点 | 覆盖测试 | 结果 |
+|---|---|---|
+| L1 拒绝率/goodput 分开可取 + per-principal 拆分 | `test_l1_*`（2 项） | ✅ |
+| L2 sweep-line 峰值 + 有界 vs 无界 | `test_l2_*`（2 项） | ✅ |
+| L3 Little's Law 一致性 | `test_l3_littles_law_consistency` | ✅ |
+| L4 多轮聚合 CI | `test_l4_multi_round_reports_ci` | ✅ |
+| L5 基线路径不变（Jain 全 0=1 + 单用户无拒绝） | `test_l5_*`（2 项） | ✅ |
+
+- 验收测试 `tests/scope/test_m16_loadtest_v2.py`：L1~L5 共 8 项全绿。
+- `tests/scope` 累计：125 → **133 passed**（+8）；`ruff check` 相关文件全绿。
+
+**完成信号**：L1~L5 全绿；M9 报告 §9 给出"peak_queue 改前(117 线性) vs 改后(32 有界)"压测级铁证 +
+Little's Law rel_err≈0 排队论闭环；多轮 CI 使结论带区间。
 
 ---
 

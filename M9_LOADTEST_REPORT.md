@@ -192,3 +192,68 @@ PY
 ```
 
 生产接线：`multiUser.enabled=true` 时，[`AgentLoop`](nanobot/agent/loop.py) 在 `_dispatch` 用 `FairAdmissionController` 替换基线裸 `Semaphore`，准入键为 `principal_id`（跨 session 同一人共享配额）；旋钮 `multiUser.perPrincipalLimit` / `multiUser.admissionMaxQueue`（[`config/schema.py`](nanobot/config/schema.py)）。`enabled=false` 时行为与基线完全一致。
+
+---
+
+## 9. M16 压测闭环 v2（PRD_v4 §M16）
+
+> v1（§1~§8）证明了"改后 queue_wait 尾延迟下降"，但存在两个削弱证据可信度的方法学缺口：
+> (a) 只看 completed-only 尾延迟，会把"拒绝了大量请求"误读成"尾延迟改善"（样本选择偏差）；
+> (b) 单次运行无区间，无法排除随机波动；(c) 缺"背压峰值有界"的直接压测级证据。
+> v2 把它们补齐：**拒绝-延迟联合视图 + sweep-line 峰值 + Little's Law + 多轮 CI**。
+> 数据由 [`run_case_ab_rounds`](nanoscope/eval/loadtest.py) 产出，测试见 [`test_m16_loadtest_v2.py`](tests/scope/test_m16_loadtest_v2.py)（8 项 L1~L5，全绿）；分析函数在 [`load.py`](nanoscope/eval/load.py)。
+
+### 9.1 新增度量（修 v1 样本偏差）
+
+| 度量 | 函数 | 修的问题 |
+|---|---|---|
+| **rejection_ratio** | `rejection_ratio(records)` | 拒绝数/总数，与 completed-only 尾延迟**分开报告**，杜绝"高拒绝率被误读成尾延迟改善" |
+| **effective_goodput** | `effective_goodput(records, wall=…)` | 单位时间成功**完成**数（不含被拒），衡量真实产出 |
+| **group_percentiles** | `group_percentiles(records, principals)` | per-principal 子集拆分尾延迟（普通用户 vs hog），聚合 p99 会被限流的 hog 自身等待污染 |
+| **peak_concurrency** | `peak_concurrency(records)` | sweep-line 重建时间轴 (峰值在飞, 峰值排队)，给"背压有界"直接压测级证据（v1 只有推断） |
+| **littles_law** | `littles_law(records, wall=…)` | 排队论闭环：实测 L ≈ λ·W 一致性校验 |
+| **RoundStat** | 多轮聚合 | 均值 ± 95% CI（`1.96·std/√n`），使结论带区间可证伪 |
+
+### 9.2 新增用例
+
+| # | 用例 | 负载构造 | 验证点 |
+|---|---|---|---|
+| **U6** | 泊松变到达率 | 到达间隔 ~ Exp(rate)，`workload_u6_poisson` | 随机洪峰下 goodput/拒绝率稳定性（真实 IM 是突发泊松流，非均匀节拍） |
+| **U7** | 持续过载 | 瞬时灌 burst 个（全 t=0），`workload_u7_sustained_overload` | 背压峰值排队**有界 vs 无界**（L2 核心） |
+
+### 9.3 排队论解释（M16.2）
+
+- **Little's Law（L = λ·W）**：稳态下"系统内平均请求数"= 到达率 × 平均逗留时间。有界 admission 把 W 钉在上界 → L 有天花板，即"在飞+排队"总量不随洪峰无限增长。
+- **M/M/c 直觉**：`global_limit=c` 个服务台；到达率超过 `c·μ` 时无界队列的期望队长发散（→∞），这正是基线雪崩的数学根因；有界 `max_queue` 把队长强制截断，代价是拒绝率上升。
+- **Jain(queue_wait)**：调度改时序不改总量，故用 per-principal queue_wait 作 xᵢ 衡量公平。
+
+### 9.4 结果（多轮聚合，rounds=5，同源可复现）
+
+**U7 持续过载**（burst=120，global_limit=3，max_queue=32）：
+
+| 指标 | baseline（无界） | nanoscope（有界） | 读数 |
+|---|---|---|---|
+| **峰值排队 peak_queue** | **117.0 ± 0.00** | **32.0 ± 0.00** | 基线 = burst−global_limit（**线性堆积**）；改后**精确收敛到 max_queue**（有界，L2 铁证） |
+| rejection_ratio | 0.000 | 0.708 | 基线从不拒绝（代价是队列无上限）；改后 70.8% 优雅拒绝换有界资源 |
+| goodput(完成/s) | 256.9 ± 2.56 | 249.6 ± 1.88 | 基本持平——有界化几乎不损失有效吞吐 |
+
+**U6 泊松变到达**（rate=50，duration=0.3s，max_queue=64，17 个到达）：
+
+| 指标 | baseline | nanoscope | 读数 |
+|---|---|---|---|
+| 峰值排队 | 1.0 ± 0.00 | 1.0 ± 0.00 | 欠载区：容量足够，两者一致（改后无回退） |
+| rejection_ratio | — | 0.000 | 欠载不拒绝（基线路径不变，L5） |
+| goodput | 59.5 ± 0.08 | 59.4 ± 0.08 | 一致 |
+
+**Little's Law 校验**（U7 改后单轮）：`λ=253.25/s`，`W=0.0720s`，`L_predicted=18.23`，`L_measured=18.23`，**相对误差 ≈ 0.000**——实测在飞+排队总量与 λ·W 高度一致，佐证"有界准入把 L 钉在上界"的排队论闭环（L3）。
+
+### 9.5 v2 结论
+
+| 缺口 | v2 证据 |
+|---|---|
+| 样本选择偏差 | rejection_ratio 与 goodput/尾延迟**分开报告**：U7 改后"70.8% 拒绝 + goodput 持平"如实呈现，不再把拒绝伪装成延迟改善 |
+| 背压有界（v1 仅推断） | peak_queue **117→32（=max_queue）** 的压测级铁证；U6 欠载区 1→1 无回退 |
+| 随机波动 | 多轮 CI：U7 peak_queue CI=0（确定性收敛），goodput CI<3；结论带区间 |
+| 数学闭环 | Little's Law rel_err≈0，L=λ·W 一致 |
+
+> **复现**：`python -m pytest tests/scope/test_m16_loadtest_v2.py -q`（8 项）；或直接调 `run_case_ab_rounds("U7", workload_u7_sustained_overload(burst=120), rounds=5, global_limit=3, max_queue=32)`。
