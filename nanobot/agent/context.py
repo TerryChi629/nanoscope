@@ -78,6 +78,10 @@ class ContextBuilder:
         session_key: str | None = None,
         unified_session: bool = False,
         scoped_memory: str | None = None,
+        memory_isolation: bool = False,
+        history_principal_id: str | None = None,
+        history_audience_type: str | None = None,
+        history_audience_id: str | None = None,
     ) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
         root = workspace or self.workspace
@@ -115,6 +119,10 @@ class ContextBuilder:
                 since_cursor=self.memory.get_last_dream_cursor(),
                 session_key=session_key,
                 unified_session=unified_session,
+                principal_id=history_principal_id,
+                audience_type=history_audience_type,
+                audience_id=history_audience_id,
+                isolation=memory_isolation,
             )
             if entries:
                 capped = entries[-self._MAX_RECENT_HISTORY:]
@@ -201,6 +209,10 @@ class ContextBuilder:
         session_key: str | None = None,
         unified_session: bool = False,
         scoped_memory: str | None = None,
+        memory_isolation: bool = False,
+        history_principal_id: str | None = None,
+        history_audience_type: str | None = None,
+        history_audience_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build the complete message list for an LLM call."""
         root = workspace or self.workspace
@@ -219,6 +231,10 @@ class ContextBuilder:
                     session_key=session_key,
                     unified_session=unified_session,
                     scoped_memory=scoped_memory,
+                    memory_isolation=memory_isolation,
+                    history_principal_id=history_principal_id,
+                    history_audience_type=history_audience_type,
+                    history_audience_id=history_audience_id,
                 ),
             },
             *history,

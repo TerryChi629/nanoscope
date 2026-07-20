@@ -709,6 +709,10 @@ class AgentLoop:
     ) -> list[dict[str, Any]]:
         """Build the initial message list for the LLM turn."""
         scope = self.workspace_scopes.for_message(msg, session.metadata)
+        # NanoScope (PRD_v4 §M11, 修 H1): 多用户下把 SecurityContext 的
+        # principal/audience 透传给 Recent History 通道，使其与记忆通道共用同一
+        # 隔离墙（history 同样进 system prompt，否则绕过 M4/M6 建好的隔离）。
+        sec_ctx = self.resolve_security_context(msg) if self._identity_resolver else None
         return self.context.build_messages(
             history=history,
             current_message=msg.content,
@@ -724,6 +728,10 @@ class AgentLoop:
             session_key=session.key,
             unified_session=self._unified_session,
             scoped_memory=self._scoped_memory_for_message(msg),
+            memory_isolation=sec_ctx is not None,
+            history_principal_id=sec_ctx.principal_id if sec_ctx else None,
+            history_audience_type=sec_ctx.audience_type if sec_ctx else None,
+            history_audience_id=sec_ctx.audience_id if sec_ctx else None,
         )
 
     def _scoped_memory_for_message(self, msg: InboundMessage) -> str | None:

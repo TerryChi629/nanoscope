@@ -260,6 +260,8 @@ class MemoryStore:
         max_chars: int | None = None,
         session_key: str | None = None,
         principal_id: str | None = None,
+        audience_type: str | None = None,
+        audience_id: str | None = None,
     ) -> int:
         """Append *entry* to history.jsonl and return its auto-incrementing cursor.
 
@@ -305,6 +307,11 @@ class MemoryStore:
             # NanoScope (PRD §5, M1): 持久化 principal_id，供 Dream/审计事后追溯 owner。
             if principal_id:
                 record["principal_id"] = principal_id
+            # NanoScope (PRD_v4 §M11, 修 H1): 补存 audience 归属，供群内可见性判断。
+            if audience_type:
+                record["audience_type"] = audience_type
+            if audience_id:
+                record["audience_id"] = audience_id
             with open(self.history_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
             self._cursor_file.write_text(str(cursor), encoding="utf-8")
@@ -404,9 +411,35 @@ class MemoryStore:
         *,
         session_key: str | None,
         unified_session: bool = False,
+        principal_id: str | None = None,
+        audience_type: str | None = None,
+        audience_id: str | None = None,
+        isolation: bool = False,
     ) -> list[dict[str, Any]]:
-        """Return unprocessed history entries safe to inject into a turn prompt."""
+        """Return unprocessed history entries safe to inject into a turn prompt.
+
+        NanoScope (PRD_v4 §M11, 修 H1): ``isolation=True`` 时 Recent History 通道
+        与记忆通道共用同一套 principal/audience 谓词——它同样会进 system prompt，
+        否则 A 的私聊历史会绕过 M4/M6 建好的隔离墙进入 B 的 prompt。
+
+        - DM 语境（``audience_type='dm'``）：仅返回 ``principal_id`` 本人的历史条目。
+        - 群/话题语境（``audience_type in {'group','thread'}``）：仅返回**同一 audience**
+          （同 ``audience_id``）内的历史，且**不含任何私聊（dm）历史**。
+        - 缺 ``principal_id`` 的历史条目（老数据/无归属）在隔离下 fail-closed 丢弃。
+
+        ``isolation=False`` 保持基线行为（单用户逐字节不变）。
+        """
         entries = self.read_unprocessed_history(since_cursor=since_cursor)
+        if isolation:
+            return [
+                e for e in entries
+                if self._history_visible_under_isolation(
+                    e,
+                    principal_id=principal_id,
+                    audience_type=audience_type,
+                    audience_id=audience_id,
+                )
+            ]
         if session_key is None:
             return entries
         if not unified_session:
@@ -418,6 +451,33 @@ class MemoryStore:
             if (entry_session := entry.get("session_key")) == session_key
             or not self._is_internal_history_session(entry_session)
         ]
+
+    @staticmethod
+    def _history_visible_under_isolation(
+        entry: dict[str, Any],
+        *,
+        principal_id: str | None,
+        audience_type: str | None,
+        audience_id: str | None,
+    ) -> bool:
+        """fail-closed 谓词：决定一条历史条目在隔离下是否可进当前 prompt。"""
+        entry_principal = entry.get("principal_id")
+        # 无归属（老数据）—— fail-closed 丢弃。
+        if not entry_principal:
+            return False
+        entry_audience_type = entry.get("audience_type")
+        if audience_type == "dm":
+            # 私聊：仅本人私聊历史可见。
+            return entry_audience_type == "dm" and entry_principal == principal_id
+        if audience_type in ("group", "thread"):
+            # 群/话题：仅同一 audience 内的群历史；私聊历史绝不进群。
+            if entry_audience_type not in ("group", "thread"):
+                return False
+            if not audience_id or not entry.get("audience_id"):
+                return False
+            return entry.get("audience_id") == audience_id
+        # 未知/缺失 audience_type —— fail-closed。
+        return False
 
     def compact_history(self) -> None:
         """Drop oldest entries if the file exceeds *max_history_entries*."""

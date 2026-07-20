@@ -26,10 +26,12 @@ from nanoscope.eval.reporter import (
 def test_collect_isolation_flips_exposure_to_zero(tmp_path: Path):
     iso = collect_isolation(tmp_path / "ws", tmp_path / "mem.db")
     assert iso.n_attacks > 0
-    # 基线洞真实存在：他人私聊 canary 进了攻击者 prompt。
+    # 记忆通道：基线洞真实存在（他人私聊 canary 进了攻击者 prompt），隔离态翻转为 0。
     assert iso.baseline_exposure > 0
-    # 隔离内核就位：翻转为 0（安全不变量）。
     assert iso.isolated_exposure == 0
+    # NanoScope (PRD_v4 §M11.4)：Recent History 通道同样双通道验收，改前 >0 改后翻转 0。
+    assert iso.history_baseline_exposure > 0
+    assert iso.history_isolated_exposure == 0
 
 
 async def test_collect_concurrency_covers_all_cases_and_bounds_overload():
@@ -66,6 +68,8 @@ async def test_render_html_is_self_contained(tmp_path: Path):
     assert "并发公平 A/B" in doc
     # 翻转结论可见。
     assert "安全不变量成立" in doc
+    # NanoScope (PRD_v4 §M11.4)：双通道隔离段（含 Recent History）渲染出来。
+    assert "Recent History 通道" in doc
     # 每个压测用例标题都渲染出来。
     for ab in report.concurrency:
         assert ab.case in doc

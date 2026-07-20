@@ -2,7 +2,9 @@
 
 # NanoScope 施工清单 (CLAUDE.md)
 
-> 本文件是**清单式**指导。详细需求见 [PRD.md](./PRD.md)，进展见 [PROGRESS.md](./PROGRESS.md)。
+> 本文件是**清单式**指导。详细需求见 [PRD.md](./PRD.md)（M0~M10）与
+> [PRD_v4_hardening.md](./PRD_v4_hardening.md)（M11~M18 增量硬化）；进展见
+> [PROGRESS.md](./PROGRESS.md)（M0~M10）与 [PROGRESS_v4.md](./PROGRESS_v4.md)（M11~M18）。
 > 分支：`ljj/scope_v0`。LLM：deepseek v4-flash（已配置）。
 
 ## 铁律（每次改动都遵守）
@@ -22,6 +24,13 @@
 - [ ] `owner_id/scope` 由运行时从 `SecurityContext` 注入，**不进工具 schema**。
 - [ ] multi_user 下 Dream 禁写 `MEMORY.md` / `USER.md` / `SOUL.md` 三文件。
 - [ ] 个人记忆仅 `audience_type='dm'` 时召回（DM 门）。
+- [ ] **两个通道共用同一隔离墙**（PRD_v4 §M11，修 H1）：进入 system prompt 的
+      **记忆通道**（`Repository.search_visible`）与 **Recent History 通道**
+      （`MemoryStore.read_recent_history_for_prompt`）必须用同一套 principal/audience 谓词。
+      - history 隔离谓词 `_history_visible_under_isolation` 一律 fail-closed：
+        无 `principal_id` / 未知 `audience_type` 的条目在 `isolation=True` 下丢弃；
+        DM 语境只见本人私聊历史；群/话题语境只见同 `audience_id` 群历史且**私聊历史绝不进群**。
+      - `isolation=False`（单用户/基线）逐字节走原 session_key 分支，零回归。
 
 ## 里程碑进度（P0=M0~M6 必交付，P1=M7~M10）
 详见 PRD.md §11。当前状态见 [PROGRESS.md](./PROGRESS.md)。
@@ -38,6 +47,14 @@
 - [x] M9 并发有界公平准入 + 压测（FairAdmissionController：有界 admission + per-principal 配额 + least-in-flight 公平出队；U1-U5 A/B 实测三缺陷可证伪；压测报告 M9_LOADTEST_REPORT.md；累计 70 测试绿）
 - [x] M10 统一 A/B 报告（Reporter 聚合三线改前 vs 改后一体化自包含 HTML；exposure 9→0 / grep→0 bm25 守 0.875 / U5 p99 3.32→0.56s；报告 M10_UNIFIED_REPORT.md；累计 75 测试绿 —— M0~M10 全部完成）
 
+### v4 增量硬化（PRD_v4，M11~M18；进展见 [PROGRESS_v4.md](./PROGRESS_v4.md)）
+- [x] M11 Recent History 的 principal/audience 隔离（修 H1，P0-blocker）：history 通道加
+      fail-closed 隔离谓词 `_history_visible_under_isolation`；`append_history` 补存
+      `audience_type/audience_id`；context/loop 透传 SecurityContext；`collect_isolation`
+      扩展为记忆+history 双通道 A/B（history exposure 改前 9→改后 0）；累计 82 测试绿。
+      代码：`nanobot/agent/memory.py`、`nanobot/agent/context.py`、`nanobot/agent/loop.py`、
+      `nanoscope/eval/reporter.py`；测试：`tests/scope/test_m11_recent_history_isolation.py`。
+
 ## 新会话开工前
 1. `git rev-parse --abbrev-ref HEAD` 确认在 `ljj/scope_v0`。
-2. 读 [PROGRESS.md](./PROGRESS.md) 找到当前里程碑，从那里继续。
+2. M0~M10 读 [PROGRESS.md](./PROGRESS.md)；M11~M18 读 [PROGRESS_v4.md](./PROGRESS_v4.md)，从当前里程碑继续。

@@ -35,11 +35,19 @@ _CASE_MAX_QUEUE: dict[str, int] = {"U5_overload": 32}
 
 @dataclass(frozen=True)
 class IsolationReport:
-    """隔离安全 A/B：冻结攻击集上的 forbidden_prompt_exposure（越低越好，目标=0）。"""
+    """隔离安全 A/B：冻结攻击集上的 forbidden_prompt_exposure（越低越好，目标=0）。
+
+    NanoScope (PRD_v4 §M11.4)：exposure 覆盖**两条通道**——
+    - 记忆通道（M4/M6，`Repository.search_visible`）；
+    - Recent History 通道（M11，`read_recent_history_for_prompt`）。
+    两通道都进 system prompt，必须用同一套 principal/audience 谓词，改后均须翻转为 0。
+    """
 
     n_attacks: int
-    baseline_exposure: int  # 基线（全局 MEMORY.md 无条件注入）总泄露命中数
-    isolated_exposure: int  # 隔离态（SecurityContext + search_visible）总泄露命中数
+    baseline_exposure: int  # 记忆通道·基线（全局 MEMORY.md 无条件注入）总泄露命中数
+    isolated_exposure: int  # 记忆通道·隔离态（SecurityContext + search_visible）总泄露命中数
+    history_baseline_exposure: int  # history 通道·基线（只按 session_key，跨 principal 泄露）
+    history_isolated_exposure: int  # history 通道·隔离态（principal/audience 谓词）
 
 
 @dataclass(frozen=True)
@@ -114,11 +122,59 @@ def collect_isolation(workspace: Path, repo_path: Path) -> IsolationReport:
     finally:
         repo.close()
 
+    # --- history 通道 A/B（PRD_v4 §M11）：同一攻击集铺到 Recent History。 ---
+    history_baseline_exposure, history_isolated_exposure = _collect_history_isolation(
+        workspace, facts, attacks
+    )
+
     return IsolationReport(
         n_attacks=len(attacks),
         baseline_exposure=baseline_exposure,
         isolated_exposure=isolated_exposure,
+        history_baseline_exposure=history_baseline_exposure,
+        history_isolated_exposure=history_isolated_exposure,
     )
+
+
+def _collect_history_isolation(workspace: Path, facts, attacks) -> tuple[int, int]:
+    """Recent History 通道 A/B：私聊个人事实经 history 通道落盘，攻击者构造 prompt 数泄露。
+
+    - 基线：`read_recent_history_for_prompt` 只按 session_key 过滤（session_key=None →
+      全量返回），任意攻击者都能读到他人私聊历史 → 命中 >0。
+    - 隔离态：`ContextBuilder` 置 `multi_user_isolation=True` 并透传攻击者
+      principal/audience → M11 谓词把非本人私聊历史 fail-closed 丢弃 → 命中 0。
+    """
+    hist_store = MemoryStore(workspace / "_hist")
+    for fact in facts:
+        hist_store.append_history(
+            f"{fact.secret} ({fact.canary})",
+            principal_id=fact.owner_principal,
+            audience_type=AUDIENCE_DM,
+            audience_id=fact.owner_principal,
+        )
+
+    # 基线：无隔离谓词，session_key=None 全量返回 → 攻击者读到他人私聊历史。
+    baseline_exposure = 0
+    for _attack in attacks:
+        entries = hist_store.read_recent_history_for_prompt(since_cursor=0, session_key=None)
+        baseline_exposure += _exposures(" ".join(e["content"] for e in entries))
+
+    # 隔离态：经 ContextBuilder prompt，M11 principal/audience 谓词生效。
+    iso_builder = ContextBuilder(workspace / "_hist")
+    iso_builder.memory = hist_store
+    iso_builder.multi_user_isolation = True
+    isolated_exposure = 0
+    for attack in attacks:
+        prompt = iso_builder.build_system_prompt(
+            channel="feishu",
+            scoped_memory="",  # 记忆通道已由 M4/M6 堵死，这里只验 history 通道
+            memory_isolation=True,
+            history_principal_id=attack.attacker_principal,
+            history_audience_type=attack.audience_type,
+            history_audience_id="feishu:some-group",
+        )
+        isolated_exposure += _exposures(prompt)
+    return baseline_exposure, isolated_exposure
 
 
 def collect_retrieval(*, k: int = 5, embedder: Embedder | None = None) -> list[ScalePoint]:
@@ -195,21 +251,27 @@ def _delta_pct(base: float, imp: float) -> str:
 
 def _render_isolation(iso: IsolationReport) -> str:
     b, i = iso.baseline_exposure, iso.isolated_exposure
+    hb, hi = iso.history_baseline_exposure, iso.history_isolated_exposure
     b_cls = "bad" if b > 0 else "good"
     i_cls = "good" if i == 0 else "bad"
+    hb_cls = "bad" if hb > 0 else "good"
+    hi_cls = "good" if hi == 0 else "bad"
     verdict = (
-        f"基线在 {iso.n_attacks} 条攻击上累计泄露 <b>{b}</b> 次他人私聊 canary；"
-        f"隔离内核就位后翻转为 <b>{i}</b> 次——安全不变量成立。"
+        f"基线在 {iso.n_attacks} 条攻击上，记忆通道累计泄露 <b>{b}</b> 次、"
+        f"Recent History 通道累计泄露 <b>{hb}</b> 次他人私聊 canary；"
+        f"隔离内核就位后两通道均翻转为 <b>{i}</b> / <b>{hi}</b> 次——安全不变量成立。"
     )
     return f"""
-<h2><span class="pill p0">P0</span> 一、隔离安全 A/B（forbidden_prompt_exposure）</h2>
-<p class="lead">冻结攻击集（{iso.n_attacks} 条）上，改前（全局 MEMORY.md 无条件注入）
-vs 改后（SecurityContext + Repository.search_visible + DM 门）各构造攻击者 prompt 数泄露命中。</p>
+<h2><span class="pill p0">P0</span> 一、隔离安全 A/B（forbidden_prompt_exposure，双通道）</h2>
+<p class="lead">冻结攻击集（{iso.n_attacks} 条）上，改前 vs 改后各构造攻击者 prompt 数泄露命中。
+覆盖两条进入 system prompt 的通道：记忆通道（<code>Repository.search_visible</code> + DM 门）
+与 Recent History 通道（<code>read_recent_history_for_prompt</code> 的 principal/audience 谓词）。</p>
 <table>
-<tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th></tr>
-<tr><td>攻击条数</td><td>{iso.n_attacks}</td><td>{iso.n_attacks}</td></tr>
-<tr><td>forbidden_prompt_exposure</td>
+<tr><th>通道</th><th>改前 baseline</th><th>改后 nanoscope</th></tr>
+<tr><td>记忆通道 forbidden_prompt_exposure</td>
 <td class="{b_cls}">{b}</td><td class="{i_cls}">{i}</td></tr>
+<tr><td>Recent History 通道 forbidden_prompt_exposure</td>
+<td class="{hb_cls}">{hb}</td><td class="{hi_cls}">{hi}</td></tr>
 </table>
 <div class="verdict">{verdict}</div>
 """
