@@ -86,6 +86,11 @@
       （单用户分支零回归）；新增 `nanoscope/eval/injection.py` A/B 抵抗率评测（改前 21/100% → 改后
       5/23.8%，结构型 0 残留、纯 NL 5 残留诚实标注）。累计 108 测试绿（scope）。测试：
       `tests/scope/test_m12_memory_injection.py`（I1~I4 共 12 项）。
+- [x] M14 检索质量硬化（修 H5，P1）：`VectorRetriever.search` 加 `min_score`（过滤零/负分，
+      abstention）；`rrf_fuse` 确定性 tie-break `(RRF_score desc, hit_count desc, best_rank asc,
+      doc_id asc)`（消除 dict 插入顺序依赖）；`GrepRetriever._trigrams` 用 `casefold()`（大小写
+      不敏感）；`Bm25Retriever` 默认 `":memory:"`（除 tempfile.mktemp 泄漏）。累计 118 测试绿（scope）。
+      代码：`nanoscope/eval/retrieval.py`；测试：`tests/scope/test_m14_retrieval_quality.py`（Q1~Q6 共 10 项）。
 
 ## 新会话开工前
 1. `git rev-parse --abbrev-ref HEAD` 确认在 `ljj/scope_v0`。

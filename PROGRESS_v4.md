@@ -12,7 +12,7 @@
 | M11 | Recent History 的 principal/audience 隔离（修 H1） | **P0** | ✅ 已完成 |
 | M13 | 端到端有界准入：admission 前移 + bus 背压 + 拒绝回执（修 H3） | P1 | ✅ 已完成 |
 | M12 | 不可信记忆 data-block 包裹 + 防注入（修 H2） | P1 | ✅ 已完成 |
-| M14 | 检索质量硬化：min_score + tie-break + abstention（修 H5） | P1 | ⬜ 待办 |
+| M14 | 检索质量硬化：min_score + tie-break + abstention（修 H5） | P1 | ✅ 已完成 |
 | M15 | 规模曲线重做：Zipf 自然增长 + 多种子 CI（修 H4） | P1 | ⬜ 待办 |
 | M16 | 压测闭环 v2：端到端背压证据 + 排队论 + 多目标 | P1 | ⬜ 待办 |
 | M17 | 项目门面与可复现闭环 + 统一报告 v2（修 H6） | P2 | ⬜ 待办 |
@@ -25,7 +25,7 @@
 - [x] M11 · Recent History principal/audience 隔离（P0-blocker）
 - [x] M13 · 端到端有界准入（admission 前移 + 入口非阻塞预检 + 优雅拒绝回执）
 - [x] M12 · 不可信记忆 data-block 包裹 + 防注入
-- [ ] M14 · 检索质量硬化（min_score + 确定性 tie-break + abstention）
+- [x] M14 · 检索质量硬化（min_score + 确定性 tie-break + abstention）
 - [ ] M15 · 规模曲线重做（Zipf 自然增长 + 多种子置信区间）
 - [ ] M16 · 压测闭环 v2（端到端背压证据 + 排队论 + 多目标）
 - [ ] M17 · 项目门面与可复现闭环 + 统一报告 v2
@@ -183,3 +183,39 @@ Prompt Injection**：一次写入，之后每轮都注入。这削弱隔离墙�
 
 **完成信号**：I1~I4 全绿；报告新增"记忆注入抵抗率 改前 100% vs 改后 23.8%"一栏，
 诚实标注 5 条纯自然语言残留属已知边界（M17 报告 v2 纳入）。
+
+---
+
+## M14 · 检索质量硬化（min_score + tie-break + abstention，修 H5）✅
+
+**动机**：`VectorRetriever.search` 对全部 doc 算余弦后直接取 top_k，**不过滤零/负分**——
+query 与全库无关时仍返回一批零分文档；`rrf_fuse` 再给这些无关项加分，且**同分依赖 dict
+插入顺序**，排名不稳定、指标虚高。此外 `GrepRetriever` 注释称大小写不敏感但实现敏感，
+`Bm25Retriever` 用不安全的 `tempfile.mktemp` 且不清理（临时 `.db` 文件泄漏）。
+
+**关键改动**（均在 `nanoscope/eval/retrieval.py`）：
+- **min_score 过滤**：`VectorRetriever.search` 新增 `min_score: float = 0.0`，只保留
+  `score > min_score` 的有效召回；全库无关（余弦全 0）时返回空（abstention），不再虚增召回。
+- **确定性 tie-break**：`rrf_fuse` 记录 `hit_count` / `best_rank`，排序键改为
+  `(RRF_score desc, hit_count desc, best_rank asc, doc_id asc)`，消除对 dict 插入顺序的
+  依赖——多次运行 / 打乱子检索器顺序输出稳定一致。空输入自然 abstain（空列表）。
+- **大小写一致**：`GrepRetriever._trigrams` 用 `casefold()`，与"大小写不敏感"文档声明一致。
+- **无临时文件泄漏**：`Bm25Retriever` 默认用 `":memory:"` 内存库（不再 `tempfile.mktemp`），
+  显式传 `db_path` 时才落盘；移除未用的 `tempfile` import。
+
+**验收数字**（来自 `tests/scope` 同源可复现代码）：
+
+| 验收点 | 覆盖测试 | 结果 |
+|---|---|---|
+| Q1 零分过滤（无关 query → VectorRetriever 空 + min_score 阈值） | `test_q1_*`（2 项） | ✅ |
+| Q2 tie-break 确定性（打乱子检索器顺序输出一致 + hit_count 先于 doc_id） | `test_q2_*`（2 项） | ✅ |
+| Q3 abstention（全空 → 空；RrfRetriever 端到端 abstain） | `test_q3_*`（2 项） | ✅ |
+| Q4 大小写（casefold 不敏感命中） | `test_q4_grep_case_insensitive` | ✅ |
+| Q5 无临时文件泄漏（close 后无遗留 `.db`） | `test_q5_bm25_no_temp_db_leak` | ✅ |
+| Q6 隔离红线不破（DM 门 / 跨 principal 双证） | `test_q6_*`（2 项） | ✅ |
+
+- 验收测试 `tests/scope/test_m14_retrieval_quality.py`：Q1~Q6 共 10 项全绿；
+  M7 原 `test_m7_retrieval.py` 全部回归通过（tie-break/casefold/内存库不破坏既有语义）。
+- `tests/scope` 累计：108 → **118 passed**（+10）；`ruff check` 相关文件全绿。
+
+**完成信号**：Q1~Q6 全绿；M15 规模曲线将基于硬化后的检索器（含 min_score + 确定性 tie-break）重算。

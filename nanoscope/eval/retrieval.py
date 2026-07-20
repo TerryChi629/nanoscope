@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import math
 import sqlite3
-import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -63,7 +62,8 @@ class GrepRetriever:
 
     @staticmethod
     def _trigrams(text: str) -> set[str]:
-        t = text.strip()
+        # NanoScope (PRD_v4 §M14, 修 H5)：大小写不敏感——用 casefold 与文档声明一致。
+        t = text.strip().casefold()
         return {t[i : i + 3] for i in range(len(t) - 2)} if len(t) >= 3 else set()
 
     def search(self, query: str, top_k: int) -> list[str]:
@@ -85,7 +85,9 @@ class Bm25Retriever:
     name = "bm25"
 
     def __init__(self, docs: Sequence[Doc], db_path: str | Path | None = None):
-        self._path = str(db_path) if db_path else tempfile.mktemp(suffix=".db")
+        # NanoScope (PRD_v4 §M14, 修 H5)：默认用内存库，不再用不安全的 tempfile.mktemp
+        # （避免临时 .db 文件泄漏 + 竞态）。显式传 db_path 时才落盘。
+        self._path = str(db_path) if db_path else ":memory:"
         self._conn = sqlite3.connect(self._path)
         self._conn.executescript(
             "CREATE VIRTUAL TABLE docs USING fts5(content, id UNINDEXED, tokenize='trigram');"
@@ -136,11 +138,14 @@ class VectorRetriever:
         self._embedder = embedder
         self._vecs = embedder.embed([d.content for d in self._docs]) if self._docs else []
 
-    def search(self, query: str, top_k: int) -> list[str]:
+    def search(self, query: str, top_k: int, min_score: float = 0.0) -> list[str]:
+        # NanoScope (PRD_v4 §M14, 修 H5)：min_score 过滤零/负分——query 与全库无关时
+        # 返回空（abstention），不再返回一批零分文档虚增召回。
         if not self._docs:
             return []
         q = self._embedder.embed([query])[0]
         scored = [(d.id, _cosine(q, v)) for d, v in zip(self._docs, self._vecs)]
+        scored = [(doc_id, s) for doc_id, s in scored if s > min_score]
         scored.sort(key=lambda kv: kv[1], reverse=True)
         return [doc_id for doc_id, _ in scored[:top_k]]
 
@@ -150,12 +155,23 @@ def rrf_fuse(rankings: Sequence[Sequence[str]], k: int = 60, top_k: int = 20) ->
 
     只依赖名次不依赖分数，天然免掉不同检索器分数量纲对齐问题；某路未召回该项
     贡献 0，自动降权。返回融合后相关性降序的 id 列表。
+
+    NanoScope (PRD_v4 §M14, 修 H5)：确定性 tie-break——排序键为
+    `(RRF_score desc, hit_count desc, best_rank asc, doc_id asc)`，消除对 dict
+    插入顺序的依赖，保证多次运行 / 打乱子检索器顺序时输出稳定一致。空输入 abstain。
     """
     scores: dict[str, float] = {}
+    hit_count: dict[str, int] = {}
+    best_rank: dict[str, int] = {}
     for ranking in rankings:
         for rank, doc_id in enumerate(ranking, start=1):
             scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (k + rank)
-    ordered = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+            hit_count[doc_id] = hit_count.get(doc_id, 0) + 1
+            best_rank[doc_id] = min(best_rank.get(doc_id, rank), rank)
+    ordered = sorted(
+        scores.items(),
+        key=lambda kv: (-kv[1], -hit_count[kv[0]], best_rank[kv[0]], kv[0]),
+    )
     return [doc_id for doc_id, _ in ordered[:top_k]]
 
 
