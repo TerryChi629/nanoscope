@@ -750,7 +750,10 @@ class AgentLoop:
         records = self.memory_repository.search_visible(ctx, query=msg.content)
         if not records:
             return ""
-        return "\n".join(f"- {r.content}" for r in records)
+        # NanoScope (PRD_v4 §M12, 修 H2)：召回记忆是不可信用户数据，包进显式
+        # data-block 并转义（无法闭合数据块），防持久化 Prompt Injection。
+        from nanoscope.memory.sanitize import wrap_untrusted_memory
+        return wrap_untrusted_memory((r.id, r.content) for r in records)
 
     def _request_context_for_turn(self, ctx: TurnContext) -> RequestContext:
         scope = self.workspace_scopes.for_message(ctx.msg, ctx.session.metadata)

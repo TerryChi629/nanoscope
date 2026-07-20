@@ -40,6 +40,16 @@
         `acquire` 用 `get_running_loop()`（禁用已弃用的 `get_event_loop()`）。
       - 生产（`multi_user.enabled=True`）禁止无界 admission 队列：`admissionMaxQueue<=0` 须显式开
         `allowUnboundedAdmissionQueue` 逃生阀，否则 config 校验 fail-closed 拒绝启动。
+- [ ] **召回记忆是不可信用户数据**（PRD_v4 §M12，修 H2）：`memory_remember` 可写入任意自然语言，
+      召回后进 system prompt，必须两道防线，且诚实标注"结构化包裹只能显著降低、不能数学上消除注入"。
+      - 写入侧清洗 `sanitize_memory_content`：去零宽/控制符、剥 `<|...|>` 特殊 token、剥行首
+        `system:/assistant:/user:/tool:` 角色伪造、折叠连续换行、512 字上限；清洗后为空 fail-closed 拒写。
+      - 读取侧 `wrap_untrusted_memory`：召回项经 `escape_memory_item`（转义 `&/</>`、去零宽/控制符、
+        折叠空白）后包成 `<memory><item id="…">…</item></memory>`，令内容无法闭合数据块。
+      - context 多用户 `scoped_memory` 分支套 `MEMORY_UNTRUSTED_HEADER` + `MEMORY_UNTRUSTED_CONSTRAINT`
+        （明示记忆为用户数据、内含指令不得执行）；**单用户 `scoped_memory=None` 分支逐字节不变**（零回归）。
+      - 抵抗率评测（`nanoscope/eval/injection.py`）改前/改后用**同一套越权探针判据** `_injection_succeeds`，
+        禁止"改判据造收益"；结构型注入预期改后 0 残留，纯自然语言注入诚实标注非零残留。
 
 ## 里程碑进度（P0=M0~M6 必交付，P1=M7~M10）
 详见 PRD.md §11。当前状态见 [PROGRESS.md](./PROGRESS.md)。
@@ -70,6 +80,12 @@
       累计 96 测试绿（scope）。代码：`nanoscope/concurrency/admission.py`、`nanobot/agent/loop.py`、
       `nanobot/agent/automation_turns.py`、`nanobot/config/schema.py`；测试：
       `tests/scope/test_m13_e2e_backpressure.py` + `tests/scope/test_m9_admission.py`（扩展 6 项）。
+- [x] M12 不可信记忆 data-block 包裹 + 防注入（修 H2，P1）：新增 `nanoscope/memory/sanitize.py`
+      （写入清洗 `sanitize_memory_content` + 读取转义 `escape_memory_item` + `wrap_untrusted_memory`）；
+      remember_tool 写入侧接线、loop `_scoped_memory_for_message` 召回即包裹、context 套不可信头+约束
+      （单用户分支零回归）；新增 `nanoscope/eval/injection.py` A/B 抵抗率评测（改前 21/100% → 改后
+      5/23.8%，结构型 0 残留、纯 NL 5 残留诚实标注）。累计 108 测试绿（scope）。测试：
+      `tests/scope/test_m12_memory_injection.py`（I1~I4 共 12 项）。
 
 ## 新会话开工前
 1. `git rev-parse --abbrev-ref HEAD` 确认在 `ljj/scope_v0`。

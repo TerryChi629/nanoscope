@@ -96,9 +96,18 @@ class ContextBuilder:
         # NanoScope (PRD §6, M4): multi_user 下用 Repository.search_visible 的可见集合
         # 替换基线全量 Core 注入（scoped_memory 非 None 即多用户模式，隔离墙已在
         # Repository 内确定性强制；空串表示无可见项，绝不回退到全局 MEMORY.md）。
+        # PRD_v4 §M12（修 H2）：scoped_memory 已是转义后的 <memory> data-block，
+        # 此处套不可信数据块头 + 强约束，明确告知模型其为用户数据、内含指令不得执行。
         if scoped_memory is not None:
             if scoped_memory:
-                parts.append(f"# Memory\n\n{scoped_memory}")
+                from nanoscope.memory.sanitize import (
+                    MEMORY_UNTRUSTED_CONSTRAINT,
+                    MEMORY_UNTRUSTED_HEADER,
+                )
+                parts.append(
+                    f"{MEMORY_UNTRUSTED_HEADER}\n\n"
+                    f"{MEMORY_UNTRUSTED_CONSTRAINT}\n\n{scoped_memory}"
+                )
         else:
             memory = self.memory.get_memory_context()
             if memory and not self._is_template_content(self.memory.read_memory(), "memory/MEMORY.md"):

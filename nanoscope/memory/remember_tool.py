@@ -15,6 +15,7 @@ from nanobot.agent.tools.base import Tool, ToolResult, tool_parameters
 from nanobot.agent.tools.context import current_request_context
 from nanoscope.identity import SecurityContext
 from nanoscope.memory.repository import SCOPE_ORG, SCOPE_USER, Repository
+from nanoscope.memory.sanitize import sanitize_memory_content
 
 _SOURCE_TYPE = "tool"
 
@@ -70,6 +71,11 @@ class MemoryRememberTool(Tool):
         content = kwargs.get("content")
         if not isinstance(content, str) or not content.strip():
             return ToolResult.error("content 不能为空。")
+        # NanoScope (PRD_v4 §M12, 修 H2)：写入侧清洗——归一化为纯文本事实，
+        # 剥离角色伪造/特殊 token/控制符/零宽字符，长度上限截断。
+        content = sanitize_memory_content(content)
+        if not content:
+            return ToolResult.error("content 清洗后为空。")
 
         scope = kwargs.get("scope") or SCOPE_USER
         if scope not in (SCOPE_USER, SCOPE_ORG):

@@ -16,8 +16,19 @@ from nanoscope.memory.repository import (
     MemoryRecord,
     Repository,
 )
+from nanoscope.memory.sanitize import (
+    MAX_MEMORY_CHARS,
+    MEMORY_UNTRUSTED_CONSTRAINT,
+    MEMORY_UNTRUSTED_HEADER,
+    escape_memory_item,
+    sanitize_memory_content,
+    wrap_untrusted_memory,
+)
 
 __all__ = [
+    "MAX_MEMORY_CHARS",
+    "MEMORY_UNTRUSTED_CONSTRAINT",
+    "MEMORY_UNTRUSTED_HEADER",
     "SCOPE_ORG",
     "SCOPE_USER",
     "Distiller",
@@ -28,6 +39,9 @@ __all__ = [
     "Repository",
     "commit_candidates",
     "distill_candidates",
+    "escape_memory_item",
     "group_by_principal",
     "run_dream_candidates",
+    "sanitize_memory_content",
+    "wrap_untrusted_memory",
 ]
