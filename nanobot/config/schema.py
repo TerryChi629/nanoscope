@@ -107,6 +107,34 @@ class MultiUserConfig(Base):
         validation_alias=AliasChoices("admissionMaxQueue", "admission_max_queue"),
         serialization_alias="admissionMaxQueue",
     )  # 全局等待队列上限，超过即优雅拒绝（缺陷③）；<=0 表示无界
+    # NanoScope (PRD §15, M13 改动点④): admissionMaxQueue<=0（无界）仅供测试；
+    # 生产（enabled=True）默认 fail-closed 拒启动，须显式置本逃生阀才放行无界队列。
+    allow_unbounded_admission_queue: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "allowUnboundedAdmissionQueue", "allow_unbounded_admission_queue"
+        ),
+        serialization_alias="allowUnboundedAdmissionQueue",
+    )
+
+    @model_validator(mode="after")
+    def _guard_admission_bounds(self) -> "MultiUserConfig":
+        """M13 改动点④：生产配置护栏。
+
+        enabled=True 且 admissionMaxQueue<=0（无界）时，除非显式打开
+        allowUnboundedAdmissionQueue 逃生阀，否则 fail-closed 拒绝启动——
+        无界等待队列在洪峰下会退化成雪崩（缺陷③），不能进生产。
+        """
+        if (
+            self.enabled
+            and self.admission_max_queue <= 0
+            and not self.allow_unbounded_admission_queue
+        ):
+            raise ValueError(
+                "multi_user.enabled=True 时 admissionMaxQueue 必须为正（有界背压）；"
+                "无界（<=0）仅供测试，如确需请显式设 allowUnboundedAdmissionQueue=true"
+            )
+        return self
 
 
 class InlineFallbackConfig(Base):

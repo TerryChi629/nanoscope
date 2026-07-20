@@ -98,6 +98,7 @@ if TYPE_CHECKING:
         ToolsConfig,
     )
     from nanobot.cron.service import CronService
+    from nanoscope.concurrency import AdmissionRejectedError
 
 class TurnState(Enum):
     RESTORE = auto()
@@ -1162,6 +1163,27 @@ class AgentLoop:
                         continue
                 # Compute the effective session key before dispatching
                 # This ensures /stop command can find tasks correctly when unified session is enabled
+                # NanoScope (PRD §15, M13): 入口非阻塞预检——在建 task 前判断有界 admission
+                # 是否已满，满则对真实用户直接优雅拒绝、不建 task（避免无界堆积 task/队列，
+                # 使峰值收敛到上界，B2）。自动化轮次不在入口拦（由各自协调器限流，B4）。
+                if self._admission is not None and self._is_real_user_inbound(msg):
+                    msg = self._stamp_principal(msg)
+                    admission_key = msg.principal_id or effective_key
+                    if self._admission.would_reject(admission_key):
+                        from nanoscope.concurrency import AdmissionRejectedError
+
+                        logger.warning(
+                            "admission 入口预检拒绝: principal={} session={}",
+                            admission_key, effective_key,
+                        )
+                        await self._publish_admission_reject_notice(
+                            msg,
+                            AdmissionRejectedError(
+                                "admission 队列已满，请稍后再试",
+                                retry_after=self._admission.suggested_retry_after(),
+                            ),
+                        )
+                        continue
                 task = asyncio.create_task(self._dispatch(msg))
                 self._active_tasks.setdefault(effective_key, []).append(task)
                 task.add_done_callback(
@@ -1174,6 +1196,18 @@ class AgentLoop:
             # MCP stdio transports use AnyIO cancel scopes; close them from the task that opened them.
             await self.close_mcp()
 
+    def _stamp_principal(self, msg: InboundMessage) -> InboundMessage:
+        """NanoScope (PRD §5, M1): 渠道验签后解析 principal_id 并 stamp 到消息上。
+
+        供 _persist_user_message_early 落 history（Dream/审计追溯 owner），以及 M13
+        入口/前移准入用 principal_id 作准入键。multi_user 关闭或已 stamp 时原样返回。
+        """
+        if self._identity_resolver is not None and msg.principal_id is None:
+            ctx = self.resolve_security_context(msg)
+            if ctx is not None:
+                msg = dataclasses.replace(msg, principal_id=ctx.principal_id)
+        return msg
+
     async def _dispatch(self, msg: InboundMessage) -> None:
         """Process a message: per-session serial, cross-session concurrent."""
         from nanoscope.concurrency import AdmissionRejectedError
@@ -1181,26 +1215,27 @@ class AgentLoop:
         session_key = self._effective_session_key(msg)
         if session_key != msg.session_key:
             msg = dataclasses.replace(msg, session_key_override=session_key)
-        # NanoScope (PRD §5, M1): 渠道验签后解析 principal_id，stamp 到消息上，
-        # 供 _persist_user_message_early 落 history（Dream/审计追溯 owner）。
-        if self._identity_resolver is not None and msg.principal_id is None:
-            ctx = self.resolve_security_context(msg)
-            if ctx is not None:
-                msg = dataclasses.replace(msg, principal_id=ctx.principal_id)
+        msg = self._stamp_principal(msg)
         lock = self._session_locks.setdefault(session_key, asyncio.Lock())
-        # NanoScope (PRD §15, M9): multi_user 下走有界公平准入（per-principal 配额 +
+        # NanoScope (PRD §15, M9/M13): multi_user 下走有界公平准入（per-principal 配额 +
         # 有界背压 + least-in-flight 公平出队）；否则退回基线全局 FIFO Semaphore。
         # 准入键优先用 principal_id（跨 session 同一人共享配额），回退 session_key。
+        # M13 改动点①：admission 前移——把它放在 async with 最外层，先于 session lock 获取，
+        # 使「是否放行」在拿锁前决定；同 session 洪峰在入口就被 per-principal 配额挡住，
+        # 不再堆在 lock 前。单用户/无 admission 时 admission_cm 为 nullcontext，
+        # 等价于基线 `async with lock, gate:`（B5 零回归）。
         if self._admission is not None:
             admission_key = msg.principal_id or session_key
-            gate = self._admission.slot(admission_key)
+            admission_cm: AbstractContextManager[Any] = self._admission.slot(admission_key)
+            inner_gate: AbstractContextManager[Any] = nullcontext()
         else:
             admission_key = session_key
-            gate = self._concurrency_gate or nullcontext()
+            admission_cm = nullcontext()
+            inner_gate = self._concurrency_gate or nullcontext()
 
         pending: asyncio.Queue | None = None
         try:
-            async with lock, gate:
+            async with admission_cm, lock, inner_gate:
                 # Only the task that owns the session lock may publish the
                 # active mid-turn injection queue for this session.
                 pending = asyncio.Queue(maxsize=20)
@@ -1342,13 +1377,16 @@ class AgentLoop:
                         )
                         self._runtime_events().clear_turn(session_key)
                     await self._publish_next_deferred_automation_turn(session_key)
-        except AdmissionRejectedError:
-            # NanoScope (PRD §15, M9): 全局有界 admission 队列已满 → 优雅拒绝，
+        except AdmissionRejectedError as exc:
+            # NanoScope (PRD §15, M9/M13): 全局有界 admission 队列已满 → 优雅拒绝，
             # 不无限堆积（缺陷③）。pending 仍为 None，下方 finally 负责置 idle。
             logger.warning(
                 "admission 拒绝（队列已满）: principal={} session={}",
                 admission_key, session_key,
             )
+            # M13 改动点③：给真实用户 inbound 回一条明确的重试提示（携带 retry_after 供
+            # 渠道退避）；cron / 本地触发器 / 内部续跑等自动化轮次不发回执（B4 不误伤）。
+            await self._publish_admission_reject_notice(msg, exc)
         finally:
             if pending is None:
                 await self._runtime_events().run_status_changed(
@@ -1356,6 +1394,39 @@ class AgentLoop:
                 )
                 self._runtime_events().clear_turn(session_key)
                 await self._publish_next_deferred_automation_turn(session_key)
+
+    def _is_real_user_inbound(self, msg: InboundMessage) -> bool:
+        """True 当 *msg* 是真实用户发来的 inbound（非 cron / 本地触发器 / 内部续跑）。
+
+        M13 改动点③：优雅拒绝回执只发给真实用户，自动化轮次与内部续跑不误伤（B4）。
+        """
+        if turn_continuation.internal_continuation_inbound(msg.metadata):
+            return False
+        return not any(
+            coordinator.owns(msg) for _, coordinator in self._automation_turn_coordinators
+        )
+
+    async def _publish_admission_reject_notice(
+        self, msg: InboundMessage, exc: AdmissionRejectedError
+    ) -> None:
+        """M13 改动点③：admission 队满时给真实用户回一条优雅拒绝提示（含 retry_after）。"""
+        if not self._is_real_user_inbound(msg):
+            return
+        retry_after = getattr(exc, "retry_after", None)
+        metadata = dict(msg.metadata or {})
+        if retry_after is not None:
+            metadata["retry_after"] = retry_after
+        hint = "当前请求较多，请稍后重试。"
+        if retry_after is not None:
+            hint = f"当前请求较多，请约 {retry_after} 秒后重试。"
+        await self.bus.publish_outbound(
+            OutboundMessage(
+                channel=msg.channel,
+                chat_id=msg.chat_id,
+                content=hint,
+                metadata=metadata,
+            )
+        )
 
     async def close_mcp(self) -> None:
         """Drain pending background archives, then close MCP connections."""

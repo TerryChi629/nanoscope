@@ -10,7 +10,7 @@
 | 里程碑 | 主题（修复项） | 优先级 | 状态 |
 |---|---|---|---|
 | M11 | Recent History 的 principal/audience 隔离（修 H1） | **P0** | ✅ 已完成 |
-| M13 | 端到端有界准入：admission 前移 + bus 背压 + 拒绝回执（修 H3） | P1 | ⬜ 待办 |
+| M13 | 端到端有界准入：admission 前移 + bus 背压 + 拒绝回执（修 H3） | P1 | ✅ 已完成 |
 | M12 | 不可信记忆 data-block 包裹 + 防注入（修 H2） | P1 | ⬜ 待办 |
 | M14 | 检索质量硬化：min_score + tie-break + abstention（修 H5） | P1 | ⬜ 待办 |
 | M15 | 规模曲线重做：Zipf 自然增长 + 多种子 CI（修 H4） | P1 | ⬜ 待办 |
@@ -23,7 +23,7 @@
 ## TODO 清单
 
 - [x] M11 · Recent History principal/audience 隔离（P0-blocker）
-- [ ] M13 · 端到端有界准入（admission 前移 + bus 背压 + 优雅拒绝回执）
+- [x] M13 · 端到端有界准入（admission 前移 + 入口非阻塞预检 + 优雅拒绝回执）
 - [ ] M12 · 不可信记忆 data-block 包裹 + 防注入
 - [ ] M14 · 检索质量硬化（min_score + 确定性 tie-break + abstention）
 - [ ] M15 · 规模曲线重做（Zipf 自然增长 + 多种子置信区间）
@@ -75,3 +75,59 @@ scoped_memory，且 M11 改动点明确限定在 `_build_initial_messages`（PRD
 不在此里程碑扩大范围。
 
 **完成信号**：R1~R6 全绿；`collect_isolation` 双通道采集；报告双通道 exposure 均为 0；单用户零回归。
+
+---
+
+## M13 · 端到端有界准入（修 H3，P1）✅
+
+**动机**：M9 的 `FairAdmissionController` 算法正确，但**接线位置**有三个漏洞让"端到端有界"不成立：
+① `_dispatch` 用 `async with lock, gate:`——先拿 session lock 再进 admission，同 session 洪峰堆在
+lock 前，`max_queue` 管不住入口；② run-loop 对每条 inbound 无条件 `create_task`（bus 队列无界），
+admission 满之前已能堆积大量 task；③ `AdmissionRejectedError` 只打 warning、不给用户回执。
+
+**决策记录（本轮按推荐选定，均已锁定）**：
+- 改动点②「入口有界」方式：选 **入口非阻塞预检**（`would_reject`），而非给 bus 设 maxsize。
+  理由：bus 是所有渠道共享基础设施，设 maxsize 会改动单用户/全渠道行为，B5 零回归风险高；
+  非阻塞预检只在 `self._admission is not None`（=multi_user.enabled）时生效，单用户路径逐字节不变。
+- 拒绝回执范围：**仅真实用户 inbound 发回执**。cron / 本地触发器 / 内部续跑（internal
+  continuation）被拒时只 log、不发"请稍后重试"（避免误伤、避免向无接收人的自动化轮次推送）。
+
+**关键改动**：
+- `nanoscope/concurrency/admission.py`：
+  - 改动点⑤：`acquire` 内 `asyncio.get_event_loop()` → `get_running_loop()`；
+    `release` 对非法/重复 ticket 从静默 `max(0, ...)` 改为**校验 + `logger.error` 并忽略**（不再破坏账本）。
+  - `AdmissionRejectedError` 新增 `retry_after` 字段；`acquire` 队满拒绝时携带（改动点③）。
+  - 新增 `try_acquire`（非阻塞入场，有容量返回 Ticket 否则 None）、`would_reject`（入口非阻塞谓词，
+    仅队满时 True）、`suggested_retry_after`（随队列占用单调放大的退避建议，纯观测）。
+- `nanobot/agent/loop.py`：
+  - 改动点①：`_dispatch` 的 `async with lock, gate:` → `async with admission_cm, lock, inner_gate:`，
+    admission 置于**最外层**，先于 session lock 获取。单用户/无 admission 时 `admission_cm` 为
+    `nullcontext()`、`inner_gate` 为原基线 gate，等价于原 `async with lock, gate:`（B5 零回归）。
+  - 改动点②：run-loop 在 `create_task` 前对真实用户 inbound 做 `would_reject` 非阻塞预检，
+    队满则直接优雅拒绝、**不建 task**（task/队列峰值收敛到上界，不再随注入量线性增长，B2）。
+  - 改动点③：新增 `_publish_admission_reject_notice`——真实用户被拒时 publish 一条含"请稍后重试"
+    的 outbound，`retry_after` 落 `metadata`；`_dispatch` 的 `except AdmissionRejectedError` 分支调用它。
+  - 新增 `_is_real_user_inbound`（排除 internal continuation 与 cron/本地触发器自动化轮次）、
+    `_stamp_principal`（抽出原 `_dispatch` 内的 principal 解析逻辑，供入口预检与 `_dispatch` 共用）。
+- `nanobot/agent/automation_turns.py`：`AutomationTurnCoordinator` 新增 `owns(msg)` 谓词，
+  供 loop 判定某 inbound 是否本协调器管理的自动化轮次。
+- `nanobot/config/schema.py`：改动点④配置护栏——`MultiUserConfig` 新增 `allow_unbounded_admission_queue`
+  逃生阀 + `model_validator`：`enabled=True` 且 `admissionMaxQueue<=0`（无界）且未开逃生阀 →
+  **fail-closed 拒绝启动**（无界仅供测试）。
+
+**验收数字**（来自 `tests/scope` 同源可复现代码）：
+
+| 验收点 | 覆盖测试 | 结果 |
+|---|---|---|
+| 控制器新方法（try_acquire/would_reject/release 校验/retry_after） | `test_m9_admission.py` 新增 6 项 | ✅ |
+| B1 前移生效（队满时 `_dispatch` 在拿锁前被拒并回执） | `test_b1_dispatch_rejects_when_admission_queue_full` | ✅ |
+| B2 task 峰值有界（入口预检队满 → 不建 task） | `test_b2_entrance_precheck_skips_task_when_full` | ✅ |
+| B3 拒绝回执（含 retry_after） | `test_b3_*`（2 项） | ✅ |
+| B4 不误伤（cron / internal continuation 不发回执 + 既有 12 项 `/stop`/dispatch 回归） | `test_b4_*`（2 项）+ `tests/agent/test_task_cancel.py` 18 项 | ✅ |
+| B5 单用户零回归（`_admission is None`，正常处理；配置护栏拒无界） | `test_b5_*`（2 项） | ✅ |
+
+- `tests/scope` 累计：82 → **96 passed**（+8 e2e，+6 controller 单测）；`ruff check` 相关文件全绿。
+- 单用户基线零回归：`tests/agent/test_task_cancel.py`（18）+ `tests/agent/test_memory_store.py` + `tests/config`（合计 121）全绿。
+
+**完成信号**：B1~B5 全绿；`FairAdmissionController` 的 `would_reject`/`try_acquire` 已备好，
+M16 压测报告可据此给出"active_tasks/queue 峰值 改前(线性) vs 改后(有界)"曲线。

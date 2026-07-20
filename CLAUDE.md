@@ -31,6 +31,15 @@
         无 `principal_id` / 未知 `audience_type` 的条目在 `isolation=True` 下丢弃；
         DM 语境只见本人私聊历史；群/话题语境只见同 `audience_id` 群历史且**私聊历史绝不进群**。
       - `isolation=False`（单用户/基线）逐字节走原 session_key 分支，零回归。
+- [ ] **有界准入必须端到端**（PRD_v4 §M13，修 H3）：隔离墙之外的**调度层**同样 fail-closed。
+      - admission 判定必须在 session lock **之前**（`_dispatch` 用 `async with admission_cm, lock, inner_gate:`，
+        admission 最外层）；单用户/无 admission 时 `admission_cm`=`nullcontext()`，等价基线（零回归）。
+      - run-loop 建 task 前对**真实用户 inbound** 做 `would_reject` 非阻塞预检，队满则不建 task、直接优雅拒绝。
+      - 优雅拒绝回执**只发真实用户**（`_is_real_user_inbound`）：cron / 本地触发器 / internal continuation 不发。
+      - `FairAdmissionController.release` 对非法/重复 ticket 校验 + `logger.error` 并忽略（禁止静默破坏账本）；
+        `acquire` 用 `get_running_loop()`（禁用已弃用的 `get_event_loop()`）。
+      - 生产（`multi_user.enabled=True`）禁止无界 admission 队列：`admissionMaxQueue<=0` 须显式开
+        `allowUnboundedAdmissionQueue` 逃生阀，否则 config 校验 fail-closed 拒绝启动。
 
 ## 里程碑进度（P0=M0~M6 必交付，P1=M7~M10）
 详见 PRD.md §11。当前状态见 [PROGRESS.md](./PROGRESS.md)。
@@ -54,6 +63,13 @@
       扩展为记忆+history 双通道 A/B（history exposure 改前 9→改后 0）；累计 82 测试绿。
       代码：`nanobot/agent/memory.py`、`nanobot/agent/context.py`、`nanobot/agent/loop.py`、
       `nanoscope/eval/reporter.py`；测试：`tests/scope/test_m11_recent_history_isolation.py`。
+- [x] M13 端到端有界准入（修 H3，P1）：admission 前移到 session lock 之前（`async with
+      admission_cm, lock, inner_gate:`）；入口 `would_reject` 非阻塞预检对真实用户满则不建 task；
+      `_publish_admission_reject_notice` 只回真实用户（cron/触发器/续跑不误伤），含 `retry_after`；
+      `release` 校验非法/重复 ticket、`acquire` 用 `get_running_loop()`；config 护栏拒生产无界队列。
+      累计 96 测试绿（scope）。代码：`nanoscope/concurrency/admission.py`、`nanobot/agent/loop.py`、
+      `nanobot/agent/automation_turns.py`、`nanobot/config/schema.py`；测试：
+      `tests/scope/test_m13_e2e_backpressure.py` + `tests/scope/test_m9_admission.py`（扩展 6 项）。
 
 ## 新会话开工前
 1. `git rev-parse --abbrev-ref HEAD` 确认在 `ljj/scope_v0`。

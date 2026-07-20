@@ -87,6 +87,14 @@ class AutomationTurnCoordinator:
             self._waiters.pop(turn_id, None)
             self._pending_messages_by_turn_id.pop(turn_id, None)
 
+    def owns(self, msg: InboundMessage) -> bool:
+        """True 当 *msg* 是本协调器管理的自动化轮次（cron / 本地触发器等）。
+
+        供 AgentLoop 在入口区分「真实用户 inbound」与自动化轮次：M13 的优雅拒绝
+        回执只发给真实用户，自动化轮次不误伤（PRD §M13.2 改动点③/B4）。
+        """
+        return bool(self._turn_id(msg))
+
     def defer_if_active(
         self,
         msg: InboundMessage,

@@ -22,9 +22,16 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import AsyncIterator, Protocol, runtime_checkable
 
+from loguru import logger
+
 
 class AdmissionRejectedError(Exception):
     """全局有界 admission 队列已满，优雅拒绝（缺陷③，可回 retry-after）。"""
+
+    def __init__(self, message: str = "", *, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        # 供渠道退避：秒级建议重试间隔（M13 改动点③/⑤）。None 表示未指定。
+        self.retry_after = retry_after
 
 
 @dataclass(frozen=True)
@@ -138,11 +145,12 @@ class FairAdmissionController:
         # 需要排队：先看全局有界 admission 背压（缺陷③的解法）。
         if self.max_queue > 0 and len(self._waiters) >= self.max_queue:
             raise AdmissionRejectedError(
-                f"admission 队列已满（{len(self._waiters)}/{self.max_queue}），请稍后再试"
+                f"admission 队列已满（{len(self._waiters)}/{self.max_queue}），请稍后再试",
+                retry_after=self.suggested_retry_after(),
             )
 
         self._seq += 1
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         waiter = _Waiter(principal_id=principal_id, seq=self._seq, future=loop.create_future())
         self._waiters.append(waiter)
         try:
@@ -154,9 +162,40 @@ class FairAdmissionController:
             self._pump()
             raise
 
+    def try_acquire(self, principal_id: str) -> Ticket | None:
+        """非阻塞预检（M13 改动点②）：有容量立即入场返回 Ticket，否则返回 None。
+
+        不排队、不抛异常——入口处 run-loop 用它决定「建 task 还是直接优雅拒绝」，
+        使 task/队列峰值收敛到 global_limit（不再随注入量线性增长，B2）。
+        """
+        if not self._waiters and self._can_admit(principal_id):
+            return self._admit(principal_id)
+        return None
+
+    def would_reject(self, principal_id: str) -> bool:
+        """入口非阻塞谓词（M13 改动点②）：若此刻 acquire 会因队满而拒绝则返回 True。
+
+        语义与 acquire 一致：能立即入场或能排队 → False；仅当全局有界队列已满时 True。
+        run-loop 在 create_task 前调用它，队满则直接优雅拒绝、不建 task（避免无界堆积）。
+        """
+        if not self._waiters and self._can_admit(principal_id):
+            return False  # 可立即入场
+        if self.max_queue > 0 and len(self._waiters) >= self.max_queue:
+            return True  # 队满 → 拒绝
+        return False  # 尚可排队
+
     def release(self, ticket: Ticket) -> None:
         pid = ticket.principal_id
-        self._global_inflight = max(0, self._global_inflight - 1)
+        # M13 改动点⑤：校验非法/重复释放，避免账本被二次释放破坏（原静默 max(0)）。
+        if self._global_inflight <= 0 or self._principal_inflight.get(pid, 0) <= 0:
+            logger.error(
+                "admission release 非法/重复 ticket: principal={} seq={} "
+                "global_inflight={} principal_inflight={}",
+                pid, ticket.seq, self._global_inflight,
+                self._principal_inflight.get(pid, 0),
+            )
+            return
+        self._global_inflight -= 1
         remaining = self._principal_inflight.get(pid, 0) - 1
         if remaining <= 0:
             self._principal_inflight.pop(pid, None)
@@ -201,6 +240,17 @@ class FairAdmissionController:
             self.release(ticket)
 
     # -- 只读观测 ----------------------------------------------------------
+
+    def suggested_retry_after(self) -> float:
+        """建议退避秒数（M13 改动点③）：队列越满建议等得越久，给渠道退避用。
+
+        简单单调启发式：基准 1s，按当前队列占用比例线性放大到最多 +4s。
+        纯观测，不影响调度决策。
+        """
+        if self.max_queue <= 0:
+            return 1.0
+        ratio = min(1.0, len(self._waiters) / self.max_queue)
+        return round(1.0 + 4.0 * ratio, 3)
 
     @property
     def queue_len(self) -> int:

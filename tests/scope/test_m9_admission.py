@@ -233,3 +233,90 @@ async def test_u1_ramp_all_complete_under_both():
     )
     assert base.n_completed == 12
     assert imp.n_completed == 12
+
+
+# ---------------------------------------------------------------------------
+# M13 改动点⑤：try_acquire / would_reject / release 校验 / retry_after
+# ---------------------------------------------------------------------------
+
+def test_try_acquire_admits_or_returns_none_without_queuing():
+    """try_acquire：有容量立即入场返回 Ticket，无容量返回 None（不排队、不抛）。"""
+    ctrl = FairAdmissionController(global_limit=1, per_principal_limit=1, max_queue=4)
+    t = ctrl.try_acquire("a")
+    assert t is not None
+    assert ctrl.global_inflight == 1
+    # 名额已满 → 非阻塞返回 None，且不入队。
+    assert ctrl.try_acquire("b") is None
+    assert ctrl.queue_len == 0
+    ctrl.release(t)
+
+
+def test_would_reject_only_when_queue_full():
+    """would_reject：可入场/可排队为 False，仅全局有界队列满时为 True。"""
+    ctrl = FairAdmissionController(global_limit=1, per_principal_limit=1, max_queue=2)
+    assert ctrl.would_reject("a") is False  # 可立即入场
+    ctrl.try_acquire("a")  # 占满名额
+    assert ctrl.would_reject("b") is False  # 名额满但队列空 → 可排队
+
+
+@pytest.mark.asyncio
+async def test_would_reject_true_when_wait_queue_saturated():
+    ctrl = FairAdmissionController(global_limit=1, per_principal_limit=1, max_queue=2)
+    t = await ctrl.acquire("a")  # 占满唯一名额
+    w1 = asyncio.ensure_future(ctrl.acquire("b"))
+    w2 = asyncio.ensure_future(ctrl.acquire("c"))
+    await asyncio.sleep(0)
+    assert ctrl.queue_len == 2
+    assert ctrl.would_reject("d") is True  # 队满 → 入口应拒绝
+    # 收尾
+    ctrl.release(t)
+    tk1 = await asyncio.wait_for(w1, timeout=1.0)
+    ctrl.release(tk1)
+    tk2 = await asyncio.wait_for(w2, timeout=1.0)
+    ctrl.release(tk2)
+
+
+def test_release_invalid_ticket_is_logged_and_ignored():
+    """release 对非法/重复 ticket 不再静默破坏账本，而是 log error 并忽略（改动点⑤）。"""
+    from nanoscope.concurrency.admission import Ticket
+
+    ctrl = FairAdmissionController(global_limit=2, per_principal_limit=2, max_queue=0)
+    t = ctrl.try_acquire("a")
+    assert ctrl.global_inflight == 1
+    ctrl.release(t)
+    assert ctrl.global_inflight == 0
+    # 二次释放同一 ticket：账本不能被压成负数/破坏。
+    ctrl.release(t)
+    assert ctrl.global_inflight == 0
+    # 从未 acquire 过的 principal：忽略。
+    ctrl.release(Ticket(principal_id="ghost", seq=999))
+    assert ctrl.global_inflight == 0
+    assert ctrl.queue_len == 0
+
+
+def test_rejection_carries_retry_after():
+    """acquire 队满拒绝时携带 retry_after（供渠道退避，改动点③）。"""
+    from nanoscope.concurrency.admission import AdmissionRejectedError
+
+    ctrl = FairAdmissionController(global_limit=1, per_principal_limit=1, max_queue=1)
+    ctrl.try_acquire("a")  # 占满名额
+
+    async def _fill_and_reject():
+        w = asyncio.ensure_future(ctrl.acquire("b"))  # 占满 max_queue=1
+        await asyncio.sleep(0)
+        with pytest.raises(AdmissionRejectedError) as ei:
+            await ctrl.acquire("c")
+        assert ei.value.retry_after is not None
+        assert ei.value.retry_after >= 1.0
+        w.cancel()
+
+    asyncio.run(_fill_and_reject())
+
+
+def test_suggested_retry_after_monotonic_with_queue():
+    """suggested_retry_after 随队列占用单调不减。"""
+    ctrl = FairAdmissionController(global_limit=1, per_principal_limit=1, max_queue=4)
+    empty = ctrl.suggested_retry_after()
+    ctrl.try_acquire("a")  # 占名额，后续都进队列
+    assert ctrl.suggested_retry_after() >= empty
+
