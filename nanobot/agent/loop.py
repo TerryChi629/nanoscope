@@ -420,6 +420,18 @@ class AgentLoop:
         self._concurrency_gate: asyncio.Semaphore | None = (
             asyncio.Semaphore(_max) if _max > 0 else None
         )
+        # NanoScope (PRD §15, M9): multi_user 下用有界公平准入替换基线裸 Semaphore
+        # ——per-principal 配额（防霸占）+ 全局有界背压（防雪崩）+ least-in-flight
+        # 公平出队（慢会话不拖垮快会话）。gate 只在 _max>0 时有意义；<=0（无限）保持基线。
+        self._admission = None
+        if self.multi_user.enabled and _max > 0:
+            from nanoscope.concurrency import FairAdmissionController
+
+            self._admission = FairAdmissionController(
+                global_limit=_max,
+                per_principal_limit=max(1, self.multi_user.per_principal_limit),
+                max_queue=self.multi_user.admission_max_queue,
+            )
         self.consolidator = Consolidator(
             store=self.context.memory,
             sessions=self.sessions,
@@ -724,7 +736,9 @@ class AgentLoop:
         ctx = self.resolve_security_context(msg)
         if ctx is None:
             return None
-        records = self.memory_repository.search_visible(ctx)
+        # M7 (PRD §14): 传 query 让可见集合内走 BM25 相关性排序；隔离仍由
+        # search_visible 的授权 WHERE 强制，BM25 只排序不决定可见性。
+        records = self.memory_repository.search_visible(ctx, query=msg.content)
         if not records:
             return ""
         return "\n".join(f"- {r.content}" for r in records)
@@ -1154,6 +1168,8 @@ class AgentLoop:
 
     async def _dispatch(self, msg: InboundMessage) -> None:
         """Process a message: per-session serial, cross-session concurrent."""
+        from nanoscope.concurrency import AdmissionRejectedError
+
         session_key = self._effective_session_key(msg)
         if session_key != msg.session_key:
             msg = dataclasses.replace(msg, session_key_override=session_key)
@@ -1164,7 +1180,15 @@ class AgentLoop:
             if ctx is not None:
                 msg = dataclasses.replace(msg, principal_id=ctx.principal_id)
         lock = self._session_locks.setdefault(session_key, asyncio.Lock())
-        gate = self._concurrency_gate or nullcontext()
+        # NanoScope (PRD §15, M9): multi_user 下走有界公平准入（per-principal 配额 +
+        # 有界背压 + least-in-flight 公平出队）；否则退回基线全局 FIFO Semaphore。
+        # 准入键优先用 principal_id（跨 session 同一人共享配额），回退 session_key。
+        if self._admission is not None:
+            admission_key = msg.principal_id or session_key
+            gate = self._admission.slot(admission_key)
+        else:
+            admission_key = session_key
+            gate = self._concurrency_gate or nullcontext()
 
         pending: asyncio.Queue | None = None
         try:
@@ -1310,6 +1334,13 @@ class AgentLoop:
                         )
                         self._runtime_events().clear_turn(session_key)
                     await self._publish_next_deferred_automation_turn(session_key)
+        except AdmissionRejectedError:
+            # NanoScope (PRD §15, M9): 全局有界 admission 队列已满 → 优雅拒绝，
+            # 不无限堆积（缺陷③）。pending 仍为 None，下方 finally 负责置 idle。
+            logger.warning(
+                "admission 拒绝（队列已满）: principal={} session={}",
+                admission_key, session_key,
+            )
         finally:
             if pending is None:
                 await self._runtime_events().run_status_changed(

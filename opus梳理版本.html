@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NanoScope · 项目梳理 (ljj/scope_v0)</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#2b3440;
+    --ink:#e6edf3; --dim:#9aa7b4; --faint:#6b7683;
+    --accent:#4f9cff; --accent2:#7c5cff;
+    --ok:#2ea043; --okbg:#0f2417; --bad:#f85149; --badbg:#2a1314;
+    --warn:#d29922; --warnbg:#2a2312;
+    --p0:#4f9cff; --p1:#7c5cff; --base:#8b98a5;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.65;font-size:15px}
+  a{color:var(--accent);text-decoration:none}
+  code{font-family:var(--mono);font-size:.86em;background:#12181f;border:1px solid var(--line);
+    border-radius:5px;padding:1px 6px;color:#c9d6e3;white-space:nowrap}
+  .wrap{display:flex;max-width:1240px;margin:0 auto}
+  /* sidebar */
+  nav{position:sticky;top:0;align-self:flex-start;width:230px;height:100vh;overflow:auto;
+    padding:26px 16px;border-right:1px solid var(--line);flex:0 0 230px}
+  nav .brand{font-weight:800;font-size:19px;letter-spacing:.3px;margin-bottom:2px}
+  nav .brand span{color:var(--accent)}
+  nav .sub{color:var(--faint);font-size:12px;margin-bottom:20px}
+  nav a{display:block;color:var(--dim);padding:7px 10px;border-radius:7px;font-size:13.5px;margin:2px 0}
+  nav a:hover{background:var(--panel2);color:var(--ink)}
+  nav a.tag{color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.12em;
+    margin-top:16px;padding-left:10px;pointer-events:none}
+  main{flex:1;min-width:0;padding:34px 40px 90px}
+  /* header */
+  header.hero{background:linear-gradient(135deg,#12233f 0%,#1a1530 60%,#141a22 100%);
+    border:1px solid var(--line);border-radius:16px;padding:30px 32px;margin-bottom:30px}
+  .hero h1{margin:0 0 8px;font-size:29px;letter-spacing:.3px}
+  .hero h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.lead{margin:0 0 16px;color:var(--dim);max-width:840px;font-size:15.5px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:#0c1320;border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12px;color:var(--dim)}
+  .chip b{color:var(--ink)}
+  .chip.ok{border-color:#1c5a2e;color:#7ee29a;background:var(--okbg)}
+  h2{font-size:22px;margin:44px 0 6px;padding-top:10px;display:flex;align-items:center;gap:10px}
+  h2 .n{font-family:var(--mono);color:var(--accent);font-size:16px;opacity:.9}
+  h2 + .desc{color:var(--dim);margin:0 0 20px;font-size:14.5px}
+  h3{font-size:16.5px;margin:30px 0 10px;color:#dbe6f1}
+  h4{font-size:14px;margin:18px 0 8px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+  section{scroll-margin-top:18px}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.wrap{flex-direction:column}nav{display:none}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .card.tint-p0{border-top:3px solid var(--p0)}
+  .card.tint-p1{border-top:3px solid var(--p1)}
+  .card h3{margin-top:0}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;text-align:center}
+  .kpi .big{font-size:30px;font-weight:800;line-height:1.1;font-family:var(--mono)}
+  .kpi .lbl{color:var(--faint);font-size:12px;margin-top:6px}
+  .kpi .arrow{color:var(--ok);font-weight:700}
+  .kpi.good .big{color:#7ee29a}
+  .kpi.info .big{color:var(--accent)}
+  .kpi.warn .big{color:var(--warn)}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:var(--panel2);color:var(--dim);font-weight:600;font-size:12.5px;
+    text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  td.mono,th.mono{font-family:var(--mono)}
+  .del{color:var(--bad)} .add{color:var(--ok)}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;vertical-align:middle}
+  .pill.p0{background:rgba(79,156,255,.15);color:#79b8ff;border:1px solid #2b4a6b}
+  .pill.p1{background:rgba(124,92,255,.15);color:#b39bff;border:1px solid #4a3a6b}
+  .pill.done{background:var(--okbg);color:#7ee29a;border:1px solid #1c5a2e}
+  .pill.base{background:#1c232d;color:var(--base);border:1px solid var(--line)}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;font-size:13px}
+  .flow .step{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 11px}
+  .flow .step.hot{border-color:var(--accent);color:#cfe3ff}
+  .flow .arr{color:var(--faint)}
+  .note{border-left:3px solid var(--accent);background:#0d1826;padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0;color:#cdd9e5;font-size:13.8px}
+  .note.red{border-color:var(--bad);background:var(--badbg)}
+  .note.ok{border-color:var(--ok);background:var(--okbg)}
+  .note.warn{border-color:var(--warn);background:var(--warnbg)}
+  .note b{color:#fff}
+  /* bar chart */
+  .bars{margin:8px 0 4px}
+  .barrow{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:12.5px}
+  .barrow .k{width:74px;flex:0 0 74px;color:var(--dim);text-align:right;font-family:var(--mono)}
+  .barrow .track{flex:1;background:#0c1219;border:1px solid var(--line);border-radius:6px;height:20px;position:relative;overflow:hidden}
+  .barrow .fill{height:100%;border-radius:5px 0 0 5px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-family:var(--mono);font-size:11px;color:#fff;min-width:24px}
+  .fb{background:linear-gradient(90deg,#8b98a5,#6b7683)} /* baseline gray */
+  .fg{background:linear-gradient(90deg,#2ea043,#3fb950)} /* good green */
+  .fbad{background:linear-gradient(90deg,#b6303a,#f85149)}
+  .fblue{background:linear-gradient(90deg,#2b6fc2,#4f9cff)}
+  .fpurple{background:linear-gradient(90deg,#5a43b0,#7c5cff)}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--dim);margin:6px 0 2px}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  .sla{border-top:1px dashed var(--warn);position:relative}
+  ul.tight{margin:8px 0;padding-left:20px}ul.tight li{margin:5px 0}
+  .foot{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);color:var(--faint);font-size:12.5px}
+  .anchor{color:var(--faint);font-size:11px;font-family:var(--mono)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .two > div{padding:14px 16px}
+  .two .before{background:#1a1416;border-right:1px solid var(--line)}
+  .two .after{background:#0f1c14}
+  .two h4{margin-top:0}
+  .badge-file{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <div class="brand">Nano<span>Scope</span></div>
+  <div class="sub">ljj/scope_v0 · 项目梳理</div>
+  <a href="#overview">概览 · KPI</a>
+  <a class="tag">一 · 改进全貌</a>
+  <a href="#arch">1.1 架构定位</a>
+  <a href="#security-model">1.2 安全模型</a>
+  <a href="#modules">1.3 模块地图</a>
+  <a href="#layers">1.4 P0/P1 分层</a>
+  <a class="tag">二 · 基线对比与动机</a>
+  <a href="#cmp-mem">2.1 记忆隔离</a>
+  <a href="#cmp-rag">2.2 检索</a>
+  <a href="#cmp-conc">2.3 并发</a>
+  <a href="#cmp-diff">2.4 改动清单</a>
+  <a class="tag">三 · 数据 / 测试 / 评估</a>
+  <a href="#ev-model">3.1 五层证据</a>
+  <a href="#ev-iso">3.2 隔离数据</a>
+  <a href="#ev-rag">3.3 召回数据</a>
+  <a href="#ev-conc">3.4 并发数据</a>
+  <a href="#ev-tests">3.5 测试矩阵</a>
+</nav>
+<main>
+
+<header class="hero">
+  <h1>NanoScope:把 nanobot 改造为 <span>Principal / Audience-aware 多用户 Agent Runtime</span></h1>
+  <p class="lead">在开源 Agent 框架 nanobot 之上,针对其「单用户假设」被用于<b>单组织多用户 IM Bot</b>(飞书/Slack,群聊+私聊)时暴露的<b>跨用户记忆泄露</b>缺陷做魔改。承重腿是<b>记忆隔离内核(P0)</b>——可判定的安全不变量;延伸是 <b>RAG 混合检索</b>与<b>应用层公平调度(P1)</b>,并用一套旁路评测底座量化收益。</p>
+  <div class="chips">
+    <span class="chip">分支 <b>ljj/scope_v0</b></span>
+    <span class="chip">基线锁定 <b>d45d4ebf</b></span>
+    <span class="chip">LLM <b>deepseek-v4-flash</b> · 向量 <b>GLM embedding-3</b></span>
+    <span class="chip ok">里程碑 <b>M0–M10 全部收口</b></span>
+    <span class="chip ok">scope 测试 <b>75 / 75 绿</b></span>
+    <span class="chip">新增代码 <b>+2222 行 / 27 文件</b></span>
+  </div>
+</header>
+
+<!-- ===================== OVERVIEW / KPI ===================== -->
+<section id="overview">
+  <h2><span class="n">§0</span> 一屏看全「这次魔改改善了什么」</h2>
+  <p class="desc">三条证据线,每条一个「改前 → 改后」的硬指标。数据全部来自 <code>tests/scope/</code> 同源模块(<code>reporter.py</code> / <code>run_curve</code> / <code>run_case_ab</code>),可一键复现。</p>
+  <div class="grid g4">
+    <div class="kpi good">
+      <div class="big">9 → 0</div>
+      <div class="lbl">P0 隔离 · forbidden_prompt_exposure<br>(3 条攻击,他人私聊 canary 命中数)</div>
+    </div>
+    <div class="kpi info">
+      <div class="big">0.00 → 0.875</div>
+      <div class="lbl">P1-A 召回 · Recall@5 @ N=5000<br>(grep 失效 vs BM25 守 SLA)</div>
+    </div>
+    <div class="kpi good">
+      <div class="big">↓83%</div>
+      <div class="lbl">P1-B 并发 · U5 洪峰入场 p99<br>(3.32s → 0.56s + 有界拒绝 165)</div>
+    </div>
+    <div class="kpi info">
+      <div class="big">75</div>
+      <div class="lbl">scope 单元测试全绿<br>(M0–M10,45s)</div>
+    </div>
+  </div>
+  <div class="note ok"><b>一句话叙事:</b>一个场景(单组织多用户 IM Bot)→ 一条承重腿(记忆隔离内核,安全不变量 <code>exposure=0</code>)+ 两个 P1 数据点(检索质量 / 并发公平)→ 一套同源、可复现的证据平面。</div>
+</section>
+
+<!-- ===================== PART 1: OVERVIEW ===================== -->
+<section id="arch">
+  <h2><span class="n">§1.1</span> 改进全貌 · 架构定位</h2>
+  <p class="desc">核心升华:授权谓词从「只关于请求者」的 <code>f(resource; principal)</code>,升级为「关于 (请求者, 受众, 资源) 三元」的 <code>f(resource; principal, audience)</code>。识别出框架里 <b>身份 / 会话 / 受众 / 记忆作用域</b> 从未被统一成一个安全上下文——本项目建立了这个缺失的抽象。</p>
+
+  <h3>请求处理链路(改后)</h3>
+  <div class="flow">
+    <span class="step">InboundMessage<br><span class="anchor">bus/events.py</span></span>
+    <span class="arr">→</span>
+    <span class="step hot">IdentityResolver<br><span class="anchor">nanoscope/identity.py</span></span>
+    <span class="arr">→</span>
+    <span class="step hot">SecurityContext<br><span class="anchor">tenant·principal·audience</span></span>
+    <span class="arr">→</span>
+    <span class="step">FairAdmission 准入<br><span class="anchor">concurrency/admission.py</span></span>
+    <span class="arr">→</span>
+    <span class="step hot">search_visible 授权召回<br><span class="anchor">memory/repository.py</span></span>
+    <span class="arr">→</span>
+    <span class="step">ContextBuilder 注入<br><span class="anchor">scoped_memory</span></span>
+    <span class="arr">→</span>
+    <span class="step">LLM 回答</span>
+  </div>
+  <div class="note"><b>四个正交维度(<span class="anchor">identity.py:3-4</span>)</b>:Principal(谁问)· Session(哪些消息算一段)· Audience(答案给谁看)· Memory Scope(记忆给谁看)。基线把这些混在 <code>session_key</code> 一个概念里,导致「谁问」和「答案给谁」被当成一回事——这正是泄露的数学根因。</div>
+</section>
+
+<section id="security-model">
+  <h2><span class="n">§1.2</span> 安全模型 · SecurityContext + 授权谓词</h2>
+  <p class="desc">一次请求解析出一个<b>冻结不可变</b>的 <code>SecurityContext</code>(<span class="anchor">identity.py:30-55</span>),贯穿检索/写入/准入。MVP 生效 4 字段,2 个前向兼容钩子(采集但暂不参与谓词)。</p>
+  <div class="grid g2">
+    <div class="card">
+      <h3>SecurityContext 字段</h3>
+      <table>
+        <tr><th>字段</th><th>作用</th><th>状态</th></tr>
+        <tr><td class="mono">tenant_id</td><td>哪个组织</td><td><span class="pill done">生效</span></td></tr>
+        <tr><td class="mono">principal_id</td><td>谁发起 = <code>tenant:channel:uid</code></td><td><span class="pill done">生效</span></td></tr>
+        <tr><td class="mono">session_key</td><td>哪些消息算一段</td><td><span class="pill done">生效</span></td></tr>
+        <tr><td class="mono">audience_type</td><td>dm/group/thread</td><td><span class="pill done">生效</span></td></tr>
+        <tr><td class="mono">audience_id</td><td>发往哪个会话</td><td><span class="pill base">前向兼容</span></td></tr>
+        <tr><td class="mono">roles</td><td>能做什么</td><td><span class="pill base">前向兼容</span></td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>记忆授权谓词(DM 门)</h3>
+      <p style="color:var(--dim);font-size:13px;margin:0 0 8px">在 <code>Repository._visibility_where</code> 内部强制(<span class="anchor">repository.py:181-193</span>),上层拿不到拼 WHERE 的机会:</p>
+      <div style="background:#0c1219;border:1px solid var(--line);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12px;color:#c9d6e3;overflow:auto">
+WHERE tenant_id = :tenant<br>
+&nbsp;&nbsp;AND status = 'active'<br>
+&nbsp;&nbsp;AND (<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#79b8ff">scope='org'</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;OR (<span style="color:#7ee29a">scope='user'</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AND owner_id=:principal<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="color:#d29922">AND audience_type='dm'</b>) )
+      </div>
+      <p style="color:var(--dim);font-size:12.5px;margin:8px 0 0">个人记忆仅本人私聊召回;群聊语境 <code>audience_type='group'</code> 时整条 <code>user</code> 记忆被挡在召回之前。</p>
+    </div>
+  </div>
+  <div class="note red"><b>安全红线(全程贯彻):</b>可见性 = 确定性硬过滤(SQL WHERE + DB CHECK)。<b>RAG 只排序,绝不决定「能不能看」</b>。即便 FTS 倒排里混入他人条目,也被主表授权 WHERE 过滤——顺序不能反。</div>
+</section>
+
+<section id="modules">
+  <h2><span class="n">§1.3</span> 模块地图 · 新增 <code>nanoscope/</code> 包</h2>
+  <p class="desc">改造以<b>旁路新增包</b>为主(<code>nanoscope/</code>),对基线 <code>nanobot/</code> 只做<b>最小侵入</b>(9 处、带 <code>PRD §</code> 注释锚点)。<code>multi_user.enabled=false</code> 时行为与基线<b>完全一致</b>。</p>
+  <div class="grid g2">
+    <div class="card tint-p0">
+      <h3>P0 隔离内核</h3>
+      <ul class="tight">
+        <li><code>identity.py</code> — SecurityContext + IdentityResolver + tenant fail-closed</li>
+        <li><code>memory/repository.py</code> — SQLite <code>memories</code> 表 + DB CHECK + <code>search_visible</code> 单入口 + FTS5 影子索引</li>
+        <li><code>memory/remember_tool.py</code> — <code>memory_remember</code> 唯一显式写入口(owner 运行时注入,不进 schema)</li>
+        <li><code>eval/dataset.py</code> · <code>eval/trace.py</code> — 冻结攻击集 + Trace 采集</li>
+      </ul>
+    </div>
+    <div class="card tint-p1">
+      <h3>P1 检索 + 并发 + 证据</h3>
+      <ul class="tight">
+        <li><code>memory/dream_candidate.py</code> — owner-aware Dream(按 principal 分批,owner 确定性继承)</li>
+        <li><code>concurrency/admission.py</code> — BaselineGate vs FairAdmissionController</li>
+        <li><code>eval/</code> — metrics · retrieval · embedding(GLM)· scale_curve · load · loadtest · reporter</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="layers">
+  <h2><span class="n">§1.4</span> 交付分层 · P0 必交付 / P1 数据点</h2>
+  <table>
+    <tr><th>里程碑</th><th>层级</th><th>交付内容</th><th>状态</th></tr>
+    <tr><td>M0 冻结基线 + 评测骨架</td><td><span class="pill p0">P0</span></td><td>白盒复现 <code>exposure&gt;0</code></td><td><span class="pill done">✓ 3 测试</span></td></tr>
+    <tr><td>M1 SecurityContext + principal 持久化</td><td><span class="pill p0">P0</span></td><td>IdentityResolver + tenant fail-closed</td><td><span class="pill done">✓ 10 测试</span></td></tr>
+    <tr><td>M2 SQLite 表 + Repository 单入口</td><td><span class="pill p0">P0</span></td><td>DB CHECK + search_visible + DM 门</td><td><span class="pill done">✓ 17 测试</span></td></tr>
+    <tr><td>M3 memory_remember 工具</td><td><span class="pill p0">P0</span></td><td>owner 运行时注入 + org 门</td><td><span class="pill done">✓ 6 测试</span></td></tr>
+    <tr><td>M4 检索注入替换全量注入</td><td><span class="pill p0">P0</span></td><td>scoped_memory 可见集合,绝不回退</td><td><span class="pill done">✓ 4 测试</span></td></tr>
+    <tr><td>M5 闭合 Dream 后门</td><td><span class="pill p0">P0</span></td><td>禁写 MEMORY/USER/SOUL 三文件</td><td><span class="pill done">✓ 5 测试</span></td></tr>
+    <tr><td>M6 隔离验收</td><td><span class="pill p0">P0</span></td><td><code>exposure=0</code>(M0 翻转)</td><td><span class="pill done">✓ 3 测试 + 飞书 e2e</span></td></tr>
+    <tr><td>M7 FTS5/BM25 + 向量 + RRF + 规模曲线</td><td><span class="pill p1">P1</span></td><td>四路曲线,拐点 M₀</td><td><span class="pill done">✓ 18 测试</span></td></tr>
+    <tr><td>M8 owner-aware Dream candidate</td><td><span class="pill p1">P1</span></td><td>分批不混人,owner 批次继承</td><td><span class="pill done">✓ 6 测试</span></td></tr>
+    <tr><td>M9 并发有界公平准入 + 压测</td><td><span class="pill p1">P1</span></td><td>FairAdmissionController + U1–U5 A/B</td><td><span class="pill done">✓ 12 测试</span></td></tr>
+    <tr><td>M10 统一 A/B 报告</td><td><span class="pill p1">P1</span></td><td>三线一体化自包含 HTML</td><td><span class="pill done">✓ 5 测试</span></td></tr>
+  </table>
+</section>
+
+<!-- ===================== PART 2: BASELINE COMPARISON ===================== -->
+<section id="cmp-mem">
+  <h2><span class="n">§2.1</span> 基线对比 · 记忆隔离(为什么这么改)</h2>
+  <p class="desc">承重腿。基线缺少长期记忆的 owner 边界(缺 non-interference 保证),多用户共用一个 bot 时个人事实跨用户可见。</p>
+  <div class="two">
+    <div class="before">
+      <h4 class="del">✗ 基线缺陷</h4>
+      <ul class="tight">
+        <li><b>Core 全局注入</b>:MEMORY/SOUL/USER 每轮整份塞进每个用户的 system prompt<br><span class="anchor">context.py:86-88, 166-177</span></li>
+        <li><b>Dream 后门(最隐蔽)</b>:<code>read_unprocessed_history</code> 签名<b>无 owner 过滤</b>,所有用户(含 1:1 私聊)历史进同一个 Dream prompt,蒸馏后写全局 MEMORY.md<br><span class="anchor">memory.py:367-369, editable_files 三文件</span></li>
+        <li><b>受众越权</b>:A 私聊说的话,A 在群里一问就被合法召回并发到群里 → 全群可见</li>
+      </ul>
+    </div>
+    <div class="after">
+      <h4 class="add">✓ NanoScope 改动</h4>
+      <ul class="tight">
+        <li><b>SQLite 唯一动态写入口</b>:<code>memories</code> 表 + DB CHECK,user 缺 owner / org 带 owner 直接写不进</li>
+        <li><b>DM 门谓词</b>:个人记忆仅 <code>audience_type='dm'</code> 召回(<span class="anchor">repository.py:186-193</span>)</li>
+        <li><b>闭 Dream 后门</b>:隔离下 <code>editable_files=[]</code>,Dream 禁写三文件;USER.md 停注(<span class="anchor">memory.py:615-620</span>)</li>
+        <li><b>M8 owner-aware</b>:按 principal 分批独立 prompt,owner 由批次<b>确定性继承</b>(非 LLM 指定)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note"><b>为什么这么改:</b>owner-based 的 WHERE 挡不住「A 私聊事实进群答案」——数据库没越权,但<b>输出受众越权</b>。所以谓词必须加 audience 自变量。而 audience 是渠道确定性可得的(<code>chat_type</code>),不是概率判断,满足安全边界红线。</div>
+</section>
+
+<section id="cmp-rag">
+  <h2><span class="n">§2.2</span> 基线对比 · 检索(为什么引入 RAG)</h2>
+  <p class="desc">基线<b>根本没有检索层</b>(全仓 <code>grep embedding|bm25|fts5|vector</code> = 0 命中),靠「摘要压缩 + 近期窗口 + Core 全量注入」维持记忆。</p>
+  <div class="two">
+    <div class="before">
+      <h4 class="del">✗ 基线随规模失效的三堵墙</h4>
+      <ul class="tight">
+        <li><b>Token 天花板</b>:全量注入放不下,记忆越多注入越大</li>
+        <li><b>语义盲区</b>:近期窗口按<b>时间近邻</b>,不按相关性;老而相关的事实排在窗口外</li>
+        <li><b>细节丢失</b>:Consolidator 是<b>有损摘要</b>(<span class="anchor">memory.py:638</span>),精确数值被抹平</li>
+      </ul>
+    </div>
+    <div class="after">
+      <h4 class="add">✓ 隔离墙内的相关性召回</h4>
+      <ul class="tight">
+        <li><b>BM25</b>:FTS5 trigram 影子索引(对中文 CJK 友好),在可见集合内按 <code>bm25()</code> 排序</li>
+        <li><b>向量 + RRF</b>:GLM embedding-3 补语义盲区,倒数秩融合(免调分数量纲)</li>
+        <li><b>规模曲线</b>:用数据界定「从什么规模该上 RAG」(拐点 M₀),而非拍脑袋</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note warn"><b>诚实边界:</b>小规模下全量注入更简单、更确定,不强上 RAG。RAG 的必要性是<b>规模曲线实测出来的</b>(见 §3.3),不是预设的。</div>
+</section>
+
+<section id="cmp-conc">
+  <h2><span class="n">§2.3</span> 基线对比 · 并发(为什么只改调度、不加机器)</h2>
+  <p class="desc">核心命题:<b>不做部署层水平扩展,只在单进程 asyncio 内做应用层调度优化</b>。目标规模(几十并发)瓶颈不是机器数,而是<b>缺调度策略</b>——这是框架内部算法缺陷,加机器解决不了。</p>
+  <table>
+    <tr><th>#</th><th class="del">基线缺陷(已核实)</th><th class="add">NanoScope 解法</th></tr>
+    <tr>
+      <td>①</td>
+      <td>全局 FIFO 队头阻塞:<code>async with lock, gate:</code>,<code>Semaphore(3)</code> 持有到整个 turn 结束 <span class="anchor">loop.py:974</span></td>
+      <td>least-in-flight 公平出队:释放名额时优先唤醒占用最少的 principal</td>
+    </tr>
+    <tr>
+      <td>②</td>
+      <td>无 per-principal 配额:gate 全局单一计数,刷屏用户可占满全部名额</td>
+      <td>per-principal in-flight 上限(默认 1),防单人霸占</td>
+    </tr>
+    <tr>
+      <td>③</td>
+      <td>无全局有界背压:inbound bus 是无界 <code>asyncio.Queue()</code>,过载即雪崩 <span class="anchor">bus/queue.py:17-18</span></td>
+      <td>全局有界 admission 队列:队满优雅拒绝(<code>AdmissionRejectedError</code>,可回 retry-after)</td>
+    </tr>
+  </table>
+  <div class="note"><b>为什么可信:</b>改前(<code>BaselineGate</code>)/ 改后(<code>FairAdmissionController</code>)在<b>同一台机器、同一 workload、Mock LLM</b> 下 A/B,收益完全归因于调度算法,不被网络波动或加机器污染。</div>
+</section>
+
+<section id="cmp-diff">
+  <h2><span class="n">§2.4</span> 对基线 <code>nanobot/</code> 的最小侵入清单</h2>
+  <p class="desc">共 9 处,每处带 <code>PRD §</code> 注释锚点;<code>multi_user.enabled=false</code> 时全部走原路径,行为与基线一致。</p>
+  <table>
+    <tr><th>文件</th><th>改动</th><th>开关下行为</th></tr>
+    <tr><td class="mono">config/schema.py</td><td>新增 <code>MultiUserConfig</code>(enabled/tenant_id/perPrincipalLimit/admissionMaxQueue)</td><td>默认 enabled=false</td></tr>
+    <tr><td class="mono">bus/events.py</td><td>InboundMessage +<code>principal_id/audience_type/audience_id</code></td><td>默认 None</td></tr>
+    <tr><td class="mono">channels/base.py</td><td>渠道边界确定性填 <code>audience_type/audience_id</code></td><td>仅打标,不改路由</td></tr>
+    <tr><td class="mono">agent/tools/context.py</td><td>RequestContext +<code>tenant_id/principal_id/audience_type</code></td><td>默认 None</td></tr>
+    <tr><td class="mono">agent/memory.py</td><td>append_history 持久化 <code>principal_id</code>;隔离下 <code>editable_files=[]</code></td><td>None 时不写;基线三文件仍可写</td></tr>
+    <tr><td class="mono">agent/context.py</td><td>+<code>scoped_memory</code> 参数替换全量注入;隔离下 <code>_bootstrap_files</code> 去 USER.md</td><td>None 时读全局 MEMORY.md</td></tr>
+    <tr><td class="mono">agent/loop.py</td><td>接线:IdentityResolver / Repository / FairAdmissionController / resolve_security_context / _scoped_memory_for_message</td><td>enabled=false 时全部旁路</td></tr>
+  </table>
+</section>
+
+<!-- ===================== PART 3: DATA / TESTS / EVAL ===================== -->
+<section id="ev-model">
+  <h2><span class="n">§3.1</span> 评估体系 · 安全不变量 + 五层证据</h2>
+  <p class="desc">不写「实现零泄露」(有限 Benchmark 证明不了全局)。改为<b>安全不变量 + 五层证据</b>,从强到经验逐层收口。</p>
+  <div class="grid g3">
+    <div class="card"><h3>① DB CHECK</h3><p style="color:var(--dim);font-size:13px;margin:0">非法状态(user 缺 owner / org 带 owner)<b>写不进</b>——结构性证明。<span class="anchor">repository.py:43</span></p></div>
+    <div class="card"><h3>② Repository 单入口</h3><p style="color:var(--dim);font-size:13px;margin:0">所有检索必经 <code>search_visible</code>,上层无法绕过过滤——架构性证明。</p></div>
+    <div class="card"><h3>③ 属性测试</h3><p style="color:var(--dim);font-size:13px;margin:0">遍历 <code>tenant×principal×audience×scope</code> 全网格,断言可见集合恒等于谓词 oracle。</p></div>
+    <div class="card"><h3>④ 冻结攻击集</h3><p style="color:var(--dim);font-size:13px;margin:0">冻结 forbidden-fact + 攻击 query 上 <code>forbidden_prompt_exposure=0</code>——不看模型说没说,看秘密是否进 prompt。</p></div>
+    <div class="card"><h3>⑤ Trace 审计</h3><p style="color:var(--dim);font-size:13px;margin:0">运行时 trace 中无越权访问记录。</p></div>
+    <div class="card" style="background:var(--okbg);border-color:#1c5a2e"><h3 style="color:#7ee29a">+ 飞书真实 e2e</h3><p style="color:#a9d6b8;font-size:13px;margin:0">私聊落密→群里越权问(命中 0)→私聊自查(召回)。DM 门在真实飞书渠道确定性生效。</p></div>
+  </div>
+  <div class="note"><b>四级安全指标</b>(最关键是第三个):<code>forbidden_storage_hit</code> / <code>forbidden_retrieval_hit</code> / <b><code>forbidden_prompt_exposure</code></b> / <code>forbidden_output_hit</code>。秘密进入他人 prompt 即算失败,不依赖模型是否愿意闭嘴。</div>
+</section>
+
+<section id="ev-iso">
+  <h2><span class="n">§3.2</span> 数据 · 隔离安全 A/B(★ P0 承重腿)</h2>
+  <p class="desc">同一冻结攻击集,两条路径各构造攻击者 prompt,数命中他人私聊 canary 的次数。数据源:<code>reporter.py::collect_isolation</code>。</p>
+  <div class="grid g2">
+    <div class="card">
+      <h4>forbidden_prompt_exposure(越低越好)</h4>
+      <div class="bars">
+        <div class="barrow"><span class="k">基线</span><div class="track"><div class="fill fbad" style="width:100%">9 次泄露</div></div></div>
+        <div class="barrow"><span class="k">NanoScope</span><div class="track"><div class="fill fg" style="width:4%">0</div></div></div>
+      </div>
+      <p style="color:var(--dim);font-size:12.5px;margin:6px 0 0">3 条攻击 × 每条命中全部 3 条他人私聊事实 = 9;隔离内核就位后翻转为 <b style="color:#7ee29a">0</b>。</p>
+    </div>
+    <div class="card">
+      <h4>不变量翻转轨迹</h4>
+      <div class="flow" style="margin-top:14px">
+        <span class="step"><b style="color:var(--bad)">M0</b><br>exposure &gt; 0<br><span class="anchor">证明洞真实</span></span>
+        <span class="arr">→</span>
+        <span class="step" style="border-color:var(--ok)"><b style="color:var(--ok)">M6</b><br>exposure = 0<br><span class="anchor">P0 收口</span></span>
+        <span class="arr">→</span>
+        <span class="step" style="border-color:var(--ok)"><b style="color:var(--ok)">M10</b><br>9 → 0<br><span class="anchor">一体化收口</span></span>
+      </div>
+      <p style="color:var(--dim);font-size:12.5px;margin:10px 0 0">这是本项目最硬的证据:先在 M0 白盒<b>复现</b>泄露(>0),再让隔离内核把它<b>翻转</b>到 0。</p>
+    </div>
+  </div>
+</section>
+
+<section id="ev-rag">
+  <h2><span class="n">§3.3</span> 数据 · 召回质量规模曲线(P1-A)</h2>
+  <p class="desc">冻结检索集(<code>frozen_retrieval_v1.json</code>),SLA=Recall@5≥0.8。X 轴=记忆规模 N。数据源:M7 <code>run_curve</code>(M10 复用)。</p>
+  <div class="card">
+    <div class="legend">
+      <span><i class="fb"></i>grep(基线近似:新近序)</span>
+      <span><i class="fblue"></i>BM25(改后:相关性序)</span>
+      <span style="color:var(--warn)">┈ SLA 0.8</span>
+    </div>
+    <table>
+      <tr><th>规模 N</th><th class="mono">grep Recall@5</th><th class="mono">BM25 Recall@5</th><th>判定</th></tr>
+      <tr><td>50</td><td class="mono del">0.625</td><td class="mono add">0.875</td><td><span class="pill" style="background:var(--badbg);color:#f88">grep 已跌破 SLA(拐点 M₀=50)</span></td></tr>
+      <tr><td>200</td><td class="mono del">0.500</td><td class="mono add">0.875</td><td>grep 继续下滑</td></tr>
+      <tr><td>1000</td><td class="mono del">0.250</td><td class="mono add">0.875</td><td>grep 大幅劣化</td></tr>
+      <tr><td>5000</td><td class="mono del">0.000</td><td class="mono add">0.875</td><td>grep 完全失效 / BM25 全程守住</td></tr>
+    </table>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h4>M7 四路曲线(程序合成集 + 真实 GLM embedding-3,1024 维)</h4>
+    <p style="color:var(--dim);font-size:13px;margin:0 0 6px">完整可证伪升级链:grep 失效 → 上 BM25 → BM25 有词序盲区 → 上向量补盲区 → RRF 融合取两者之长。</p>
+    <table>
+      <tr><th class="mono">grep</th><th class="mono">bm25</th><th class="mono">vector</th><th class="mono">rrf</th><th>说明</th></tr>
+      <tr><td class="mono del">0.750→0.250</td><td class="mono">0.875</td><td class="mono add">1.000</td><td class="mono add">1.000</td><td>如 query「橘猫豆豆」↔ 记忆「豆豆的橘猫」无共同 3-gram,BM25 漏、向量近邻命中</td></tr>
+    </table>
+    <p style="color:var(--faint);font-size:12px;margin:8px 0 0">注:M7≈20 是程序合成曲线集的拐点,M10=50 是冻结 JSON 检索集(规模起点 50)。两套不同语料,结论方向一致:grep 随 N 失效、BM25 守住。</p>
+  </div>
+</section>
+
+<section id="ev-conc">
+  <h2><span class="n">§3.4</span> 数据 · 并发公平 A/B(P1-B)</h2>
+  <p class="desc">Mock LLM(确定性 <code>asyncio.sleep</code> 隔离网络),同 workload 在 BaselineGate / FairAdmissionController 下各跑一遍。数据源:<code>loadtest.run_case_ab</code> + <code>load.analyze</code>。</p>
+
+  <div class="grid g3">
+    <div class="kpi good"><div class="big">↓42%</div><div class="lbl">U3★ 慢会话隔离<br>快会话 queue_wait p95<br>0.427s → 0.247s</div></div>
+    <div class="kpi good"><div class="big">↓56%</div><div class="lbl">U4 混合负载公平<br>普通用户 p95<br>0.438s → 0.192s</div></div>
+    <div class="kpi good"><div class="big">↓83%</div><div class="lbl">U5 洪峰过载<br>入场 p99<br>3.32s → 0.56s</div></div>
+  </div>
+
+  <h3>U5 洪峰过载(缺陷③:有界背压)</h3>
+  <div class="card">
+    <div class="legend"><span><i class="fb"></i>baseline(无界)</span><span><i class="fg"></i>nanoscope(有界)</span></div>
+    <h4>queue_wait p99(越低越好)</h4>
+    <div class="bars">
+      <div class="barrow"><span class="k">baseline</span><div class="track"><div class="fill fbad" style="width:100%">3.32s</div></div></div>
+      <div class="barrow"><span class="k">nanoscope</span><div class="track"><div class="fill fg" style="width:17%">0.56s</div></div></div>
+    </div>
+    <table style="margin-top:12px">
+      <tr><th>指标</th><th>baseline</th><th>nanoscope</th><th>说明</th></tr>
+      <tr><td>总请求 / 完成</td><td class="mono">200 / 200</td><td class="mono">200 / 35</td><td>瞬时灌 200(20 principal),gate=3</td></tr>
+      <tr><td>拒绝数(有界)</td><td class="mono">0</td><td class="mono add">165</td><td>队满优雅拒绝,可回 retry-after</td></tr>
+      <tr><td>queue_wait p95</td><td class="mono del">3.21s</td><td class="mono add">0.53s</td><td>↓84%</td></tr>
+      <tr><td>throughput</td><td class="mono">58.5/s</td><td class="mono">57.1/s</td><td>基本持平</td></tr>
+    </table>
+    <p style="color:var(--dim);font-size:12.5px;margin:8px 0 0">用「可控拒绝」换「稳定延迟 + 有界资源」。被拒不是失败,是过载下保 SLA 的正确行为。</p>
+  </div>
+
+  <h3>U1 容量拐点 + 诚实性说明</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4>U1 跨 session 爬坡 → 实测拐点 M</h4>
+      <table>
+        <tr><th>N</th><th class="mono">baseline p99</th><th class="mono">nanoscope p99</th></tr>
+        <tr><td>12</td><td class="mono">0.144</td><td class="mono">0.143</td></tr>
+        <tr><td>24</td><td class="mono warn">0.335</td><td class="mono warn">0.334</td></tr>
+        <tr><td>48</td><td class="mono">0.720</td><td class="mono">0.719</td></tr>
+      </table>
+      <p style="color:var(--dim);font-size:12.5px;margin:6px 0 0">均质负载两线重合(改后无回退)。以 SLA p99≤0.3s 判定,<b>拐点 M≈20~24</b>——可证伪的容量结论,非「单机无压力」空话。</p>
+    </div>
+    <div class="card" style="border-color:var(--warn)">
+      <h4 style="color:var(--warn)">诚实性:聚合会骗人,per-principal 才是真信号</h4>
+      <p style="color:var(--dim);font-size:13px;margin:0 0 8px">U2/U3/U4 的<b>聚合</b> p95/p99 改后反而更高——因为把<b>被限流的霸占者自身等待</b>也算进了聚合分位数。</p>
+      <p style="color:var(--dim);font-size:13px;margin:0">设计意图就是牺牲霸占者、保护多数。公平真信号在 <b>per-principal 拆分</b>(快会话 ↓42% / 普通用户 ↓56%)。报告<b>保留聚合原始数不美化</b>。</p>
+    </div>
+  </div>
+  <div class="note warn"><b>Jain 双变量:</b><code>Jain(completed_turns)</code> 偏向短任务用户;<code>Jain(service_time)</code> 反映 gate 时间分配。U4 里 <code>Jain(service_time)</code> 近似不变(0.430 vs 0.429)——因为调度改的是<b>时序</b>不是<b>总量</b>。两个一起看才诚实。</div>
+</section>
+
+<section id="ev-tests">
+  <h2><span class="n">§3.5</span> 测试矩阵 · <code>tests/scope/</code> 75 项全绿</h2>
+  <p class="desc">每个里程碑一个测试文件,报告数据与单测<b>同源</b>(<code>reporter.py</code> 复用 <code>run_curve</code>/<code>run_case_ab</code>/<code>search_visible</code>),不会漂移。实测 <code>75 passed in 45.22s</code>。</p>
+  <table>
+    <tr><th>测试文件</th><th>覆盖断言</th><th>数</th></tr>
+    <tr><td class="mono">test_m0_baseline_leak.py</td><td>白盒复现 exposure&gt;0 + Dream 后门根因核实</td><td>3</td></tr>
+    <tr><td class="mono">test_m1_identity.py</td><td>受众解析 / tenant 防碰撞 / fail-closed / history 持久化</td><td>10</td></tr>
+    <tr><td class="mono">test_m2_repository.py</td><td>全网格属性测试 / DB CHECK / DM 门闭洞 / 跨 tenant 硬隔离</td><td>17</td></tr>
+    <tr><td class="mono">test_m3_remember.py</td><td>schema 不含 owner / 模型无法伪造 owner / org 门</td><td>6</td></tr>
+    <tr><td class="mono">test_m4_injection.py</td><td>群聊排除他人记忆 / 私聊召回 / 不回退全局</td><td>4</td></tr>
+    <tr><td class="mono">test_m5_dream_backdoor.py</td><td>隔离下三文件写入被拒 / USER.md 停注 / SOUL 仍注入</td><td>5</td></tr>
+    <tr><td class="mono">test_m6_isolation_acceptance.py</td><td>端到端 exposure=0 + 两条反向对照(不误伤 / 群里被 DM 门挡)</td><td>3</td></tr>
+    <tr><td class="mono">test_m7_retrieval.py</td><td>metrics / grep vs bm25 / RRF / DM 门红线 / 规模曲线拐点 / 向量补盲区</td><td>18</td></tr>
+    <tr><td class="mono">test_m8_dream_candidate.py</td><td>分批不混人 / owner 批次继承(恶意 distiller 塞他人 owner 仍继承本人) / 候选受 DM 门</td><td>6</td></tr>
+    <tr><td class="mono">test_m9_admission.py</td><td>控制器不变量 / Jain 数学 / 分位数插值 / U1–U5 A/B 可证伪</td><td>12</td></tr>
+    <tr><td class="mono">test_m10_reporter.py</td><td>隔离翻转为 0 / 三线携带 / HTML 自包含 / 写文件</td><td>5</td></tr>
+    <tr style="background:var(--okbg)"><td class="mono"><b>合计</b></td><td><b>M0–M10 全覆盖</b></td><td><b style="color:#7ee29a">75</b></td></tr>
+  </table>
+</section>
+
+<div class="foot">
+  <p><b>数据来源与可信度</b>:本页所有 <code>file:line</code> 均在分支 <code>ljj/scope_v0</code> 实测核实;A/B 数据取自 <code>M9_LOADTEST_REPORT.md</code> / <code>M10_UNIFIED_REPORT.md</code>(与 <code>tests/scope/</code> 同源模块产出);测试结果为本次实跑 <code>pytest tests/scope/ -q</code> → <code>75 passed in 45.22s</code>。</p>
+  <p><b>复现</b>:<code>source .venv/bin/activate && python -m pytest tests/scope/ -q</code>;一键生成一体化报告见 <code>M10_UNIFIED_REPORT.md §7</code>。</p>
+  <p style="color:var(--faint)">NanoScope · Principal/Audience-aware Multi-user Agent Runtime · 单组织可信团队 IM Bot 场景 · 基线 nanobot @ d45d4ebf</p>
+</div>
+
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NanoScope 统一 A/B 报告</title><style>
+body{font-family:-apple-system,'PingFang SC',Segoe UI,sans-serif;max-width:960px;
+margin:32px auto;padding:0 20px;color:#1c1c1e;line-height:1.6}
+h1{font-size:26px;border-bottom:3px solid #0a84ff;padding-bottom:8px}
+h2{font-size:20px;margin-top:36px;border-left:4px solid #0a84ff;padding-left:10px}
+.lead{color:#555}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid #d0d0d5;padding:7px 10px;text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{background:#f2f2f7}
+.good{color:#1a7f37;font-weight:600}
+.bad{color:#c9302c;font-weight:600}
+.verdict{background:#f2f8ff;border:1px solid #b9dcff;border-radius:8px;padding:10px 14px;margin:10px 0}
+.pill{display:inline-block;border-radius:12px;padding:1px 10px;font-size:12px;font-weight:600}
+.pill.p0{background:#ffe8e6;color:#c9302c}
+.pill.p1{background:#e6f2ff;color:#0a58ca}
+code{background:#f2f2f7;padding:1px 5px;border-radius:4px;font-size:13px}
+footer{margin-top:40px;color:#888;font-size:12px;border-top:1px solid #eee;padding-top:10px}
+</style></head>
+<body>
+<h1>NanoScope 统一 A/B 报告</h1>
+<p class="lead">一份自包含的改前 vs 改后证据平面：把 P0 记忆隔离内核、P1-A 混合检索、
+P1-B 应用层公平调度三条线的可证伪收益汇于一处（PRD §11-M10）。</p>
+
+<h2><span class="pill p0">P0</span> 一、隔离安全 A/B（forbidden_prompt_exposure）</h2>
+<p class="lead">冻结攻击集（3 条）上，改前（全局 MEMORY.md 无条件注入）
+vs 改后（SecurityContext + Repository.search_visible + DM 门）各构造攻击者 prompt 数泄露命中。</p>
+<table>
+<tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th></tr>
+<tr><td>攻击条数</td><td>3</td><td>3</td></tr>
+<tr><td>forbidden_prompt_exposure</td>
+<td class="bad">9</td><td class="good">0</td></tr>
+</table>
+<div class="verdict">基线在 3 条攻击上累计泄露 <b>9</b> 次他人私聊 canary；隔离内核就位后翻转为 <b>0</b> 次——安全不变量成立。</div>
+
+<h2><span class="pill p1">P1-A</span> 二、召回质量 A/B（规模曲线 Recall@5）</h2>
+<p class="lead">同一冻结语料在多个规模 N 上，改前近似（grep 新近序）vs 改后（BM25 相关性序
+）的召回对比。红=跌破 SLA。</p>
+<table><tr><th>N</th><th>grep R@k</th><th>bm25 R@k</th></tr><tr><td>50</td><td class="bad">0.625</td><td>0.875</td></tr><tr><td>200</td><td class="bad">0.500</td><td>0.875</td></tr><tr><td>1000</td><td class="bad">0.250</td><td>0.875</td></tr><tr><td>5000</td><td class="bad">0.000</td><td>0.875</td></tr></table>
+<div class="verdict">grep 的 Recall@5 在 <b>N≈50</b> 首次跌破 SLA(≥0.8)，即 RAG 介入拐点 M₀；BM25 守住召回。</div>
+<h2><span class="pill p1">P1-B</span> 三、并发公平 A/B（U1-U5 压测）</h2><p class="lead">Mock LLM 隔离网络抖动，同 workload 在 BaselineGate（裸 FIFO Semaphore）vs FairAdmissionController（有界 admission + per-principal 配额 + least-in-flight 公平出队）下各跑一遍。聚合指标见下；per-principal 拆分见 M9_LOADTEST_REPORT.md。</p>
+<h3 style="margin-top:22px">U1_ramp</h3>
+<table>
+<tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
+<tr><td>完成 / 拒绝</td><td>12 / 0</td>
+<td>12 / 0</td><td>—</td></tr>
+<tr><td>queue_wait p95(s)</td><td>0.1431</td>
+<td>0.1427</td><td>↓0%</td></tr>
+<tr><td>queue_wait p99(s)</td><td>0.1436</td>
+<td>0.1432</td><td>↓0%</td></tr>
+<tr><td>Jain(completed_turns)</td><td>1.0000</td>
+<td>1.0000</td><td>—</td></tr>
+<tr><td>throughput(turn/s)</td><td>58.84</td>
+<td>58.89</td><td>—</td></tr>
+</table>
+
+<h3 style="margin-top:22px">U2_same_session_flood</h3>
+<table>
+<tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
+<tr><td>完成 / 拒绝</td><td>30 / 0</td>
+<td>30 / 0</td><td>—</td></tr>
+<tr><td>queue_wait p95(s)</td><td>0.1605</td>
+<td>0.5514</td><td>↑244%</td></tr>
+<tr><td>queue_wait p99(s)</td><td>0.1616</td>
+<td>0.5740</td><td>↑255%</td></tr>
+<tr><td>Jain(completed_turns)</td><td>1.0000</td>
+<td>1.0000</td><td>—</td></tr>
+<tr><td>throughput(turn/s)</td><td>142.70</td>
+<td>47.62</td><td>—</td></tr>
+</table>
+
+<h3 style="margin-top:22px">U3_slow_isolation</h3>
+<table>
+<tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
+<tr><td>完成 / 拒绝</td><td>14 / 0</td>
+<td>14 / 0</td><td>—</td></tr>
+<tr><td>queue_wait p95(s)</td><td>0.4280</td>
+<td>0.8699</td><td>↑103%</td></tr>
+<tr><td>queue_wait p99(s)</td><td>0.4285</td>
+<td>0.9738</td><td>↑127%</td></tr>
+<tr><td>Jain(completed_turns)</td><td>0.4949</td>
+<td>0.4949</td><td>—</td></tr>
+<tr><td>throughput(turn/s)</td><td>30.09</td>
+<td>11.61</td><td>—</td></tr>
+</table>
+
+<h3 style="margin-top:22px">U4_mixed_fairness</h3>
+<table>
+<tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
+<tr><td>完成 / 拒绝</td><td>36 / 0</td>
+<td>36 / 0</td><td>—</td></tr>
+<tr><td>queue_wait p95(s)</td><td>0.4366</td>
+<td>0.9016</td><td>↑106%</td></tr>
+<tr><td>queue_wait p99(s)</td><td>0.4380</td>
+<td>0.9847</td><td>↑125%</td></tr>
+<tr><td>Jain(completed_turns)</td><td>0.7500</td>
+<td>0.7500</td><td>—</td></tr>
+<tr><td>throughput(turn/s)</td><td>73.07</td>
+<td>32.77</td><td>—</td></tr>
+</table>
+
+<h3 style="margin-top:22px">U5_overload</h3>
+<table>
+<tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
+<tr><td>完成 / 拒绝</td><td>200 / 0</td>
+<td>35 / 165</td><td>—</td></tr>
+<tr><td>queue_wait p95(s)</td><td>3.2120</td>
+<td>0.5259</td><td>↓84%</td></tr>
+<tr><td>queue_wait p99(s)</td><td>3.3148</td>
+<td>0.5617</td><td>↓83%</td></tr>
+<tr><td>Jain(completed_turns)</td><td>1.0000</td>
+<td>0.9423</td><td>—</td></tr>
+<tr><td>throughput(turn/s)</td><td>58.52</td>
+<td>57.07</td><td>—</td></tr>
+</table>
+
+<footer>由 <code>nanoscope.eval.reporter</code> 生成 · 数据与 tests/scope 各里程碑单测同源 · 分支 ljj/scope_v0</footer>
+</body></html>

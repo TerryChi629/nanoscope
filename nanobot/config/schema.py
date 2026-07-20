@@ -95,6 +95,18 @@ class MultiUserConfig(Base):
         validation_alias=AliasChoices("tenantId", "tenant_id"),
         serialization_alias="tenantId",
     )  # 组织标识；enabled 时缺失必须显式配置（PRD §5）
+    # NanoScope (PRD §15, M9): 应用层有界公平准入旋钮。enabled 时生效，
+    # 用 FairAdmissionController 替换基线裸 Semaphore（per-principal 配额 + 有界背压）。
+    per_principal_limit: int = Field(
+        default=1,
+        validation_alias=AliasChoices("perPrincipalLimit", "per_principal_limit"),
+        serialization_alias="perPrincipalLimit",
+    )  # 单 principal 同时在飞上限，防单人霸占（缺陷②）
+    admission_max_queue: int = Field(
+        default=128,
+        validation_alias=AliasChoices("admissionMaxQueue", "admission_max_queue"),
+        serialization_alias="admissionMaxQueue",
+    )  # 全局等待队列上限，超过即优雅拒绝（缺陷③）；<=0 表示无界
 
 
 class InlineFallbackConfig(Base):

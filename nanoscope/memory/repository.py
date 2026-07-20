@@ -45,6 +45,40 @@ CREATE TABLE IF NOT EXISTS memories (
 CREATE INDEX IF NOT EXISTS idx_memories_tenant ON memories(tenant_id, scope, owner_id);
 """
 
+# M7 (PRD §14 / P1-A.1)：FTS5 trigram 影子索引，仅承担"可见集合内的相关性排序"。
+# id UNINDEXED 只做 join 键、不进倒排；content 用 trigram 分词对中文（CJK）友好。
+# 红线：BM25 只排序，绝不决定可见性——可见性仍由 search_visible 的确定性 WHERE 强制。
+_FTS_SCHEMA = """
+CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+  content,
+  id UNINDEXED,
+  tokenize='trigram'
+);
+"""
+
+
+def _build_trigram_match(query: str) -> str | None:
+    """把自由文本 query 拆成 3-gram 的 OR 匹配式（trigram 子串召回）。
+
+    trigram 索引以 3 字符片段建倒排，故 query 需拆成 ≥3 字的片段才能命中。
+    每个 gram 用双引号包裹并转义内部双引号，避免 FTS5 语法注入/报错；
+    query 去重保序。<3 字符（无 trigram）返回 None，由上层回退时间序。
+    """
+    text = query.strip()
+    if len(text) < 3:
+        return None
+    grams: list[str] = []
+    seen: set[str] = set()
+    for i in range(len(text) - 2):
+        gram = text[i : i + 3]
+        if gram.isspace() or gram in seen:
+            continue
+        seen.add(gram)
+        grams.append('"' + gram.replace('"', '""') + '"')
+    if not grams:
+        return None
+    return " OR ".join(grams)
+
 
 @dataclass(frozen=True)
 class MemoryRecord:
@@ -74,6 +108,13 @@ class Repository:
         self._conn = sqlite3.connect(str(self.db_path))
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        # M7：FTS5 影子索引。若本机 SQLite 未编译 FTS5，降级为无排序（时间序），
+        # 隔离正确性不受影响（BM25 只排序、不决定可见性）。
+        try:
+            self._conn.executescript(_FTS_SCHEMA)
+            self._fts_enabled = True
+        except sqlite3.OperationalError:
+            self._fts_enabled = False
         self._conn.commit()
 
     def close(self) -> None:
@@ -128,8 +169,28 @@ class Repository:
                 rec.source_ref, now, now,
             ),
         )
+        # M7：同步影子倒排。FTS 只用于排序，与主表授权无关。
+        if self._fts_enabled:
+            self._conn.execute(
+                "INSERT INTO memories_fts (id, content) VALUES (?, ?)",
+                (rec.id, rec.content),
+            )
         self._conn.commit()
         return rec
+
+    def _visibility_where(self, ctx: SecurityContext) -> tuple[str, tuple]:
+        """构造可见性 WHERE（PRD §6 授权谓词）。DM 门在此强制。
+
+        这是唯一决定"能不能看"的地方——检索排序绝不参与。
+        """
+        if ctx.audience_type == AUDIENCE_DM:
+            where = (
+                "tenant_id = ? AND status = 'active' AND ("
+                "scope = 'org' OR (scope = 'user' AND owner_id = ?)"
+                ")"
+            )
+            return where, (ctx.tenant_id, ctx.principal_id)
+        return "tenant_id = ? AND status = 'active' AND scope = 'org'", (ctx.tenant_id,)
 
     def search_visible(
         self,
@@ -143,25 +204,31 @@ class Repository:
           AND ( scope='org'
                 OR (scope='user' AND owner_id=ctx.principal_id AND ctx.is_dm) )
 
-        MVP：全量返回本人可见项，相关性排序（BM25）留 P1。`query` 目前仅占位。
+        M7 (PRD §14)：给定 query 时在可见集合内做 BM25 相关性排序。红线：
+        可见性由主表 WHERE 确定性强制，FTS 仅 JOIN 进来做排序——即便倒排里混入
+        他人条目，也会被主表授权 WHERE 过滤掉，RAG 永不决定"能不能看"。
+        无 query / FTS 不可用 / query 无 trigram 时回退时间序（MVP-0 行为）。
         """
-        # DM 门：非私聊时个人记忆整条被挡在召回之前。
-        if ctx.audience_type == AUDIENCE_DM:
-            where = (
-                "tenant_id = ? AND status = 'active' AND ("
-                "scope = 'org' OR (scope = 'user' AND owner_id = ?)"
-                ")"
-            )
-            params: tuple = (ctx.tenant_id, ctx.principal_id)
+        where, params = self._visibility_where(ctx)
+        match = _build_trigram_match(query) if (query and self._fts_enabled) else None
+
+        if match is not None:
+            # BM25 排序：主表(授权 WHERE) JOIN 影子倒排(MATCH)，按 bm25 升序（越小越相关）。
+            rows = self._conn.execute(
+                "SELECT m.id, m.tenant_id, m.scope, m.owner_id, m.audience_id, "
+                "m.content, m.source_type, m.source_ref, m.created_at "
+                "FROM memories m JOIN memories_fts f ON m.id = f.id "
+                f"WHERE ({where}) AND f.memories_fts MATCH ? "
+                "ORDER BY bm25(f.memories_fts) LIMIT ?",
+                (*params, match, top_k),
+            ).fetchall()
         else:
-            where = "tenant_id = ? AND status = 'active' AND scope = 'org'"
-            params = (ctx.tenant_id,)
-        rows = self._conn.execute(
-            "SELECT id, tenant_id, scope, owner_id, audience_id, content, "
-            "source_type, source_ref, created_at "
-            f"FROM memories WHERE {where} ORDER BY created_at DESC LIMIT ?",
-            (*params, top_k),
-        ).fetchall()
+            rows = self._conn.execute(
+                "SELECT id, tenant_id, scope, owner_id, audience_id, content, "
+                "source_type, source_ref, created_at "
+                f"FROM memories WHERE {where} ORDER BY created_at DESC LIMIT ?",
+                (*params, top_k),
+            ).fetchall()
         return [
             MemoryRecord(
                 id=r["id"],

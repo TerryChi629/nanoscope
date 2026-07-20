@@ -33,7 +33,10 @@
 - [x] M4 检索注入替换全量注入
 - [x] M5 闭合 Dream 后门
 - [x] M6 隔离验收（forbidden_prompt_exposure=0）
-- [ ] M7~M10（P1）：FTS5/BM25、owner-aware Dream、并发准入、A/B 报告
+- [x] M7 FTS5/BM25 + 向量(GLM) + RRF + 规模曲线（拐点 M₀≈20，四路曲线；GLM 凭证走环境变量 GLM_API_KEY）
+- [x] M8 owner-aware Dream candidate（按 principal 分批独立 prompt 不混人；owner 批次确定性继承非 LLM 指定；候选仍受 DM 门）
+- [x] M9 并发有界公平准入 + 压测（FairAdmissionController：有界 admission + per-principal 配额 + least-in-flight 公平出队；U1-U5 A/B 实测三缺陷可证伪；压测报告 M9_LOADTEST_REPORT.md；累计 70 测试绿）
+- [x] M10 统一 A/B 报告（Reporter 聚合三线改前 vs 改后一体化自包含 HTML；exposure 9→0 / grep→0 bm25 守 0.875 / U5 p99 3.32→0.56s；报告 M10_UNIFIED_REPORT.md；累计 75 测试绿 —— M0~M10 全部完成）
 
 ## 新会话开工前
 1. `git rev-parse --abbrev-ref HEAD` 确认在 `ljj/scope_v0`。
