@@ -1,0 +1,66 @@
+reports/ACCEPTANCE_M11_M18.md
+  s_6f12ba3155198d::t_e2c570e8b29bdb 1-199 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5eeada84b8df319cb79f79","tool_type":"agent","tool_id":"Write","line_ranges":[{"Range":[1,199]}]}]}
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "43f923cc4f14662d13cf783459675771eb3b5b73",
+  "prompts": {},
+  "sessions": {
+    "s_6f12ba3155198d": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a5e3ab984b8df319cb79a87",
+        "model": "openrouter-3o__dev"
+      },
+      "human_author": "TerryChi629 <1125605344@qq.com>"
+    }
+  },
+  "attestation_metadata": {
+    "reports/ACCEPTANCE_M11_M18.md": [
+      {
+        "hash": "s_6f12ba3155198d::t_e2c570e8b29bdb",
+        "line_ranges": [
+          {
+            "Range": [
+              1,
+              199
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5eeada84b8df319cb79f79",
+            "tool_type": "agent",
+            "tool_id": "Write",
+            "line_ranges": [
+              {
+                "Range": [
+                  1,
+                  199
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "remote_transcripts": {
+    "s_6f12ba3155198d": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_e2c570e8b29bdb": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    }
+  }
+}
