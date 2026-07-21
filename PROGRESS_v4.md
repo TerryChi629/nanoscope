@@ -412,9 +412,9 @@ Little's Law rel_err≈0 排队论闭环；多轮 CI 使结论带区间。
 | F4 兜底降级 | `test_f4_partition_explosion_falls_back_to_prefilter` | ✅ 分区膨胀退化 pre-filter，越权仍 0、结果一致 |
 | F5 剪枝趋势 | `test_f5_partitioned_prunes_candidate_set` | ✅ 分区打分候选集 < 全局候选集 |
 
-- `tests/scope` 累计：134 → **158 passed（+3 GLM e2e skipped）**（+19 个 M18 基础测试
-  `test_m18_doc_rag.py` + 5 个真 HNSW/参数扫描测试 `test_m18_ann_sweep.py`）；
-  `ruff check nanoscope/rag/` 全绿。
+- `tests/scope` 累计：134 → **159 passed（+3 GLM e2e skipped）**（+19 个 M18 基础测试
+  `test_m18_doc_rag.py` + 5 个真 HNSW/参数扫描测试 `test_m18_ann_sweep.py` + 统一报告
+  文档 RAG 段 1 项 `test_m10_reporter.py`）；`ruff check nanoscope/` 全绿。
 - 单用户零回归：M18 是全新独立子包，未触碰任何既有运行时/隔离/检索代码路径；
   `multi_user.enabled=false` 路径逐字节未变。
 
@@ -463,6 +463,15 @@ repeats=5，真 hnswlib-0.8.0，同机相对量）：
 
 **完成信号**：D1~D8 + F1~F5 + A1~A3 全绿；真 hnswlib 接入后隔离/一致性/剪枝闭环成立；
 真实 GLM 向量端到端 `forbidden_doc_exposure==0` 且可证伪对照翻转；密钥零入库、合成语料可复现。
+
+### M18.8 统一报告 v2 追加"文档 RAG 段"（第七条证据线）✅
+
+`nanoscope/eval/reporter.py` 从六线扩为**七线**：新增 `DocRagReport` 数据类、`collect_doc_rag`
+采集器（离线用 `sweep.HashingEmbedder` 高维假向量，无需 GLM）、`_render_doc_rag` 渲染函数，
+并接进 `build_report` / `render_html`。报告段呈现"经典全员可见 RAG（关授权全库近邻）泄露 >0
+vs Pre/Post/Partitioned 三策略越权命中恒 0"的 A/B 翻转。验收测试 `test_m10_reporter.py`
+新增 `test_build_report_carries_doc_rag_line`（1 项），`render_html` 自包含断言补"权限感知
+文档 RAG A/B"段。一键复现：`python -m nanoscope.eval.report -o reports/NANOSCOPE_UNIFIED_REPORT.html`。
 
 ---
 

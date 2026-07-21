@@ -74,6 +74,20 @@ async def test_build_report_carries_v2_evidence_lines(tmp_path: Path):
     assert any(p.grep.mean < 0.8 for p in report.retrieval_v2)
 
 
+async def test_build_report_carries_doc_rag_line(tmp_path: Path):
+    """PRD_v4 §M18：统一报告 v2 追加权限感知文档 RAG 段——三策略越权命中恒 0，
+    而关授权的经典全员可见 RAG 泄露 >0（可证伪基线）。"""
+    report = await build_report(tmp_path / "ws", tmp_path / "mem.db")
+    dr = report.doc_rag
+    # 可证伪基线：关授权全库近邻泄露越权 chunk。
+    assert dr.baseline_exposure > 0
+    assert dr.n_forbidden > 0
+    # 三策略隔离态：授权 WHERE 在召回前生效，越权命中均为 0。
+    assert dr.prefilter_exposure == 0
+    assert dr.postfilter_exposure == 0
+    assert dr.partitioned_exposure == 0
+
+
 async def test_render_html_is_self_contained(tmp_path: Path):
     report = await build_report(tmp_path / "ws", tmp_path / "mem.db")
     doc = render_html(report)
@@ -90,6 +104,8 @@ async def test_render_html_is_self_contained(tmp_path: Path):
     assert "记忆注入抵抗率 A/B" in doc
     assert "端到端背压峰值 A/B" in doc
     assert "规模曲线 v2" in doc
+    # NanoScope (PRD_v4 §M18)：权限感知文档 RAG 段渲染出来。
+    assert "权限感知文档 RAG A/B" in doc
     # 每个压测用例标题都渲染出来。
     for ab in report.concurrency:
         assert ab.case in doc

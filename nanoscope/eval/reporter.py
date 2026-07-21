@@ -69,13 +69,36 @@ class IsolationReport:
 
 
 @dataclass(frozen=True)
+class DocRagReport:
+    """权限感知文档 RAG A/B（M18）：把 M6 的 `forbidden_prompt_exposure==0` 从"短记忆条目"
+    扩展到"长文档 chunk"。
+
+    - baseline_exposure：绕过授权 WHERE、直接对全库做向量近邻（业界默认全员可见的经典 RAG），
+      A 部门成员的跨部门 query 语义命中 B 部门机密 chunk → 越权泄露 >0（可证伪基线）。
+    - 三策略隔离态：Pre-filter（正确性天花板）/ Post-filter（反面对照，越权进候选被打分）/
+      Partitioned（选定解，越权子图从不遍历）——授权 WHERE 在召回前生效 → 越权命中均为 0。
+    - ann_backend：真 hnswlib 是否可用（诚实标注加速层底座）。
+    """
+
+    query: str
+    n_visible: int          # alice 可见 chunk 数（proj_a + org）
+    n_forbidden: int        # 越权（proj_b）chunk 数
+    baseline_exposure: int  # 关授权全库近邻的越权命中数（>0 可证伪）
+    prefilter_exposure: int
+    postfilter_exposure: int
+    partitioned_exposure: int
+    ann_backend: str        # "真 HNSW" / "退化暴力（未装 hnswlib）"
+
+
+@dataclass(frozen=True)
 class UnifiedReport:
-    """五条证据线的一体化 A/B 结果（M10 三线 + M17 统一报告 v2 扩展两线）。
+    """六条证据线的一体化 A/B 结果（M10 三线 + M17 统一报告 v2 扩展两线 + M18 文档 RAG）。
 
     NanoScope v2（PRD_v4 §M17.3）在 M10 三线（隔离/召回/并发）基础上新增：
     - injection：记忆注入抵抗率（M12）改前 vs 改后。
     - backpressure：端到端背压峰值（M16）改前(线性) vs 改后(有界)。
     - retrieval_v2：带 95% CI 的规模曲线（M15，Zipf 自然增长）。
+    - doc_rag：权限感知文档 RAG（M18）三策略越权命中 vs 关授权全库近邻。
     - 隔离段已含 Recent History 通道（M11）。
     """
 
@@ -85,6 +108,7 @@ class UnifiedReport:
     injection: InjectionReport
     backpressure: RoundsAbResult
     retrieval_v2: list[ScalePointV2]
+    doc_rag: DocRagReport
 
 
 def _exposures(prompt: str) -> int:
@@ -229,6 +253,68 @@ async def collect_concurrency(
     return results
 
 
+def collect_doc_rag(repo_path: Path) -> DocRagReport:
+    """权限感知文档 RAG A/B（M18）：合成跨部门语料，三策略越权命中 vs 关授权全库近邻。
+
+    离线可跑（用 `sweep.HashingEmbedder` 确定性高维假向量，无需 GLM/网络）：
+    - 播种 proj_a 机密（gold，alice 可见）+ proj_b 机密（越权，与 gold 同关键词=语义近邻）
+      + org 公开噪声。
+    - baseline：绕过授权 WHERE，直接对 `all_chunks_unfiltered()` 做向量近邻（经典全员可见
+      RAG）→ 跨部门 query 命中 proj_b 越权 chunk（>0，可证伪基线）。
+    - 隔离态：Pre/Post/Partitioned 三策略均先过授权 WHERE / 分区结构 → 越权命中恒 0。
+    真实 GLM `embedding-3` 端到端见 tests/scope/test_m18_glm_e2e.py（需 GLM_API_KEY）。
+    """
+    from nanoscope.eval.retrieval import Doc, VectorRetriever
+    from nanoscope.rag import (
+        PartitionedSearcher,
+        PostFilterSearcher,
+        PreFilterSearcher,
+        forbidden_doc_exposure,
+        hnswlib_available,
+    )
+    from nanoscope.rag.store import ChunkStore
+    from nanoscope.rag.sweep import HashingEmbedder, seed_scaled_cross_dept
+
+    # query 语义偏向 B 部门（proj_b）机密内容——这正是"跨部门检索"的攻击面：
+    # 关授权时全库近邻会把 B 的机密捞进来（可证伪基线），启用授权则 alice 永远看不到 proj_b。
+    query = "量子加密机密材料纠缠态实验记录与路线"
+    store = ChunkStore(repo_path)
+    try:
+        gold, forbidden = seed_scaled_cross_dept(store, n_per_group=30, n_forbidden=30)
+        emb = HashingEmbedder(dim=128)
+        alice = SecurityContext(
+            tenant_id="orgX", principal_id="orgX:feishu:alice",
+            session_key="feishu:alice", audience_type=AUDIENCE_DM, roles=("proj_a",),
+        )
+
+        # --- baseline：关授权、全库向量近邻（经典全员可见 RAG），越权被泄露。 ---
+        all_chunks = store.all_chunks_unfiltered()
+        docs = [Doc(id=c.id, content=c.content, created_at=c.created_at) for c in all_chunks]
+        naive_ids = set(VectorRetriever(docs, emb).search(query, top_k=len(gold)))
+        naive_hits = [c for c in all_chunks if c.id in naive_ids]
+        baseline_exposure = forbidden_doc_exposure(naive_hits, forbidden)
+
+        # --- 隔离态：三策略先过授权 WHERE / 分区结构，越权命中均为 0。 ---
+        pre = PreFilterSearcher(store, emb).search(alice, query, top_k=len(gold))
+        post = PostFilterSearcher(store, emb, use_ann=True).search(alice, query, top_k=len(gold))
+        part = PartitionedSearcher(store, emb, use_ann=True).search(
+            alice, query, top_k=len(gold)
+        )
+        n_visible = len(store.visible_chunks(alice))
+        return DocRagReport(
+            query=query,
+            n_visible=n_visible,
+            n_forbidden=len(forbidden),
+            baseline_exposure=baseline_exposure,
+            prefilter_exposure=forbidden_doc_exposure(pre.results, forbidden),
+            postfilter_exposure=forbidden_doc_exposure(post.results, forbidden),
+            partitioned_exposure=forbidden_doc_exposure(part.results, forbidden),
+            ann_backend="真 HNSW" if hnswlib_available() else "退化暴力（未装 hnswlib）",
+        )
+    finally:
+        store.close()
+
+
 async def build_report(
     workspace: Path,
     repo_path: Path,
@@ -236,7 +322,7 @@ async def build_report(
     k: int = 5,
     embedder: Embedder | None = None,
 ) -> UnifiedReport:
-    """采集五条证据线的一体化 A/B 结果（M10 三线 + M17 v2 扩展两线）。"""
+    """采集六条证据线的一体化 A/B 结果（M10 三线 + M17 v2 扩展两线 + M18 文档 RAG）。"""
     isolation = collect_isolation(workspace, repo_path)
     retrieval = collect_retrieval(k=k, embedder=embedder)
     concurrency = await collect_concurrency()
@@ -244,6 +330,8 @@ async def build_report(
     # backpressure 内部用 asyncio.run 自建事件循环，须在独立线程跑（避免嵌套当前 loop）。
     backpressure = await asyncio.to_thread(collect_backpressure)
     retrieval_v2 = collect_retrieval_v2(k=k)
+    # 文档 RAG 用独立 db 文件（与记忆 Repository 的 repo_path 分开，互不污染）。
+    doc_rag = collect_doc_rag(repo_path.parent / "doc_rag.db")
     return UnifiedReport(
         isolation=isolation,
         retrieval=retrieval,
@@ -251,6 +339,7 @@ async def build_report(
         injection=injection,
         backpressure=backpressure,
         retrieval_v2=retrieval_v2,
+        doc_rag=doc_rag,
     )
 
 
@@ -496,6 +585,39 @@ def _render_retrieval_v2(points: list[ScalePointV2], *, k: int = 5, sla: float =
 """
 
 
+def _render_doc_rag(rep: DocRagReport) -> str:
+    """权限感知文档 RAG A/B（M18）：三策略越权命中 vs 关授权全库近邻。"""
+    b = rep.baseline_exposure
+    b_cls = "bad" if b > 0 else "good"
+    pre_cls = "good" if rep.prefilter_exposure == 0 else "bad"
+    post_cls = "good" if rep.postfilter_exposure == 0 else "bad"
+    part_cls = "good" if rep.partitioned_exposure == 0 else "bad"
+    verdict = (
+        f"A 部门成员（可见 {rep.n_visible} 条 chunk）用跨部门 query "
+        f"「{html.escape(rep.query)}」检索：经典全员可见 RAG（关授权、全库向量近邻）"
+        f"泄露 <b>{b}</b> 条 B 部门越权 chunk（共 {rep.n_forbidden} 条越权语料，可证伪基线）；"
+        f"启用权限感知检索后，Pre-filter / Post-filter / Partitioned 三策略越权命中"
+        f"分别为 <b>{rep.prefilter_exposure}</b> / <b>{rep.postfilter_exposure}</b> / "
+        f"<b>{rep.partitioned_exposure}</b>——授权 WHERE 在向量近邻<b>之前</b>生效，"
+        f"隔离不变量从记忆条目扩展到长文档 chunk 依然成立（ANN 底座：{rep.ann_backend}）。"
+    )
+    return f"""
+<h2><span class="pill p1">P2</span> 七、权限感知文档 RAG A/B（M18，forbidden_doc_exposure）</h2>
+<p class="lead">把 M6 的 <code>forbidden_prompt_exposure==0</code> 从"短记忆条目"延伸到"长文档
+chunk"。卖点：业界默认的经典 RAG 全员可见，本子包在向量近邻<b>之前</b>先过授权 WHERE。
+Filtered-ANN 三策略——Pre-filter（正确性天花板）/ Post-filter（反面对照：越权进候选被打分，
+但结果仍被否决）/ Partitioned（选定解：越权子图从不遍历）。ANN 加速层底座：<b>{rep.ann_backend}</b>。</p>
+<table>
+<tr><th>检索方式</th><th>越权命中（forbidden_doc_exposure）</th></tr>
+<tr><td>经典全员可见 RAG（关授权，全库向量近邻）</td><td class="{b_cls}">{b}</td></tr>
+<tr><td>Pre-filter（授权 WHERE 召回前过滤，正确性天花板）</td><td class="{pre_cls}">{rep.prefilter_exposure}</td></tr>
+<tr><td>Post-filter（反面对照：越权进候选被打分）</td><td class="{post_cls}">{rep.postfilter_exposure}</td></tr>
+<tr><td>Partitioned（选定解：按 ACL 分区，越权子图不遍历）</td><td class="{part_cls}">{rep.partitioned_exposure}</td></tr>
+</table>
+<div class="verdict">{verdict}</div>
+"""
+
+
 def render_html(report: UnifiedReport, *, title: str = "NanoScope 统一 A/B 报告") -> str:
     """把一体化 A/B 结果渲染成自包含 HTML 字符串。"""
     body = (
@@ -505,6 +627,7 @@ def render_html(report: UnifiedReport, *, title: str = "NanoScope 统一 A/B 报
         + _render_injection(report.injection)
         + _render_backpressure(report.backpressure)
         + _render_retrieval_v2(report.retrieval_v2)
+        + _render_doc_rag(report.doc_rag)
     )
     return f"""<!DOCTYPE html>
 <html lang="zh"><head><meta charset="utf-8">
@@ -513,8 +636,8 @@ def render_html(report: UnifiedReport, *, title: str = "NanoScope 统一 A/B 报
 <body>
 <h1>{html.escape(title)}</h1>
 <p class="lead">一份自包含的改前 vs 改后证据平面：把 P0 记忆隔离内核（含 Recent History 双通道）、
-P1-A 混合检索、P1-B 应用层公平调度、记忆注入抵抗率、端到端背压峰值、带 CI 规模曲线 v2
-六条线的可证伪收益汇于一处（PRD §11-M10 + PRD_v4 §M17 统一报告 v2）。</p>
+P1-A 混合检索、P1-B 应用层公平调度、记忆注入抵抗率、端到端背压峰值、带 CI 规模曲线 v2、
+权限感知文档 RAG 七条线的可证伪收益汇于一处（PRD §11-M10 + PRD_v4 §M17 统一报告 v2 + §M18）。</p>
 {body}
 <footer>由 <code>nanoscope.eval.reporter</code> 生成 · 数据与 tests/scope 各里程碑单测同源 · 分支 ljj/scope_v0</footer>
 </body></html>

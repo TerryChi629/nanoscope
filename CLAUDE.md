@@ -123,7 +123,7 @@
       `num_threads=1` 可复现）；pre-filter 永远暴力作 recall 天花板，partitioned/post 可用 ANN。
       参数扫描实测：partitioned ef=25 recall 追平天花板 1.0、延迟 0.46ms（暴力 ~4.5x 加速），
       越权命中恒为 0（调参与隔离正交）。真实 GLM `embedding-3` 端到端已跑通（`GLM_API_KEY` 环境
-      变量，3 passed，0 越权，可证伪对照翻转）。累计 158 测试绿 +3 GLM e2e skipped（scope）。测试：
+      变量，3 passed，0 越权，可证伪对照翻转）。累计 159 测试绿 +3 GLM e2e skipped（scope）。测试：
       `tests/scope/test_m18_doc_rag.py`（D1~D8 + F1~F5 共 19 项）、`test_m18_ann_sweep.py`（A1~A3
       共 5 项）、`test_m18_glm_e2e.py`（GLM 3 项，缺 key 时 skip）。**红线：M18 是平行新增子包，
       绝不改动或下线 `Repository.search_visible` 与 loop.py `_scoped_memory_for_message`（记忆检索
