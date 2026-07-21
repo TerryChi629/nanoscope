@@ -16,7 +16,7 @@
 | M15 | 规模曲线重做：Zipf 自然增长 + 多种子 CI（修 H4） | P1 | ✅ 已完成 |
 | M16 | 压测闭环 v2：端到端背压证据 + 排队论 + 多目标 | P1 | ✅ 已完成 |
 | M17 | 项目门面与可复现闭环 + 统一报告 v2（修 H6） | P2 | ✅ 已完成 |
-| M18 | 权限感知机密文档 RAG（可选纵深，独立分支） | P2·可选 | 🚧 框架搭建中 |
+| M18 | 权限感知机密文档 RAG（可选纵深，独立分支） | P2·可选 | ✅ 框架已交付（真索引/语料待用户补） |
 
 > 施工顺序（不得擅自调整）：M11 → M13 → M12 → M14 → M15 → M16 → M17，最后 M18（独立分支，不 blocking 主线）。
 
@@ -29,7 +29,7 @@
 - [x] M15 · 规模曲线重做（Zipf 自然增长 + 多种子置信区间）
 - [x] M16 · 压测闭环 v2（端到端背压证据 + 排队论 + 多目标）
 - [x] M17 · 项目门面与可复现闭环 + 统一报告 v2
-- [ ] M18 · 权限感知机密文档 RAG（可选纵深，独立分支）
+- [x] M18 · 权限感知机密文档 RAG（框架交付：三策略 + 授权 WHERE + 离线可跑；真索引/语料待补）
 
 ---
 
@@ -349,6 +349,69 @@ Little's Law rel_err≈0 排队论闭环；多轮 CI 使结论带区间。
 - 单用户零回归：本里程碑仅新增报告采集/渲染与文档，未触碰任何运行时/隔离/检索代码路径。
 
 **完成信号**：P1~P4 全达成；统一报告 v2 六线一图可复现；README 门面能一眼看出改造要点。
+
+---
+
+## M18 · 权限感知机密文档 RAG（可选纵深，独立分支，P2·可选）✅ 框架交付
+
+**动机（PRD_v4 §M18.0）**：把 M11 隔离墙 + M14 硬化检索器从"短记忆条目"延伸到"长文档 chunk"，
+补齐经典 RAG（chunking/向量/Reranker）硬能力，且卖点是**权限感知检索**——业界 RAG 默认全员可见，
+本子包在向量近邻**之前**先过授权 WHERE。核心技术亮点是 §M18.7 的 Filtered-ANN 三策略。
+
+**范围冻结**：与记忆检索**并存、不替换、不合并**——`Repository.search_visible` 与 loop.py 的
+`_scoped_memory_for_message` 逐字节未动；文档 RAG 是平行新增子包 `nanoscope/rag/`。
+
+**决策记录（按推荐选定，无停顿；本轮新工作方式"先搭框架跳过"）**：
+- **ANN 底座用纯 Python 暴力余弦**（正确性基线，PRD_v4 §M18.7.3 第一步，零新依赖）；`hnswlib`
+  真近似索引 + `ef_search`/`M` 参数扫描留待用户补（见 `index.py` 顶部 `TODO(用户补 hnswlib)`）。
+  届时只需替换 `_brute_topk`，三策略隔离结构与 `SearchOutcome` 契约不变。
+- **embedding 用离线确定性 `_KeywordEmbedder` 测试**（含关键词即向量近邻，可复现）；真实 GLM
+  凭证复用 `nanoscope.eval.embedding.GlmEmbedder`（走环境变量 `GLM_API_KEY`），留待用户补。
+- **scope 新增 `project` 用新建 `documents`/`doc_chunks` 表**（而非改既有 `memories` 表），
+  避免污染记忆通道；字段对齐 `tenant_id/scope/owner_id/acl_group` + DB CHECK fail-closed。
+- **用 `SecurityContext.roles` 承载"用户所属项目/部门集合"**（前向兼容字段，不改 identity schema）。
+- **机密语料程序合成**（跨部门"量子加密/量子通信"互为语义近邻），真实机密数据绝不入库。
+
+**关键改动（新建 `nanoscope/rag/` 子包，6 文件）**：
+- `store.py`：`ChunkStore`（唯一写入口 + 唯一授权入口）；scope∈{user,org,project} + DB CHECK
+  强制三组合 fail-closed；`visible_where(ctx)`（org ∪ DM本人 user ∪ roles所属 project）；
+  `all_chunks_unfiltered()`（★ 仅评测对照，线上绝不调）。
+- `ingest.py`：`chunk_fixed_window`（固定窗口+重叠，CJK 友好，overlap>=size 抛错）、
+  `chunk_by_structure`（按空行分段，超长退化）、`ingest_document`（切块带 ACL 标签落库）。
+- `index.py`：Filtered-ANN 完备三策略——`PreFilterSearcher`（✅ 正确性基线）、`PostFilterSearcher`
+  （❌ 反面对照，`scored_chunk_ids` 含越权项作违规证据）、`PartitionedSearcher`（✅ 选定解，按
+  ACL group 分区，`accessed_partitions` 只含可见子图，`_MAX_PARTITIONS` fail-safe 降级 pre-filter）。
+- `search.py`：`doc_search_visible`（授权 WHERE 召回前过滤 → BM25+向量 RRF 融合 → StubReranker
+  重排 → top_k，两路皆空 abstain）；`forbidden_doc_exposure`（M6 forbidden_prompt_exposure 扩展到文档）。
+- `rerank.py`：`StubReranker`（确定性 cross-encoder stub，字符级重合度 Jaccard 变体，真模型可整体替换）。
+- `__init__.py`：子包门面，导出全部公共 API + 框定纪律/红线/交付状态注释。
+
+**验收数字**（来自 `tests/scope/test_m18_doc_rag.py` 同源可复现代码，19 个测试）：
+
+| 验收点 | 测试 | 结果 |
+|---|---|---|
+| D1 chunk 隔离 + 可证伪闭环 | `test_d1_cross_dept_query_zero_forbidden_exposure` / `_falsifiable_without_authorization_leaks` | ✅ 授权下越权命中=0；关授权全库近邻下 >0（翻转即证） |
+| D2 标签不可伪造 + fail-closed | `test_d2_owner_injected_*` / `_project_without_acl_group_*` / `_db_check_rejects_*` | ✅ owner 由 ctx 注入；缺 acl_group 应用层拒；非法组合 DB CHECK 拒 |
+| D3 chunking 正确 + ingest 管线 | `test_d3_fixed_window_*` / `_structure_*` / `_ingest_pipeline_*` | ✅ 边界重叠符合配置；坏参数抛错；ingest 带 ACL 落库 |
+| D4 ANN 一致性 | `test_d4_partitioned_matches_prefilter_topk` | ✅ 分区 top_k == pre-filter 天花板 |
+| D5 重排增益 | `test_d5_rerank_improves_ndcg_and_mrr` | ✅ 重排后 nDCG/MRR ≥ 重排前 |
+| D6 abstention | `test_d6_unrelated_query_abstains` | ✅ 全库无关 query 返回空 |
+| D7 防注入一致 | `test_d7_chunk_injection_wrapped_and_escaped` | ✅ chunk 经 M12 data-block 包裹，尖括号转义无法闭合 |
+| D8 单用户/未接入零回归 | `test_d8_unpopulated_rag_returns_empty` | ✅ 空库返回空不报错 |
+| F1 三策略正确性 + post-filter 泄露证据 | `test_f1_all_strategies_zero_forbidden_but_postfilter_touches_illegal` | ✅ 三策略结果 0 越权；post-filter 候选含越权 id，pre/part 不含 |
+| F2 recall 对照 | `test_f2_postfilter_recall_collapses_partitioned_holds` | ✅ 低可见率下 post-filter recall 崩塌，pre/part 守住=1.0 |
+| F3 分区隔离 | `test_f3_partitioned_never_accesses_forbidden_subgraph` | ✅ 越权子图 `project_proj_b` 从未被访问 |
+| F4 兜底降级 | `test_f4_partition_explosion_falls_back_to_prefilter` | ✅ 分区膨胀退化 pre-filter，越权仍 0、结果一致 |
+| F5 剪枝趋势 | `test_f5_partitioned_prunes_candidate_set` | ✅ 分区打分候选集 < 全局候选集 |
+
+- `tests/scope` 累计：134 → **153 passed**（+19 个 M18 测试）；
+  `ruff check nanoscope/rag/ tests/scope/test_m18_doc_rag.py` 全绿。
+- 单用户零回归：M18 是全新独立子包，未触碰任何既有运行时/隔离/检索代码路径；
+  `multi_user.enabled=false` 路径逐字节未变。
+
+**完成信号**：D1~D8 + F1~F5 全绿；`nanoscope/rag/` 子包自包含、密钥零入库、合成语料可复现；
+Filtered-ANN 三策略正确性/剪枝/兜底闭环成立。**待用户补**：hnswlib 真 ANN 索引（延迟/内存帕累托
+曲线 + ef/M 扫描）、真实 GLM 凭证、脱敏机密语料、统一报告 v2 追加"文档 RAG 段"。
 
 ---
 

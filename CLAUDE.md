@@ -110,6 +110,20 @@
       README 顶部加「🔭 NanoScope」门面区块；报告产物 `git mv` 进 `reports/`；`.gitignore` 加
       `NANOSCOPE_PROJECT_OVERVIEW.html`（用户学习文件不入库）。累计 134 测试绿（scope）。
       测试：`tests/scope/test_m10_reporter.py`（+1，共 6 项）。**红线：报告数字全部来自 tests/scope 同源代码，禁止手填。**
+- [x] M18 权限感知机密文档 RAG（可选纵深，PRD_v4 §M18，P2·可选，框架交付）：新建独立子包
+      `nanoscope/rag/`（6 文件）——`store.py`（`ChunkStore`，`documents`/`doc_chunks` 新表，
+      scope∈{user,org,project} + DB CHECK fail-closed，`visible_where` 唯一授权谓词，
+      `all_chunks_unfiltered` 仅评测对照）、`ingest.py`（`chunk_fixed_window`/`chunk_by_structure`/
+      `ingest_document`）、`index.py`（Filtered-ANN 完备三策略：`PreFilterSearcher` 正确性基线 /
+      `PostFilterSearcher` 反面对照 / `PartitionedSearcher` 选定解，`SearchOutcome.scored_chunk_ids`/
+      `accessed_partitions` 供 F1/F3 审计断言）、`search.py`（`doc_search_visible` 单入口 +
+      `forbidden_doc_exposure`）、`rerank.py`（`StubReranker`）。scope 新增 `project` 用
+      `SecurityContext.roles` 承载所属项目集合。ANN 底座当前用纯 Python 暴力余弦（正确性基线），
+      hnswlib 真索引/GLM 凭证/脱敏语料待用户补。累计 153 测试绿（scope）。测试：
+      `tests/scope/test_m18_doc_rag.py`（D1~D8 + F1~F5 共 19 项）。**红线：M18 是平行新增子包，
+      绝不改动或下线 `Repository.search_visible` 与 loop.py `_scoped_memory_for_message`（记忆检索
+      与文档 RAG 并存、不替换、不合并）；可见性永远由授权 WHERE / 分区结构确定，索引只排序（post-filter
+      因让越权向量进候选被否决）；密钥零入库，真实机密数据绝不入库。**
 
 ## 新会话开工前
 1. `git rev-parse --abbrev-ref HEAD` 确认在 `ljj/scope_v0`。
