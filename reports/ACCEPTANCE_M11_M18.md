@@ -8,7 +8,8 @@
 
 M11~M18 全部交付完成并逐里程碑提交。项目内核「隔离墙 + 检索两层正交、隔离在召回前」在
 **记忆通道 / Recent History 通道 / 文档 RAG 通道**三条链路上均已闭环验证；六条红线全程未破。
-M18 为可选纵深，按新工作方式"框架先搭"交付（三策略 + 授权 WHERE + 离线可跑），真索引/凭证/语料待补。
+M18 可选纵深已完整落地：三策略 + 授权 WHERE + **真 hnswlib ANN 索引 + ef/M 参数扫描帕累托**，
+并用**真实 GLM `embedding-3` 向量**跑通端到端隔离验证（0 越权 + 可证伪对照翻转）。
 
 ## 1. 里程碑状态总表
 
@@ -21,10 +22,10 @@ M18 为可选纵深，按新工作方式"框架先搭"交付（三策略 + 授�
 | M15 | 规模曲线重做：Zipf 自然增长 + 多种子 CI（修 H4） | P1 | ✅ | 90b55a76 |
 | M16 | 压测闭环 v2：端到端背压证据 + 排队论 + 多目标 | P1 | ✅ | 1b3a18e6 |
 | M17 | 项目门面与可复现闭环 + 统一报告 v2（修 H6） | P2 | ✅ | a5d09b99 |
-| M18 | 权限感知机密文档 RAG（可选纵深，独立分支） | P2·可选 | ✅ 框架交付 | 05b7489b |
+| M18 | 权限感知机密文档 RAG（可选纵深，独立分支） | P2·可选 | ✅ 已完成 | 05b7489b |
 
 > 施工顺序（PRD_v4 指定，未擅自调整）：M11 → M13 → M12 → M14 → M15 → M16 → M17，最后 M18。
-> `tests/scope` 累计测试：M10 基线 75 → **153 passed**；`ruff` 全绿；单用户/基线路径逐字节零回归。
+> `tests/scope` 累计测试：M10 基线 75 → **158 passed + 3 skipped**（GLM e2e 缺 key 时 skip，配 `GLM_API_KEY` 后 3 passed）；`ruff` 全绿；单用户/基线路径逐字节零回归。
 
 ## 2. 逐里程碑验收数字
 
@@ -126,10 +127,11 @@ M15 带 CI 曲线）；README 加「🔭 NanoScope」门面；产物归位 `repo
 - 测试：`test_m10_reporter.py`（+1，共 6 项）；scope：133 → 134 passed。
 - 一键入口实测：`python -m nanoscope.eval.report -o /tmp/out.html` 成功生成自包含 HTML。
 
-### M18 · 权限感知机密文档 RAG（P2·可选，框架交付）✅
+### M18 · 权限感知机密文档 RAG（P2·可选，已完成）✅
 把 M11 隔离墙 + M14 硬化检索器从"短记忆条目"延伸到"长文档 chunk"。卖点=在向量近邻**之前**先过
 授权 WHERE。与记忆检索**并存、不替换、不合并**（`search_visible` / `_scoped_memory_for_message` 逐字节未动）。
-核心亮点：Filtered-ANN 完备三策略（Pre-filter 正确性基线 / Post-filter 反面对照 / Partitioned 选定解）。
+核心亮点：Filtered-ANN 完备三策略（Pre-filter 正确性基线 / Post-filter 反面对照 / Partitioned 选定解）+
+真 `hnswlib` HNSW 索引接入 + ef/M 参数扫描帕累托 + 真实 GLM `embedding-3` 端到端验证。
 
 | 验收点 | 结果 |
 |---|---|
@@ -146,43 +148,57 @@ M15 带 CI 曲线）；README 加「🔭 NanoScope」门面；产物归位 `repo
 | F3 分区隔离 | ✅ 越权子图 `project_proj_b` 从未被访问 |
 | F4 兜底降级 | ✅ 分区膨胀退化 pre-filter，越权仍 0、结果一致 |
 | F5 剪枝趋势 | ✅ 分区打分候选集 < 全局候选集 |
+| A1 真 HNSW 越权=0（ef∈{10,50,100}） | ✅ 分区 ANN 越权命中恒 0 + 越权子图不访问；post-filter 硬伤：越权进候选被打分 |
+| A2 ANN↔暴力一致 | ✅ 候选≤fanout 时分区 ANN 结果逐字节等于 pre-filter 天花板 |
+| A3 参数扫描帕累托 | ✅ recall 全 ≥0.8、max_ef≥min_ef；帕累托前沿非空；表诚实标注 ANN 底座 |
 
-- 测试：`test_m18_doc_rag.py` D1~D8 + F1~F5 共 **19 项**；scope：134 → 153 passed。
-- 子包 `nanoscope/rag/`（6 文件）自包含、密钥零入库、合成语料可复现。
+- 测试：`test_m18_doc_rag.py` D1~D8 + F1~F5 共 **19 项** + `test_m18_ann_sweep.py` A1~A3 共 **5 项** + `test_m18_glm_e2e.py` **3 项**（缺 `GLM_API_KEY` 时 skip）；scope：134 → **158 passed + 3 skipped**（配 key 后 GLM 3 passed）。
+- 子包 `nanoscope/rag/`（7 文件）自包含、密钥零入库、合成语料可复现。
+- **真 hnswlib-0.8.0 参数扫描实测**（n_per_group=80/n_forbidden=80/org=26，top_k=10，repeats=5，`num_threads=1` 可复现）：pre_filter recall=1.0 / 延迟 2.089ms / 候选 106（暴力天花板）；**partitioned ef=25 recall=1.0 / 延迟 0.463ms**（帕累托最优，≈4.5× 加速）/ 候选 106；post_filter ef=25 recall=1.0 / 延迟 5.444ms / 候选 186（越权进候选，反面对照）。所有点越权命中=0（调参与隔离正交）。帕累托前沿=`[('partitioned',25,1.0,0.4631)]`。
+- **真实 GLM `embedding-3` 端到端**：`GLM_API_KEY=… pytest test_m18_glm_e2e.py` → 3 passed；三策略 exposure=0 + `doc_search_visible` 全链路 0 越权 + 关授权全库真实向量近邻可证伪泄露 >0（翻转即证）。凭证只走环境变量，零入库。
 
 ## 3. 决策记录（按推荐选定，需负责人知悉）
 
 按新工作方式"遇需抉择处按推荐方案选并记录"，本轮关键决策：
 
 - **M17 报告 v2 采 additive 扩展**（保留 M7 三线，新增三段），低回归风险；背压用 U7 burst=120/max_queue=32/rounds=3 轻量档；带 CI 曲线用 scales=[50,200,1000]/seeds=[1,2,3]。
-- **M18 ANN 底座用纯 Python 暴力余弦**（正确性基线，PRD_v4 §M18.7.3 第一步，零新依赖），hnswlib 真索引 + ef/M 扫描待补。
+- **M18 ANN 底座：暴力余弦作正确性基线 + 真 hnswlib HNSW 作加速层双轨**（PRD_v4 §M18.7.3）。pre-filter 永远暴力作 recall 天花板；partitioned/post-filter 通过 `use_ann` 开关启用真 HNSW，ANN 只召回候选、仍用精确余弦重打分（同候选集下逐字节可复现）；未装/关闭时退化暴力，契约不变。ef/M 参数扫描（`sweep.py`）已完成。
 - **M18 scope 新增 `project` 用新建 `documents`/`doc_chunks` 表**（不改既有 `memories` 表），避免污染记忆通道。
 - **M18 用 `SecurityContext.roles` 承载所属项目集合**（前向兼容字段，不改 identity schema）。
 - **M18 机密语料程序合成**（跨部门"量子加密/量子通信"互为语义近邻），真实机密数据绝不入库。
 - **M15 外部脱敏验证集**：框架预留、暂缓（`run_curve_v2` 的 docs/queries 注入点）。
 
-## 4. 需负责人提供的 API / 需你操作的事项（框架已搭好，接入即用）
+## 4. 需负责人提供的 API / 需你操作的事项
 
-以下均为"框架先搭、留待补"的接入点，**均不 blocking 已交付闭环**：
+GLM 凭证已提供并跑通、hnswlib 已自行 `pip install` 接入，M18 闭环所需已全部到位。下表仅剩**可选**项，**均不 blocking 已交付闭环**：
 
 | 事项 | 用途 | 接入点 | 现状 |
 |---|---|---|---|
-| **GLM embedding 凭证** | M15 曲线真实向量 / M18 文档向量 | 环境变量 `GLM_API_KEY`（`GLM_BASE_URL`/`GLM_EMBED_MODEL` 可选）；复用 `nanoscope.eval.embedding.GlmEmbedder` | 离线用 FakeEmbedder 已全绿；配好环境变量即可跑真向量 |
-| **hnswlib 真 ANN 索引** | M18 三策略延迟/内存帕累托曲线 + ef/M 参数扫描 | `nanoscope/rag/index.py` 顶部 `TODO(用户补 hnswlib)`：替换 `_brute_topk` | 当前暴力余弦作正确性基线，契约不变，替换后三策略结构不动 |
-| **脱敏机密语料** | M18 文档 RAG 真实数据点 / M15 第二数据方向佐证 | M18：`ingest_document(store, ctx, ...)`；M15：`run_curve_v2` docs/queries 注入 | 仅本地私跑、`.gitignore` 兜死，绝不入库；仓库内用合成语料 |
-| **统一报告 v2 追加"文档 RAG 段"** | M18.5 完成信号（报告纳入 forbidden_doc_exposure==0） | `nanoscope/eval/reporter.py` 追加 `_render_doc_rag` | 待 GLM 凭证到位后接入（当前报告已含六线） |
+| **GLM embedding 凭证** | M15 曲线真实向量 / M18 文档向量 | 环境变量 `GLM_API_KEY`（`GLM_BASE_URL`/`GLM_EMBED_MODEL` 可选）；复用 `nanoscope.eval.embedding.GlmEmbedder` | ✅ 已到位：`GLM_API_KEY=… pytest test_m18_glm_e2e.py` → 3 passed（真 `embedding-3` 向量，0 越权，可证伪对照翻转）。凭证只走环境变量、零入库。 |
+| **hnswlib 真 ANN 索引** | M18 三策略延迟/内存帕累托曲线 + ef/M 参数扫描 | `nanoscope/rag/index.py` 的 `_HnswIndex` / `_corpus_topk`；`sweep.py` | ✅ 已接入：真 hnswlib-0.8.0（pip 依赖，`nanobot[rag]` extra），`use_ann` 开关默认关，未装/关闭退化暴力，契约不变。partitioned ef=25 recall 追平天花板 1.0、延迟 0.463ms（≈4.5× 加速）。**无需负责人操作**（pip 装即可）。 |
+| **脱敏机密语料**（可选） | M18 文档 RAG 真实数据点 / M15 第二数据方向佐证 | M18：`ingest_document(store, ctx, ...)`；M15：`run_curve_v2` docs/queries 注入 | 已拍板"先用合成语料演示"。若想跑真实脱敏语料：放本地 gitignore 目录并告知路径即可本地私跑，绝不入库。非必须。 |
+| **统一报告 v2 追加"文档 RAG 段"**（可选） | 报告纳入 forbidden_doc_exposure==0 | `nanoscope/eval/reporter.py` 追加 `_render_doc_rag` | 可选增强：当前报告已含六线，M18 数字见本验收文档。 |
 
-> 红线守护确认：`.nanobot/config.json` 保持 gitignore；LLM/GLM 凭证只走环境变量；真实机密文档只本地私跑。
+> 红线守护确认：`.nanobot/config.json` 保持 gitignore；LLM/GLM 凭证只走环境变量（本轮 GLM key 仅经环境变量注入跑测，未写入任何文件/仓库）；真实机密文档只本地私跑。
 > 本轮所有 commit 均**本地未 push**（红线⑤：未经确认不 push、不改写历史、不做破坏性 git 操作）。
 
 ## 5. 一键复现命令
 
 ```bash
-# 全量 scope 验收测试（153 passed）
+# 全量 scope 验收测试（158 passed + 3 skipped）
 .venv/bin/pytest tests/scope -q
 
 # M18 文档 RAG 单独验收（19 项：D1~D8 + F1~F5）
 .venv/bin/pytest tests/scope/test_m18_doc_rag.py -q
+
+# M18 真 HNSW ANN 一致性 + ef/M 参数扫描（5 项：A1~A3）
+.venv/bin/pytest tests/scope/test_m18_ann_sweep.py -q
+
+# M18 真实 GLM embedding-3 端到端隔离（3 项，需凭证走环境变量）
+GLM_API_KEY=<你的key> .venv/bin/pytest tests/scope/test_m18_glm_e2e.py -q
+
+# 真 ANN 加速层（可选依赖）
+pip install 'nanobot[rag]'   # 装 hnswlib；未装时自动退化暴力余弦，契约不变
 
 # lint
 .venv/bin/ruff check nanoscope/
@@ -195,5 +211,5 @@ python -m nanoscope.eval.report -o reports/NANOSCOPE_UNIFIED_REPORT.html
 
 - **记忆检索** = "权限感知的记忆召回"（RAG 最小定义：检索+注入，无 chunking/向量/重排）；**M18** 才是"权限感知的经典文档 RAG"（完整链路）。不把记忆检索夸成经典 RAG。
 - M12 防注入：结构型注入改后 100% 中和，纯自然语言注入**仍残留 5 条**（靠模型对齐兜底）——诚实标注非零残留。
-- M18 ANN：当前是暴力余弦正确性基线，**hnswlib 真索引的 recall 损失/延迟收益曲线待补**，不宣称"又快又准"。
+- M18 ANN：**真 hnswlib HNSW 已接入**（`use_ann` 开关）。诚实口径：ANN 只召回候选、仍用精确余弦重打分，故同候选集下逐字节可复现；实测 partitioned ef=25 recall 追平暴力天花板 1.0、延迟从 2.089ms 降到 0.463ms（≈4.5× 加速）——**这是"追平天花板前提下的加速"，不是无损全能**。HNSW recall 本身非严格单调（ef 10→25→50→100 实测 0.9→1.0→0.9→1.0），已如实标注、不宣称"越大越好"。关键：**ANN 调参（ef/M）绝不影响可见性**，越权命中在所有参数点恒为 0（隔离与检索正交）。
 - M18 语料：合成 + 结构/固定两种 chunking；真实机密数据本地私跑不入库。

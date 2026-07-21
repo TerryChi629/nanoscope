@@ -11,9 +11,13 @@ ACL 过滤这把"筛子"相对"图遍历"在时间轴上只能放三个位置，
 
 **完备性论证**：过滤动作相对图遍历只有"前/中/后"三个位置，故策略必然且只有三种。
 
-**当前实现**：ANN 底座用**纯 Python 暴力余弦**（正确性基线，PRD_v4 §M18.7.3 第一步，
-零新依赖）。`hnswlib` 真近似索引留待接入（见下方 TODO），届时替换 `_ann_topk` 即可，
-三策略的隔离结构与 `SearchOutcome` 契约不变。
+**ANN 底座**：真 HNSW 近似最近邻索引（`hnswlib`，PRD_v4 §M18.7.3 第二步）作为**可选**
+加速层，通过各策略的 `use_ann` 开关按需启用（默认关闭）：
+- **pre-filter**：**永远暴力**——它是 recall 天花板与正确性基线（§M18.7.1），不接 ANN。
+- **partitioned / post-filter**：`use_ann=True` 时各分区/全局子图建一张 HNSW 图，ANN 召回
+  候选后仍用**精确余弦重打分 + 确定性 tie-break**，保证同一候选集下结果可复现。
+- 未安装 hnswlib（`pip install 'nanobot[rag]'` 未执行）或 `use_ann=False` 时，全部策略
+  自动退化为纯 Python 暴力余弦——`SearchOutcome` 契约与隔离结构逐字节不变。
 
 红线：索引只承担"候选召回排序"，**永不承担可见性**——可见性永远由授权 WHERE
 （pre/post）或分区结构（partitioned）保证。post-filter 之所以被否决，正因它让越权
@@ -30,9 +34,22 @@ from nanoscope.eval.embedding import Embedder
 from nanoscope.identity import SecurityContext
 from nanoscope.rag.store import SCOPE_ORG, SCOPE_PROJECT, ChunkStore, DocChunkRecord
 
-# TODO(用户补 hnswlib)：接入 `hnswlib.Index(space='cosine')` 替换 `_brute_topk`，
-# 为 partitioned 策略每个 acl_group 建独立子图；pre-filter 在可见子集上建临时图或暴力。
-# 当前用暴力余弦保证正确性基线可离线跑，参数扫描（ef_search/M）待真索引接入后补 §M18.3.2。
+# 真 ANN 索引（hnswlib）为**可选依赖**（`pip install 'nanobot[rag]'`）。未安装时全部
+# 策略自动退化为纯 Python 暴力余弦（正确性基线，零依赖）——契约与隔离结构不变。
+try:  # pragma: no cover - 依赖是否装到取决于环境
+    import hnswlib  # type: ignore
+    import numpy as _np  # hnswlib 需要 numpy 数组入参
+
+    _HNSW_OK = True
+except ImportError:  # pragma: no cover
+    hnswlib = None  # type: ignore
+    _np = None  # type: ignore
+    _HNSW_OK = False
+
+
+def hnswlib_available() -> bool:
+    """真 ANN 索引是否可用。False 时各策略退化暴力余弦（正确性不变）。"""
+    return _HNSW_OK
 
 
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
@@ -52,7 +69,7 @@ def _brute_topk(
     *,
     min_score: float = 0.0,
 ) -> list[tuple[DocChunkRecord, float]]:
-    """暴力余弦 top-k（ANN 底座占位）。min_score 过滤：全库无关时 abstain。"""
+    """暴力余弦 top-k（recall 天花板）。min_score 过滤：全库无关时 abstain。"""
     scored = [
         (c, _cosine(query_vec, v))
         for c, v in zip(chunks, vecs)
@@ -60,6 +77,78 @@ def _brute_topk(
     scored = [(c, s) for c, s in scored if s > min_score]
     scored.sort(key=lambda cs: (-cs[1], cs[0].id))
     return scored[:top_k]
+
+
+# HNSW 默认超参（PRD_v4 §M18.7.4 参数扫描的基准点）。
+_DEFAULT_M = 16
+_DEFAULT_EF_CONSTRUCTION = 200
+_DEFAULT_EF_SEARCH = 50
+# ANN 召回相对 top_k 的放大倍数：多召回候选再精确重打分补 recall。
+_ANN_FANOUT_MULT = 4
+
+
+class _HnswIndex:
+    """封装 `hnswlib.Index(space='cosine')`：建图 + 近邻候选召回。
+
+    **只负责"给候选下标"**——精确重打分（`_brute_topk`）、min_score 过滤、可见性判定
+    都在外层。可见性永远不经此类（红线：索引只排序）。未装 hnswlib 时不应被实例化。
+    """
+
+    def __init__(
+        self,
+        vecs: Sequence[Sequence[float]],
+        *,
+        m: int = _DEFAULT_M,
+        ef_construction: int = _DEFAULT_EF_CONSTRUCTION,
+        ef_search: int = _DEFAULT_EF_SEARCH,
+    ):
+        assert _HNSW_OK  # 调用方保证；未装 hnswlib 一律走暴力分支，不会到这里
+        self._n = len(vecs)
+        self._dim = len(vecs[0]) if self._n else 0
+        self._index = hnswlib.Index(space="cosine", dim=self._dim)
+        self._index.init_index(
+            max_elements=max(self._n, 1), M=m, ef_construction=ef_construction
+        )
+        if self._n and self._dim:
+            # num_threads=1：单线程建图保证可复现（多线程插入顺序非确定）。
+            self._index.add_items(
+                _np.asarray(vecs, dtype=_np.float32), _np.arange(self._n), num_threads=1
+            )
+        self._index.set_ef(max(ef_search, 1))
+
+    def query(self, query_vec: Sequence[float], k: int) -> list[int]:
+        """返回候选的**原始下标**（近邻优先），至多 k 个。"""
+        if self._n == 0 or self._dim == 0:
+            return []
+        k = min(k, self._n)
+        labels, _ = self._index.knn_query(
+            _np.asarray([query_vec], dtype=_np.float32), k=k
+        )
+        return [int(i) for i in labels[0]]
+
+
+def _corpus_topk(
+    corpus: "_EmbeddedCorpus",
+    query_vec: Sequence[float],
+    top_k: int,
+    *,
+    min_score: float = 0.0,
+) -> list[tuple[DocChunkRecord, float]]:
+    """在一个已嵌入语料内取 top-k。
+
+    有 ANN 图则近邻召回候选后再用 `_brute_topk` **精确重打分**；否则直接暴力。两条路径
+    共用同一精确余弦 + 确定性 tie-break——ANN 只影响"看哪些候选"，不影响"候选内如何
+    排序/过滤"，故同一候选集下结果逐字节可复现（D4 一致性的基础）。
+    """
+    if not corpus.chunks:
+        return []
+    if corpus.ann is None:
+        return _brute_topk(query_vec, corpus.chunks, corpus.vecs, top_k, min_score=min_score)
+    fanout = min(len(corpus.chunks), max(top_k * _ANN_FANOUT_MULT, top_k))
+    cand_idx = corpus.ann.query(query_vec, fanout)
+    cand_chunks = [corpus.chunks[i] for i in cand_idx]
+    cand_vecs = [corpus.vecs[i] for i in cand_idx]
+    return _brute_topk(query_vec, cand_chunks, cand_vecs, top_k, min_score=min_score)
 
 
 @dataclass
@@ -79,12 +168,30 @@ class SearchOutcome:
 
 
 class _EmbeddedCorpus:
-    """对一组 chunk 预取 embedding（一次批量），供各策略复用。"""
+    """对一组 chunk 预取 embedding（一次批量），供各策略复用。
 
-    def __init__(self, chunks: Sequence[DocChunkRecord], embedder: Embedder):
+    `use_ann=True` 且 hnswlib 可用时额外建一张 HNSW 图（`self.ann`）；否则 `self.ann=None`，
+    检索退化为暴力余弦。ANN 只承担候选召回，可见性与精确排序仍在外层（红线）。
+    """
+
+    def __init__(
+        self,
+        chunks: Sequence[DocChunkRecord],
+        embedder: Embedder,
+        *,
+        use_ann: bool = False,
+        m: int = _DEFAULT_M,
+        ef_construction: int = _DEFAULT_EF_CONSTRUCTION,
+        ef_search: int = _DEFAULT_EF_SEARCH,
+    ):
         self.chunks = list(chunks)
         self.vecs = embedder.embed([c.content for c in self.chunks]) if self.chunks else []
         self.embedder = embedder
+        self.ann: _HnswIndex | None = None
+        if use_ann and _HNSW_OK and self.chunks:
+            self.ann = _HnswIndex(
+                self.vecs, m=m, ef_construction=ef_construction, ef_search=ef_search
+            )
 
 
 class PreFilterSearcher:
@@ -123,18 +230,34 @@ class PostFilterSearcher:
 
     name = "post_filter"
 
-    def __init__(self, store: ChunkStore, embedder: Embedder):
+    def __init__(
+        self,
+        store: ChunkStore,
+        embedder: Embedder,
+        *,
+        use_ann: bool = False,
+        m: int = _DEFAULT_M,
+        ef_construction: int = _DEFAULT_EF_CONSTRUCTION,
+        ef_search: int = _DEFAULT_EF_SEARCH,
+    ):
         self._store = store
         self._embedder = embedder
+        self._use_ann = use_ann
+        self._m = m
+        self._ef_construction = ef_construction
+        self._ef_search = ef_search
 
     def search(self, ctx: SecurityContext, query: str, top_k: int = 5) -> SearchOutcome:
         all_chunks = self._store.all_chunks_unfiltered()  # ★ 越权项也进候选（硬伤所在）
-        corpus = _EmbeddedCorpus(all_chunks, self._embedder)
+        corpus = _EmbeddedCorpus(
+            all_chunks, self._embedder, use_ann=self._use_ann,
+            m=self._m, ef_construction=self._ef_construction, ef_search=self._ef_search,
+        )
         if not corpus.chunks:
             return SearchOutcome(results=[])
         q = self._embedder.embed([query])[0]
         # 先全局取 top-k（越权向量被打分）。
-        global_hits = _brute_topk(q, corpus.chunks, corpus.vecs, top_k)
+        global_hits = _corpus_topk(corpus, q, top_k)
         scored = {c.id for c in corpus.chunks}
         # 再事后删越权项：用授权 WHERE 求可见 id，过滤 top-k。
         visible_ids = {c.id for c in self._store.visible_chunks(ctx)}
@@ -157,9 +280,22 @@ class PartitionedSearcher:
     # fail-safe 阈值：分区数超此值退化为 pre-filter 暴力（正确性永远保底）。
     _MAX_PARTITIONS = 256
 
-    def __init__(self, store: ChunkStore, embedder: Embedder):
+    def __init__(
+        self,
+        store: ChunkStore,
+        embedder: Embedder,
+        *,
+        use_ann: bool = False,
+        m: int = _DEFAULT_M,
+        ef_construction: int = _DEFAULT_EF_CONSTRUCTION,
+        ef_search: int = _DEFAULT_EF_SEARCH,
+    ):
         self._store = store
         self._embedder = embedder
+        self._use_ann = use_ann
+        self._m = m
+        self._ef_construction = ef_construction
+        self._ef_search = ef_search
         self._partitions: dict[str, _EmbeddedCorpus] = {}
         self._build_partitions()
 
@@ -172,12 +308,15 @@ class PartitionedSearcher:
         return f"user_{c.owner_id}"  # SCOPE_USER
 
     def _build_partitions(self) -> None:
-        """建索引阶段：按分区 key 把全库 chunk 分桶，各桶独立预取 embedding。"""
+        """建索引阶段：按分区 key 把全库 chunk 分桶，各桶独立建（可选）HNSW 子图。"""
         buckets: dict[str, list[DocChunkRecord]] = {}
         for c in self._store.all_chunks_unfiltered():
             buckets.setdefault(self._partition_key(c), []).append(c)
         self._partitions = {
-            key: _EmbeddedCorpus(chunks, self._embedder)
+            key: _EmbeddedCorpus(
+                chunks, self._embedder, use_ann=self._use_ann,
+                m=self._m, ef_construction=self._ef_construction, ef_search=self._ef_search,
+            )
             for key, chunks in buckets.items()
         }
 
@@ -204,7 +343,7 @@ class PartitionedSearcher:
             if corpus is None or not corpus.chunks:
                 continue
             accessed.add(key)  # ★ 只访问可见分区
-            hits = _brute_topk(q, corpus.chunks, corpus.vecs, top_k)
+            hits = _corpus_topk(corpus, q, top_k)
             merged.extend(hits)
             scored.update(c.id for c in corpus.chunks)
         merged.sort(key=lambda cs: (-cs[1], cs[0].id))

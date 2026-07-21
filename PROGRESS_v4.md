@@ -16,7 +16,7 @@
 | M15 | 规模曲线重做：Zipf 自然增长 + 多种子 CI（修 H4） | P1 | ✅ 已完成 |
 | M16 | 压测闭环 v2：端到端背压证据 + 排队论 + 多目标 | P1 | ✅ 已完成 |
 | M17 | 项目门面与可复现闭环 + 统一报告 v2（修 H6） | P2 | ✅ 已完成 |
-| M18 | 权限感知机密文档 RAG（可选纵深，独立分支） | P2·可选 | ✅ 框架已交付（真索引/语料待用户补） |
+| M18 | 权限感知机密文档 RAG（可选纵深，独立分支） | P2·可选 | ✅ 已完成（真 HNSW + GLM 端到端验证） |
 
 > 施工顺序（不得擅自调整）：M11 → M13 → M12 → M14 → M15 → M16 → M17，最后 M18（独立分支，不 blocking 主线）。
 
@@ -29,7 +29,7 @@
 - [x] M15 · 规模曲线重做（Zipf 自然增长 + 多种子置信区间）
 - [x] M16 · 压测闭环 v2（端到端背压证据 + 排队论 + 多目标）
 - [x] M17 · 项目门面与可复现闭环 + 统一报告 v2
-- [x] M18 · 权限感知机密文档 RAG（框架交付：三策略 + 授权 WHERE + 离线可跑；真索引/语料待补）
+- [x] M18 · 权限感知机密文档 RAG（三策略 + 授权 WHERE + 真 hnswlib ANN + ef/M 参数扫描帕累托 + 真实 GLM 端到端验证）
 
 ---
 
@@ -352,7 +352,7 @@ Little's Law rel_err≈0 排队论闭环；多轮 CI 使结论带区间。
 
 ---
 
-## M18 · 权限感知机密文档 RAG（可选纵深，独立分支，P2·可选）✅ 框架交付
+## M18 · 权限感知机密文档 RAG（可选纵深，独立分支，P2·可选）✅ 已完成
 
 **动机（PRD_v4 §M18.0）**：把 M11 隔离墙 + M14 硬化检索器从"短记忆条目"延伸到"长文档 chunk"，
 补齐经典 RAG（chunking/向量/Reranker）硬能力，且卖点是**权限感知检索**——业界 RAG 默认全员可见，
@@ -361,12 +361,14 @@ Little's Law rel_err≈0 排队论闭环；多轮 CI 使结论带区间。
 **范围冻结**：与记忆检索**并存、不替换、不合并**——`Repository.search_visible` 与 loop.py 的
 `_scoped_memory_for_message` 逐字节未动；文档 RAG 是平行新增子包 `nanoscope/rag/`。
 
-**决策记录（按推荐选定，无停顿；本轮新工作方式"先搭框架跳过"）**：
-- **ANN 底座用纯 Python 暴力余弦**（正确性基线，PRD_v4 §M18.7.3 第一步，零新依赖）；`hnswlib`
-  真近似索引 + `ef_search`/`M` 参数扫描留待用户补（见 `index.py` 顶部 `TODO(用户补 hnswlib)`）。
-  届时只需替换 `_brute_topk`，三策略隔离结构与 `SearchOutcome` 契约不变。
-- **embedding 用离线确定性 `_KeywordEmbedder` 测试**（含关键词即向量近邻，可复现）；真实 GLM
-  凭证复用 `nanoscope.eval.embedding.GlmEmbedder`（走环境变量 `GLM_API_KEY`），留待用户补。
+**决策记录（按推荐选定，无停顿）**：
+- **真 hnswlib HNSW 索引作为可选加速层**（`pip install 'nanobot[rag]'`，PRD_v4 §M18.7.3 第二步）：
+  通过各策略 `use_ann` 开关按需启用（默认关闭）——pre-filter 永远暴力（recall 天花板），
+  partitioned/post-filter 可用 ANN 召回候选后精确重打分；未装 hnswlib 或 `use_ann=False` 时
+  全部退化纯 Python 暴力余弦，`SearchOutcome` 契约与隔离结构逐字节不变。用户拍板"现在接入"。
+- **embedding 双轨**：离线测试用确定性假向量（`_KeywordEmbedder` 低维 / `HashingEmbedder` 高维，
+  可复现、无网络）；真实语义用 GLM `embedding-3`（`nanoscope.eval.embedding.GlmEmbedder`，
+  凭证走环境变量 `GLM_API_KEY`，绝不入库）。用户提供 key 后已跑真实 GLM 端到端验证。
 - **scope 新增 `project` 用新建 `documents`/`doc_chunks` 表**（而非改既有 `memories` 表），
   避免污染记忆通道；字段对齐 `tenant_id/scope/owner_id/acl_group` + DB CHECK fail-closed。
 - **用 `SecurityContext.roles` 承载"用户所属项目/部门集合"**（前向兼容字段，不改 identity schema）。
@@ -378,9 +380,15 @@ Little's Law rel_err≈0 排队论闭环；多轮 CI 使结论带区间。
   `all_chunks_unfiltered()`（★ 仅评测对照，线上绝不调）。
 - `ingest.py`：`chunk_fixed_window`（固定窗口+重叠，CJK 友好，overlap>=size 抛错）、
   `chunk_by_structure`（按空行分段，超长退化）、`ingest_document`（切块带 ACL 标签落库）。
-- `index.py`：Filtered-ANN 完备三策略——`PreFilterSearcher`（✅ 正确性基线）、`PostFilterSearcher`
-  （❌ 反面对照，`scored_chunk_ids` 含越权项作违规证据）、`PartitionedSearcher`（✅ 选定解，按
-  ACL group 分区，`accessed_partitions` 只含可见子图，`_MAX_PARTITIONS` fail-safe 降级 pre-filter）。
+- `index.py`：Filtered-ANN 完备三策略——`PreFilterSearcher`（✅ 正确性基线，永远暴力）、
+  `PostFilterSearcher`（❌ 反面对照，`scored_chunk_ids` 含越权项作违规证据）、`PartitionedSearcher`
+  （✅ 选定解，按 ACL group 分区，`accessed_partitions` 只含可见子图，`_MAX_PARTITIONS` fail-safe
+  降级 pre-filter）。**真 hnswlib HNSW 索引**（`_HnswIndex` 封装 `hnswlib.Index(space='cosine')`，
+  `num_threads=1` 建图保证可复现）作可选加速层：`_corpus_topk` 有 ANN 图则近邻召回候选后
+  `_brute_topk` 精确重打分，无则直接暴力——同一候选集下逐字节可复现（可见性永不经索引）。
+- `sweep.py`（§M18.7.4）：`HashingEmbedder`（高维确定性假向量，让 ANN 图遍历与暴力产生
+  可观测差异）、`seed_scaled_cross_dept`（规模化跨部门合成语料）、`run_param_sweep`（ef_search×策略
+  扫描，产 recall/延迟/候选规模/越权命中）、`pareto_front`（recall↑延迟↓ 帕累托前沿）、`format_sweep_table`。
 - `search.py`：`doc_search_visible`（授权 WHERE 召回前过滤 → BM25+向量 RRF 融合 → StubReranker
   重排 → top_k，两路皆空 abstain）；`forbidden_doc_exposure`（M6 forbidden_prompt_exposure 扩展到文档）。
 - `rerank.py`：`StubReranker`（确定性 cross-encoder stub，字符级重合度 Jaccard 变体，真模型可整体替换）。
@@ -404,14 +412,57 @@ Little's Law rel_err≈0 排队论闭环；多轮 CI 使结论带区间。
 | F4 兜底降级 | `test_f4_partition_explosion_falls_back_to_prefilter` | ✅ 分区膨胀退化 pre-filter，越权仍 0、结果一致 |
 | F5 剪枝趋势 | `test_f5_partitioned_prunes_candidate_set` | ✅ 分区打分候选集 < 全局候选集 |
 
-- `tests/scope` 累计：134 → **153 passed**（+19 个 M18 测试）；
-  `ruff check nanoscope/rag/ tests/scope/test_m18_doc_rag.py` 全绿。
+- `tests/scope` 累计：134 → **158 passed（+3 GLM e2e skipped）**（+19 个 M18 基础测试
+  `test_m18_doc_rag.py` + 5 个真 HNSW/参数扫描测试 `test_m18_ann_sweep.py`）；
+  `ruff check nanoscope/rag/` 全绿。
 - 单用户零回归：M18 是全新独立子包，未触碰任何既有运行时/隔离/检索代码路径；
   `multi_user.enabled=false` 路径逐字节未变。
 
-**完成信号**：D1~D8 + F1~F5 全绿；`nanoscope/rag/` 子包自包含、密钥零入库、合成语料可复现；
-Filtered-ANN 三策略正确性/剪枝/兜底闭环成立。**待用户补**：hnswlib 真 ANN 索引（延迟/内存帕累托
-曲线 + ef/M 扫描）、真实 GLM 凭证、脱敏机密语料、统一报告 v2 追加"文档 RAG 段"。
+### M18.7 真 HNSW ANN 索引 + ef/M 参数扫描（PRD_v4 §M18.7.3/§M18.7.4）✅
+
+**真 HNSW 接入的隔离与一致性验收**（`tests/scope/test_m18_ann_sweep.py`，5 项全绿）：
+
+| 验收点 | 测试 | 结果 |
+|---|---|---|
+| A1 ANN 不破隔离（partitioned） | `test_a1_ann_partitioned_zero_exposure_and_no_forbidden_subgraph` | ✅ ef∈{10,50,100} 越权命中=0；越权子图从不访问 |
+| A1 post-filter 硬伤仍在 | `test_a1_ann_postfilter_zero_exposure_but_scores_forbidden` | ✅ 即便 ANN，越权向量仍进候选被打分（红线证据） |
+| A2 ANN 与暴力一致（候选≤fanout） | `test_a2_ann_matches_bruteforce_when_candidates_within_fanout` | ✅ 逐字节等于 pre-filter 天花板 |
+| A3 recall/延迟权衡 + 帕累托 | `test_a3_sweep_recall_monotonic_and_pareto_nonempty` | ✅ 全程越权=0；partitioned 候选<post；帕累托前沿非空 |
+| A3 报告诚实标注 ANN 底座 | `test_a3_sweep_table_is_honest_about_ann_backend` | ✅ 标注"真 HNSW"（已装 hnswlib） |
+
+**参数扫描实测数字**（`run_param_sweep`，合成语料 proj_a=80/proj_b=80 越权/org=26，top_k=10，
+repeats=5，真 hnswlib-0.8.0，同机相对量）：
+
+| 策略 | ef_search | recall/天花板 | 平均延迟(ms) | 候选规模 | 越权命中 |
+|---|---|---|---|---|---|
+| pre_filter（天花板） | — | 1.000 | 2.089 | 106 | 0 |
+| partitioned | 10 | 0.900 | 0.472 | 106 | 0 |
+| partitioned | 25 | 1.000 | 0.463 | 106 | 0 |
+| partitioned | 100 | 1.000 | 0.474 | 106 | 0 |
+| post_filter | 25 | 1.000 | 5.444 | 186 | 0 |
+| post_filter | 100 | 1.000 | 5.458 | 186 | 0 |
+
+- **帕累托最优点**：`partitioned, ef_search=25`（recall 追平天花板 1.0，延迟 0.46ms，
+  是暴力 pre-filter 的 ~4.5x、post-filter 的 ~11.8x 加速）。
+- **剪枝证据**：partitioned 候选规模 106（仅可见子图 proj_a+org）< post-filter 186（全库）——
+  分区把检索空间限制在授权子图，越权 80 条从不进候选。
+- **安全与调参正交**：ef_search 从 10 扫到 100，**越权命中恒为 0**——隔离在召回前完成，
+  调参只影响 recall/延迟，绝不影响可见性（关键答辩点）。
+
+**真实 GLM embedding 端到端验证**（`tests/scope/test_m18_glm_e2e.py`，需 `GLM_API_KEY`
+环境变量；CI 缺 key 时 skip）：用真实 GLM `embedding-3`（降维 256）向量 + 合成跨部门语料，
+
+| 验收点 | 测试 | 结果 |
+|---|---|---|
+| 三策略真实向量下 0 越权 | `test_glm_e2e_zero_forbidden_exposure_all_strategies` | ✅ pre/post/partitioned 均 exposure=0 |
+| `doc_search_visible` 端到端 0 越权 | `test_glm_e2e_search_visible_zero_exposure` | ✅ 授权 WHERE + RRF + rerank 全链路 0 越权 |
+| 可证伪对照（关授权泄露>0） | `test_glm_e2e_falsifiable_unfiltered_leaks` | ✅ 全库真实向量近邻下越权文档被泄露（翻转即证隔离墙生效） |
+
+> 本地实跑（`GLM_API_KEY=… pytest test_m18_glm_e2e.py`）：3 passed。证明隔离墙在**真实语义
+> 向量**下依然成立，而非仅离线假向量的构造巧合。
+
+**完成信号**：D1~D8 + F1~F5 + A1~A3 全绿；真 hnswlib 接入后隔离/一致性/剪枝闭环成立；
+真实 GLM 向量端到端 `forbidden_doc_exposure==0` 且可证伪对照翻转；密钥零入库、合成语料可复现。
 
 ---
 
@@ -421,4 +472,7 @@ Filtered-ANN 三策略正确性/剪枝/兜底闭环成立。**待用户补**：h
 
 - **M15 外部脱敏验证集**：`run_curve_v2` 支持注入外部 docs/queries；需用户提供 20~50 条
   匿名化 gold + 干扰（不入库、gitignore），用于合成集之外的第二数据点方向一致性佐证。
-- **M18 机密文档 RAG**：需用户提供 API（embedding/向量库凭证走环境变量）+ 合成/脱敏机密语料。
+- **M18 机密文档 RAG**：✅ 已闭环——真 hnswlib ANN + ef/M 参数扫描已接入，GLM 凭证经
+  环境变量 `GLM_API_KEY` 跑通真实向量端到端（3 passed，0 越权）。**仅剩可选项**：脱敏真实
+  机密语料（当前用程序合成跨部门语料演示，隔离结论已成立，真实语料只作定性佐证、不入库）；
+  统一报告 v2 追加"文档 RAG 段"（可选增强，非 blocking）。

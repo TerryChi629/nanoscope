@@ -5,7 +5,8 @@
 （用 unfiltered 全库对照）时该值 >0（翻转即证隔离墙生效）。
 
 离线纪律：用确定性 `_KeywordEmbedder`（含关键词即向量近邻），不依赖网络/GLM 密钥。
-真实 GLM 凭证、脱敏机密语料、hnswlib 真 ANN 索引留待用户补（见 rag/index.py TODO）。
+真 hnswlib ANN 索引一致性与 ef/M 参数扫描见 `test_m18_ann_sweep.py`；真实 GLM 端到端
+（合成跨部门语料）见 `test_m18_glm_e2e.py`（需 `GLM_API_KEY` 环境变量，缺失时跳过）。
 """
 
 from __future__ import annotations

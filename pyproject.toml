@@ -92,6 +92,11 @@ qq = [
     "aiohttp>=3.9.0,<4.0.0",
     "qq-botpy>=1.2.0,<2.0.0",
 ]
+rag = [
+    # NanoScope M18: 权限感知文档 RAG 的真 ANN 索引（hnswlib）。未安装时
+    # nanoscope/rag/index.py 自动退化为纯 Python 暴力余弦（正确性基线，零依赖）。
+    "hnswlib>=0.8.0,<1.0.0",
+]
 slack = [
     "aiohttp>=3.9.0,<4.0.0",
     "slack-sdk>=3.39.0,<4.0.0",

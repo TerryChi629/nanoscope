@@ -12,12 +12,14 @@ M14 硬化后的检索器，从"短记忆条目"延伸到"长文档 chunk"。卖
 - 密钥零入库：embedding 凭证只走环境变量（复用 `nanoscope.eval.embedding.GlmEmbedder`）；
   真实机密文档绝不入库，仓库内只用程序合成语料。
 
-**当前交付状态（框架先搭）**：
+**当前交付状态**：
 - 已交付：`ChunkStore`（scope∈{user,org,project} + DB CHECK fail-closed）、chunking
   （固定窗口重叠 + 结构感知）、`doc_search_visible`（授权 WHERE 召回前过滤 + BM25/向量/RRF
-  + rerank）、Filtered-ANN 三策略（pre-filter / post-filter 反面对照 / partitioned 选定解）。
-- 待用户补：真实 GLM embedding 凭证（环境变量）、脱敏机密语料；`hnswlib` 真 ANN
-  索引（当前用纯 Python 暴力余弦作正确性基线，见 `index.py` 的 TODO）。
+  + rerank）、Filtered-ANN 三策略（pre-filter / post-filter 反面对照 / partitioned 选定解）、
+  真 `hnswlib` HNSW 索引（可选加速层，`use_ann=True` 启用；未装时退化暴力余弦，契约不变）、
+  ef_search/M 参数扫描与帕累托对照（`sweep.py`，§M18.7.4）。
+- 待用户补：脱敏真实机密语料（当前用程序合成跨部门语料演示）。GLM embedding 凭证走
+  环境变量 `GLM_API_KEY`（`nanoscope.eval.embedding.GlmEmbedder`）。
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from nanoscope.rag.index import (
     PostFilterSearcher,
     PreFilterSearcher,
     SearchOutcome,
+    hnswlib_available,
 )
 from nanoscope.rag.ingest import chunk_by_structure, chunk_fixed_window, ingest_document
 from nanoscope.rag.rerank import StubReranker
@@ -52,6 +55,7 @@ __all__ = [
     "PostFilterSearcher",
     "PartitionedSearcher",
     "SearchOutcome",
+    "hnswlib_available",
     "StubReranker",
     "doc_search_visible",
     "forbidden_doc_exposure",
