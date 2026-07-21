@@ -58,6 +58,22 @@ async def test_build_report_carries_three_evidence_lines(tmp_path: Path):
     assert report.concurrency
 
 
+async def test_build_report_carries_v2_evidence_lines(tmp_path: Path):
+    """PRD_v4 §M17.3：统一报告 v2 在三线基础上新增注入/背压/带 CI 曲线三线，方向自洽。"""
+    report = await build_report(tmp_path / "ws", tmp_path / "mem.db")
+    # 注入抵抗率：改后成功率显著低于改前，且残留全为纯 NL（诚实非零）。
+    inj = report.injection
+    assert inj.baseline_success > inj.hardened_success
+    assert inj.hardened_success == inj.residual_natural_language
+    # 背压：改后 peak_queue 有界（收敛到 max_queue），远低于基线线性堆积。
+    bp = report.backpressure
+    assert bp.improved_peak_queue.mean < bp.baseline_peak_queue.mean
+    assert bp.improved_rejection_ratio.mean >= bp.baseline_rejection_ratio.mean
+    # 带 CI 曲线 v2：非空，grep 均值在大规模跌破 SLA。
+    assert report.retrieval_v2
+    assert any(p.grep.mean < 0.8 for p in report.retrieval_v2)
+
+
 async def test_render_html_is_self_contained(tmp_path: Path):
     report = await build_report(tmp_path / "ws", tmp_path / "mem.db")
     doc = render_html(report)
@@ -70,6 +86,10 @@ async def test_render_html_is_self_contained(tmp_path: Path):
     assert "安全不变量成立" in doc
     # NanoScope (PRD_v4 §M11.4)：双通道隔离段（含 Recent History）渲染出来。
     assert "Recent History 通道" in doc
+    # NanoScope 统一报告 v2 (PRD_v4 §M17.3)：新增三段小节都渲染出来。
+    assert "记忆注入抵抗率 A/B" in doc
+    assert "端到端背压峰值 A/B" in doc
+    assert "规模曲线 v2" in doc
     # 每个压测用例标题都渲染出来。
     for ab in report.concurrency:
         assert ab.case in doc

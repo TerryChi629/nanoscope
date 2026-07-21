@@ -34,6 +34,54 @@
   </p>
 </div>
 
+---
+
+## 🔭 NanoScope — 多用户隔离墙 + 权限感知检索（本仓库改造）
+
+> NanoScope 是在 [nanobot](https://github.com/HKUDS/nanobot) 上的一个安全硬化分支（分支 `ljj/scope_v0`）。
+> 原版 nanobot 是**单用户**个人 agent；把它接进飞书/群聊等**多用户**场景后，记忆与最近历史会跨用户串号。
+> NanoScope 的内核是一句话：**「隔离墙决定可见性（确定性），检索只决定排序（概率性）；隔离必须在召回之前，所有新增判定 fail-closed」**。
+
+### 与上游的核心差异
+
+| 维度 | 上游 nanobot | NanoScope |
+|---|---|---|
+| 记忆可见性 | 全局 `MEMORY.md` 无条件注入 | `Repository.search_visible` 按 `principal/audience` 硬过滤（SQL WHERE + DB CHECK） |
+| Recent History | 只按 session_key 过滤，跨 principal 泄露 | principal/audience 谓词，私聊不进群、无归属 fail-closed 丢弃（M11） |
+| 记忆注入 | 召回原样拼进 system prompt | 写入清洗 + 读取转义 + 不可信 `<memory>` data-block 包裹（M12） |
+| 并发准入 | 无界 bus + session lock 后排队 | admission 前移 + 有界队列 + 优雅拒绝回执（M13） |
+| 检索质量 | grep 新近序 | min_score + 确定性 tie-break + abstention + BM25/向量/RRF（M14） |
+| 规模证据 | 无 | Zipf 自然增长 + 多种子 95% CI 规模曲线（M15）、排队论闭环压测（M16） |
+
+### 架构与泄露链路（改前 vs 改后）
+
+```
+改前（泄露链路）:  A 的私聊事实 ─┬─► 全局 MEMORY.md ──► 任意用户 B 的 system prompt  ✗ 泄露
+                               └─► Recent History(按 session) ──► B 的 prompt        ✗ 泄露
+
+改后（隔离墙）:    A 的私聊事实 ──► SQLite(owner=A, audience=dm)
+                                     │  ┌─ B 的 SecurityContext(principal=B)
+                                     └─►┤  search_visible: WHERE 授权谓词  (召回前硬过滤)
+                                        └─ 命中=0  ✓  ──► 检索器只对「可见集合」排序
+```
+
+### 三条可复现命令
+
+```bash
+# 1. 全量 scope 测试（隔离/检索/并发/注入/背压 同源可复现）
+.venv/bin/pytest tests/scope -q
+
+# 2. 一键生成六线统一 A/B 报告（自包含 HTML）
+python -m nanoscope.eval.report            # 输出到 reports/NANOSCOPE_UNIFIED_REPORT.html
+
+# 3. 压测闭环 v2 报告见 reports/M9_LOADTEST_REPORT.md，统一报告设计见 PRD_v4_hardening.md
+```
+
+需求与验收文档：[PRD.md](./PRD.md)（M0~M10）· [PRD_v4_hardening.md](./PRD_v4_hardening.md)（M11~M18）·
+进展：[PROGRESS.md](./PROGRESS.md) / [PROGRESS_v4.md](./PROGRESS_v4.md) · AI 施工指南：[CLAUDE.md](./CLAUDE.md)。
+
+---
+
 🐈 **nanobot** is an open-source, ultra-lightweight personal AI agent you can truly own. It keeps the agent core small and readable while giving you the practical pieces for real long-running work: WebUI, chat channels, tools, memory, MCP, model routing, automation, and deployment.
 
 ## Start Here

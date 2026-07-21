@@ -23,14 +23,32 @@ from nanobot.agent.context import ContextBuilder
 from nanobot.agent.memory import MemoryStore
 from nanoscope.eval.dataset import load_attack_queries, load_forbidden_facts
 from nanoscope.eval.embedding import Embedder
+from nanoscope.eval.injection import InjectionReport, collect_injection_resistance
 from nanoscope.eval.loadtest import CASES as _LOAD_CASES
-from nanoscope.eval.loadtest import AbResult, run_case_ab
+from nanoscope.eval.loadtest import (
+    AbResult,
+    RoundsAbResult,
+    run_case_ab,
+    run_case_ab_rounds,
+    workload_u7_sustained_overload,
+)
 from nanoscope.eval.scale_curve import ScalePoint, find_crossover, run_curve
+from nanoscope.eval.scale_dataset_v2 import ScalePointV2, find_crossover_v2, run_curve_v2
 from nanoscope.identity import AUDIENCE_DM, SecurityContext
 from nanoscope.memory import SCOPE_USER, Repository
 
 # U5 洪峰用例用更小的 max_queue 才能触发有界拒绝（与 M9 报告一致）。
 _CASE_MAX_QUEUE: dict[str, int] = {"U5_overload": 32}
+
+# M16 背压证据用 U7 持续过载（burst 远超容量），max_queue 收敛可见。
+_BACKPRESSURE_BURST = 120
+_BACKPRESSURE_MAX_QUEUE = 32
+_BACKPRESSURE_GLOBAL_LIMIT = 3
+_BACKPRESSURE_ROUNDS = 3
+
+# M15 带 CI 规模曲线的规模档与多种子（报告用轻量档，保证离线可跑）。
+_CURVE_V2_SCALES = [50, 200, 1000]
+_CURVE_V2_SEEDS = [1, 2, 3]
 
 
 @dataclass(frozen=True)
@@ -52,11 +70,21 @@ class IsolationReport:
 
 @dataclass(frozen=True)
 class UnifiedReport:
-    """三条证据线的一体化 A/B 结果。"""
+    """五条证据线的一体化 A/B 结果（M10 三线 + M17 统一报告 v2 扩展两线）。
+
+    NanoScope v2（PRD_v4 §M17.3）在 M10 三线（隔离/召回/并发）基础上新增：
+    - injection：记忆注入抵抗率（M12）改前 vs 改后。
+    - backpressure：端到端背压峰值（M16）改前(线性) vs 改后(有界)。
+    - retrieval_v2：带 95% CI 的规模曲线（M15，Zipf 自然增长）。
+    - 隔离段已含 Recent History 通道（M11）。
+    """
 
     isolation: IsolationReport
     retrieval: list[ScalePoint]
     concurrency: list[AbResult]
+    injection: InjectionReport
+    backpressure: RoundsAbResult
+    retrieval_v2: list[ScalePointV2]
 
 
 def _exposures(prompt: str) -> int:
@@ -208,11 +236,39 @@ async def build_report(
     k: int = 5,
     embedder: Embedder | None = None,
 ) -> UnifiedReport:
-    """采集三条证据线的一体化 A/B 结果。"""
+    """采集五条证据线的一体化 A/B 结果（M10 三线 + M17 v2 扩展两线）。"""
     isolation = collect_isolation(workspace, repo_path)
     retrieval = collect_retrieval(k=k, embedder=embedder)
     concurrency = await collect_concurrency()
-    return UnifiedReport(isolation=isolation, retrieval=retrieval, concurrency=concurrency)
+    injection = collect_injection_resistance()
+    # backpressure 内部用 asyncio.run 自建事件循环，须在独立线程跑（避免嵌套当前 loop）。
+    backpressure = await asyncio.to_thread(collect_backpressure)
+    retrieval_v2 = collect_retrieval_v2(k=k)
+    return UnifiedReport(
+        isolation=isolation,
+        retrieval=retrieval,
+        concurrency=concurrency,
+        injection=injection,
+        backpressure=backpressure,
+        retrieval_v2=retrieval_v2,
+    )
+
+
+def collect_backpressure() -> RoundsAbResult:
+    """端到端背压峰值 A/B（M16）：U7 持续过载下 peak_queue 改前(线性) vs 改后(有界)。"""
+    specs = workload_u7_sustained_overload(burst=_BACKPRESSURE_BURST, service_time=0.01)
+    return run_case_ab_rounds(
+        "U7_sustained_overload",
+        specs,
+        rounds=_BACKPRESSURE_ROUNDS,
+        global_limit=_BACKPRESSURE_GLOBAL_LIMIT,
+        max_queue=_BACKPRESSURE_MAX_QUEUE,
+    )
+
+
+def collect_retrieval_v2(*, k: int = 5) -> list[ScalePointV2]:
+    """带 CI 的规模曲线（M15，Zipf 自然增长 + 多种子）。复用 run_curve_v2。"""
+    return run_curve_v2(_CURVE_V2_SCALES, seeds=_CURVE_V2_SEEDS, k=k)
 
 
 # ---------------------------------------------------------------------------
@@ -338,9 +394,106 @@ def _render_concurrency(cases: list[AbResult]) -> str:
         "<h2><span class=\"pill p1\">P1-B</span> 三、并发公平 A/B（U1-U5 压测）</h2>"
         "<p class=\"lead\">Mock LLM 隔离网络抖动，同 workload 在 BaselineGate（裸 FIFO Semaphore）"
         "vs FairAdmissionController（有界 admission + per-principal 配额 + least-in-flight 公平出队）"
-        "下各跑一遍。聚合指标见下；per-principal 拆分见 M9_LOADTEST_REPORT.md。</p>"
+        "下各跑一遍。聚合指标见下；per-principal 拆分见 reports/M9_LOADTEST_REPORT.md。</p>"
         + "".join(blocks)
     )
+
+
+def _render_injection(rep: InjectionReport) -> str:
+    """记忆注入抵抗率 A/B（M12）：改前 vs 改后成功率，诚实标注纯 NL 残留。"""
+    b, i = rep.baseline_success, rep.hardened_success
+    b_cls = "bad" if b > 0 else "good"
+    i_cls = "good" if i < b else "bad"
+    delta = _delta_pct(rep.baseline_rate, rep.hardened_rate)
+    verdict = (
+        f"{rep.n_payloads} 条记忆型注入攻击上，改前注入成功 <b>{b}</b> 条"
+        f"（成功率 {rep.baseline_rate:.0%}）；写入清洗 + 读取转义 + 不可信 data-block 包裹后"
+        f"降至 <b>{i}</b> 条（成功率 {rep.hardened_rate:.0%}，{delta}）。"
+        f"其中 <b>{rep.residual_natural_language}</b> 条为纯自然语言注入残留——"
+        f"结构化手段无法数学消除纯 NL 指令，只能靠模型对齐兜底，此处诚实标注为非零残留。"
+    )
+    return f"""
+<h2><span class="pill p1">P1</span> 四、记忆注入抵抗率 A/B（持久化 Prompt Injection）</h2>
+<p class="lead">同一攻击集经改前（原样 <code>- {{content}}</code> 拼接）与改后（清洗 + 转义 +
+<code>&lt;memory&gt;</code> 不可信数据块包裹）两条注入链路，统计越权探针是否以可执行形式存活。</p>
+<table>
+<tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
+<tr><td>注入成功数 / 总攻击数</td>
+<td class="{b_cls}">{b} / {rep.n_payloads}</td>
+<td class="{i_cls}">{i} / {rep.n_payloads}</td><td>{delta}</td></tr>
+<tr><td>注入成功率</td>
+<td class="{b_cls}">{rep.baseline_rate:.1%}</td>
+<td class="{i_cls}">{rep.hardened_rate:.1%}</td><td>{delta}</td></tr>
+<tr><td>其中纯自然语言残留（诚实非零）</td><td>—</td>
+<td>{rep.residual_natural_language}</td><td>—</td></tr>
+</table>
+<div class="verdict">{verdict}</div>
+"""
+
+
+def _render_backpressure(bp: RoundsAbResult) -> str:
+    """端到端背压峰值 A/B（M16）：U7 持续过载 peak_queue 改前(线性) vs 改后(有界)。"""
+    bq, iq = bp.baseline_peak_queue, bp.improved_peak_queue
+    bg, ig = bp.baseline_goodput, bp.improved_goodput
+    br, ir = bp.baseline_rejection_ratio, bp.improved_rejection_ratio
+    q_delta = _delta_pct(bq.mean, iq.mean)
+    verdict = (
+        f"{bp.rounds} 轮聚合下，持续过载（{bp.case}）时基线队列峰值 "
+        f"<b>{bq.mean:.1f} ± {bq.ci95:.1f}</b> 随灌入线性堆积（无界）；"
+        f"改后有界准入把 peak_queue 收敛到 <b>{iq.mean:.1f} ± {iq.ci95:.1f}</b>"
+        f"（=max_queue，{q_delta}），代价是拒绝率从 {br.mean:.1%} 升至 {ir.mean:.1%}"
+        f"（有界背压优雅拒绝），有效吞吐 goodput 基本持平"
+        f"（{bg.mean:.1f}→{ig.mean:.1f} turn/s）——峰值有界成立。"
+    )
+    return f"""
+<h2><span class="pill p1">P1-B</span> 五、端到端背压峰值 A/B（U7 持续过载，多轮 95% CI）</h2>
+<p class="lead">灌入量远超容量的持续过载下，BaselineGate（无界 bus + 全局 FIFO）vs
+FairAdmissionController（有界 admission，<code>max_queue={_BACKPRESSURE_MAX_QUEUE}</code>）的
+队列峰值 / 拒绝率 / 有效吞吐（sweep-line 重建峰值 + Little's Law 校验，见 reports/M9_LOADTEST_REPORT.md §9）。</p>
+<table>
+<tr><th>指标（均值 ± 95%CI）</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
+<tr><td>peak_queue（队列峰值）</td>
+<td class="bad">{bq.mean:.1f} ± {bq.ci95:.1f}</td>
+<td class="good">{iq.mean:.1f} ± {iq.ci95:.1f}</td><td>{q_delta}</td></tr>
+<tr><td>rejection_ratio（拒绝率）</td>
+<td>{br.mean:.1%} ± {br.ci95:.1%}</td>
+<td>{ir.mean:.1%} ± {ir.ci95:.1%}</td><td>—</td></tr>
+<tr><td>effective_goodput（有效吞吐 turn/s）</td>
+<td>{bg.mean:.1f} ± {bg.ci95:.1f}</td>
+<td>{ig.mean:.1f} ± {ig.ci95:.1f}</td><td>—</td></tr>
+</table>
+<div class="verdict">{verdict}</div>
+"""
+
+
+def _render_retrieval_v2(points: list[ScalePointV2], *, k: int = 5, sla: float = 0.8) -> str:
+    """带 95% CI 的规模曲线（M15，Zipf 自然增长 + 多种子）：诚实拐点区间。"""
+    rows = []
+    for p in points:
+        g_cls = "bad" if p.grep.mean < sla else ""
+        rows.append(
+            f"<tr><td>{p.n}</td>"
+            f"<td class=\"{g_cls}\">{p.grep.mean:.3f} ± {p.grep.ci95:.3f}</td>"
+            f"<td>{p.bm25.mean:.3f} ± {p.bm25.ci95:.3f}</td></tr>"
+        )
+    m0 = find_crossover_v2(points, sla)
+    verdict = (
+        f"grep 的 Recall@{k} 均值在 <b>N≈{m0}</b> 附近首次跌破 SLA(≥{sla})，即拐点 M₀；"
+        f"这是合成集在给定 Zipf 密度下的<b>区间</b>结论（连同各档 CI 一起看），非单点绝对值——"
+        f"消除了 v1 用 <code>_BURY_AT</code> 手工造拐点的方法学硬伤。"
+        if m0 is not None
+        else f"当前规模范围内 grep 均值未跌破 SLA(≥{sla})；近邻窗口仍够用。"
+    )
+    return f"""
+<h2><span class="pill p1">P1-A</span> 六、规模曲线 v2（Zipf 自然增长 + 多种子 95% CI）</h2>
+<p class="lead">主题热度按 Zipf 分布、干扰随 N 连续增长（无手工掩埋阈值），每档跑
+{len(_CURVE_V2_SEEDS)} 个种子报均值 ± 95% CI。gold 埋没是干扰密度自然累积的结果。红=均值跌破 SLA。</p>
+<table>
+<tr><th>N</th><th>grep R@{k} (mean±CI)</th><th>bm25 R@{k} (mean±CI)</th></tr>
+{''.join(rows)}
+</table>
+<div class="verdict">{verdict}</div>
+"""
 
 
 def render_html(report: UnifiedReport, *, title: str = "NanoScope 统一 A/B 报告") -> str:
@@ -349,6 +502,9 @@ def render_html(report: UnifiedReport, *, title: str = "NanoScope 统一 A/B 报
         _render_isolation(report.isolation)
         + _render_retrieval(report.retrieval)
         + _render_concurrency(report.concurrency)
+        + _render_injection(report.injection)
+        + _render_backpressure(report.backpressure)
+        + _render_retrieval_v2(report.retrieval_v2)
     )
     return f"""<!DOCTYPE html>
 <html lang="zh"><head><meta charset="utf-8">
@@ -356,8 +512,9 @@ def render_html(report: UnifiedReport, *, title: str = "NanoScope 统一 A/B 报
 <title>{html.escape(title)}</title><style>{_CSS}</style></head>
 <body>
 <h1>{html.escape(title)}</h1>
-<p class="lead">一份自包含的改前 vs 改后证据平面：把 P0 记忆隔离内核、P1-A 混合检索、
-P1-B 应用层公平调度三条线的可证伪收益汇于一处（PRD §11-M10）。</p>
+<p class="lead">一份自包含的改前 vs 改后证据平面：把 P0 记忆隔离内核（含 Recent History 双通道）、
+P1-A 混合检索、P1-B 应用层公平调度、记忆注入抵抗率、端到端背压峰值、带 CI 规模曲线 v2
+六条线的可证伪收益汇于一处（PRD §11-M10 + PRD_v4 §M17 统一报告 v2）。</p>
 {body}
 <footer>由 <code>nanoscope.eval.reporter</code> 生成 · 数据与 tests/scope 各里程碑单测同源 · 分支 ljj/scope_v0</footer>
 </body></html>

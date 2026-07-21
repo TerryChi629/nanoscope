@@ -103,3 +103,6 @@ temp/
 exp/
 .playwright-mcp/
 bridge/node_modules/
+
+# NanoScope: 本地学习/概览用 HTML（不入库）
+NANOSCOPE_PROJECT_OVERVIEW.html

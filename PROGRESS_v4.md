@@ -15,8 +15,8 @@
 | M14 | 检索质量硬化：min_score + tie-break + abstention（修 H5） | P1 | ✅ 已完成 |
 | M15 | 规模曲线重做：Zipf 自然增长 + 多种子 CI（修 H4） | P1 | ✅ 已完成 |
 | M16 | 压测闭环 v2：端到端背压证据 + 排队论 + 多目标 | P1 | ✅ 已完成 |
-| M17 | 项目门面与可复现闭环 + 统一报告 v2（修 H6） | P2 | ⬜ 待办 |
-| M18 | 权限感知机密文档 RAG（可选纵深，独立分支） | P2·可选 | ⬜ 待办 |
+| M17 | 项目门面与可复现闭环 + 统一报告 v2（修 H6） | P2 | ✅ 已完成 |
+| M18 | 权限感知机密文档 RAG（可选纵深，独立分支） | P2·可选 | 🚧 框架搭建中 |
 
 > 施工顺序（不得擅自调整）：M11 → M13 → M12 → M14 → M15 → M16 → M17，最后 M18（独立分支，不 blocking 主线）。
 
@@ -28,7 +28,7 @@
 - [x] M14 · 检索质量硬化（min_score + 确定性 tie-break + abstention）
 - [x] M15 · 规模曲线重做（Zipf 自然增长 + 多种子置信区间）
 - [x] M16 · 压测闭环 v2（端到端背压证据 + 排队论 + 多目标）
-- [ ] M17 · 项目门面与可复现闭环 + 统一报告 v2
+- [x] M17 · 项目门面与可复现闭环 + 统一报告 v2
 - [ ] M18 · 权限感知机密文档 RAG（可选纵深，独立分支）
 
 ---
@@ -310,6 +310,45 @@ query 与全库无关时仍返回一批零分文档；`rrf_fuse` 再给这些无
 
 **完成信号**：L1~L5 全绿；M9 报告 §9 给出"peak_queue 改前(117 线性) vs 改后(32 有界)"压测级铁证 +
 Little's Law rel_err≈0 排队论闭环；多轮 CI 使结论带区间。
+
+---
+
+## M17 · 项目门面与可复现闭环 + 统一报告 v2（修 H6，P2）✅
+
+**动机**：M0~M16 主线交付但项目门面（README/仓库根产物）仍是上游 nanobot 面貌，看不出改造；
+统一报告 M10 只有三条线（隔离/召回/并发），未纳入 M12 注入抵抗率、M16 背压闭环、M15 带 CI 曲线。
+本里程碑把报告升级为 v2 六条线、补齐 README NanoScope 门面、产物归位、一键复现入口。
+
+**决策记录（按推荐选定，无停顿）**：
+- 统一报告 v2 采 **additive 扩展**（保留既有 M7 retrieval 三线，新增 M12/M16/M15 三段），
+  而非替换 retrieval 段——低回归风险，M10 既有 4 个测试全部保持不变仍绿。
+- 背压证据用 **U7 burst=120 / max_queue=32 / rounds=3**（报告轻量档，离线可跑；铁证 rounds=5 仍在 M16 报告）。
+- 带 CI 曲线用 **scales=[50,200,1000] / seeds=[1,2,3]** 轻量档（保证 `python -m nanoscope.eval.report` 离线秒级出图）。
+- 产物归位：`M9/M10` 报告 `git mv` 进 `reports/`；`NANOSCOPE_PROJECT_OVERVIEW.html`（用户学习文件）加进 `.gitignore` 不入库。
+- 一键入口取 `nanoscope/eval/report.py`（`python -m nanoscope.eval.report`），复用 `reporter.generate`，采集态用临时目录。
+
+**关键改动**：
+- `nanoscope/eval/reporter.py`：`UnifiedReport` 扩为六字段（新增 `injection`/`backpressure`/`retrieval_v2`）；
+  `build_report` 采集六线（`collect_backpressure` 用 `await asyncio.to_thread` 卸到独立线程避免嵌套 loop）；
+  新增 `collect_backpressure()`/`collect_retrieval_v2()` 与三个渲染函数 `_render_injection`/`_render_backpressure`/`_render_retrieval_v2`，接入 `render_html` body。
+- `nanoscope/eval/report.py`（新建）：`python -m nanoscope.eval.report` CLI，默认输出 `reports/NANOSCOPE_UNIFIED_REPORT.html`。
+- `README.md`：顶部新增「🔭 NanoScope」区块（定位一句话内核 + 与上游差异表 + 改前/改后泄露链路图 + 三条可复现命令 + 文档索引）。
+- 产物归位：`reports/M9_LOADTEST_REPORT.md`、`reports/M10_UNIFIED_REPORT.md`、`reports/M10_UNIFIED_REPORT.html`；`.gitignore` 加 `NANOSCOPE_PROJECT_OVERVIEW.html`。
+
+**验收数字**（来自 `tests/scope` 同源可复现代码）：
+
+| 验收点（PRD_v4 §M17.4） | 覆盖 | 结果 |
+|---|---|---|
+| P1 报告含六条证据线 | `test_build_report_carries_v2_evidence_lines` | ✅ 注入 baseline>hardened=residual_nl；背压 improved_peak<baseline_peak；曲线 v2 非空且 grep 均值跌破 SLA |
+| P2 render_html 自包含含新段落 | `test_render_html_is_self_contained` | ✅ 含「记忆注入抵抗率 A/B」「端到端背压峰值 A/B」「规模曲线 v2」 |
+| P3 README NanoScope 门面 | 人工核对 | ✅ 差异表 + 泄露链路图 + 三命令 |
+| P4 产物归位 + 学习文件 gitignore | `git status` 干净 | ✅ 根无散落报告、`NANOSCOPE_PROJECT_OVERVIEW.html` 已忽略 |
+
+- 一键入口实测：`python -m nanoscope.eval.report -o /tmp/out.html` 成功生成自包含 HTML。
+- `tests/scope` 累计：133 → **134 passed**（+1）；`ruff check` reporter.py/report.py/test 全绿。
+- 单用户零回归：本里程碑仅新增报告采集/渲染与文档，未触碰任何运行时/隔离/检索代码路径。
+
+**完成信号**：P1~P4 全达成；统一报告 v2 六线一图可复现；README 门面能一眼看出改造要点。
 
 ---
 

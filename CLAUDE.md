@@ -101,7 +101,15 @@
       峰值在飞/排队）/`littles_law`（L=λ·W 校验）；`loadtest.py` 新增 `workload_u6_poisson`（泊松变到达）/
       `workload_u7_sustained_overload`/`RoundStat`（mean/std/ci95）/`run_case_ab_rounds`（多轮 A/B 聚合，
       同步入口内部 asyncio.run）。验收：U7 peak_queue 117(无界)→32(=max_queue 有界)、Little's Law rel_err≈0。
-      累计 133 测试绿（scope）。测试：`tests/scope/test_m16_loadtest_v2.py`（L1~L5 共 8 项）；报告 §9 in `M9_LOADTEST_REPORT.md`。
+      累计 133 测试绿（scope）。测试：`tests/scope/test_m16_loadtest_v2.py`（L1~L5 共 8 项）；报告 §9 in `reports/M9_LOADTEST_REPORT.md`。
+- [x] M17 项目门面 + 统一报告 v2（修 H6，P2）：`reporter.py` 的 `UnifiedReport` 扩为六字段
+      （新增 `injection`/`backpressure`/`retrieval_v2`），`build_report` 采集六线（背压用
+      `await asyncio.to_thread(collect_backpressure)` 避免嵌套 loop），新增三个渲染函数
+      `_render_injection`/`_render_backpressure`/`_render_retrieval_v2`；新建 `nanoscope/eval/report.py`
+      一键入口（`python -m nanoscope.eval.report`，默认写 `reports/NANOSCOPE_UNIFIED_REPORT.html`）；
+      README 顶部加「🔭 NanoScope」门面区块；报告产物 `git mv` 进 `reports/`；`.gitignore` 加
+      `NANOSCOPE_PROJECT_OVERVIEW.html`（用户学习文件不入库）。累计 134 测试绿（scope）。
+      测试：`tests/scope/test_m10_reporter.py`（+1，共 6 项）。**红线：报告数字全部来自 tests/scope 同源代码，禁止手填。**
 
 ## 新会话开工前
 1. `git rev-parse --abbrev-ref HEAD` 确认在 `ljj/scope_v0`。
