@@ -1,0 +1,699 @@
+.gitignore
+  s_6f12ba3155198d::t_b085a0ae535c72 106-108 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e609e84b8df319cb79e5c","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[106,108]}]}]}
+tests/scope/test_m10_reporter.py
+  s_6f12ba3155198d::t_0ab7e7f221bd71 61-76 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e601784b8df319cb79e4a","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[61,76]}]}]}
+  s_6f12ba3155198d::t_4c83f473db5f03 89-92 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e602984b8df319cb79e4d","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[89,92]}]}]}
+README.md
+  s_6f12ba3155198d::t_062286d8d58486 37-84 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e60d784b8df319cb79e6e","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[37,84]}]}]}
+PROGRESS_v4.md
+  s_6f12ba3155198d::t_47eab672698bc2 18-19 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5ed79384b8df319cb79e88","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[18,19]}]}]}
+  s_6f12ba3155198d::t_b7ebd9ccfde9d4 316-354 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5ed7af84b8df319cb79e91","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[316,354]}]}]}
+  s_6f12ba3155198d::t_d5c787bbd8cd51 31 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5ed79d84b8df319cb79e8b","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Single":31}]}]}
+nanoscope/eval/reporter.py
+  s_6f12ba3155198d::t_02b83844217a85 239,243,246-271 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e5ef484b8df319cb79e2b","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Single":239},{"Single":243},{"Range":[246,271]}]}]}
+  s_6f12ba3155198d::t_802e6435180715 244-245 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e5f0d84b8df319cb79e2e","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[244,245]}]}]}
+  s_6f12ba3155198d::t_9eaf880ef46c6b 452 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e60b484b8df319cb79e62","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Single":452}]}]}
+  s_6f12ba3155198d::t_246cebc81b89ce 515-517 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e600a84b8df319cb79e47","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[515,517]}]}]}
+  s_6f12ba3155198d::t_72799a7e15f88a 73-80,85-87 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e5ee684b8df319cb79e28","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[73,80]},{"Range":[85,87]}]}]}
+  s_6f12ba3155198d::t_fbf06075c5a10e 402-451,453-498,505-507 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e5fe084b8df319cb79e44","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[402,451]},{"Range":[453,498]},{"Range":[505,507]}]}]}
+  s_6f12ba3155198d::t_cd858ff0ef7852 26,28-34,36,43-51 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e5ed484b8df319cb79e25","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Single":26},{"Range":[28,34]},{"Single":36},{"Range":[43,51]}]}]}
+  s_6f12ba3155198d::t_30aa70daf1f96c 397 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e60c684b8df319cb79e68","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Single":397}]}]}
+  s_6f12ba3155198d::t_bcc6ffad9e4a97 52
+CLAUDE.md
+  s_6f12ba3155198d::t_ba462f6b81ef35 104-112 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5ed7df84b8df319cb79e9a","tool_type":"agent","tool_id":"Edit","line_ranges":[{"Range":[104,112]}]}]}
+nanoscope/eval/report.py
+  s_6f12ba3155198d::t_26f4ed64e337a5 1-57 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5e607e84b8df319cb79e56","tool_type":"agent","tool_id":"Write","line_ranges":[{"Range":[1,57]}]}]}
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a5d09b99e33802664436d1c23f6ffbd2df9d1814",
+  "prompts": {},
+  "sessions": {
+    "s_6f12ba3155198d": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a5e3ab984b8df319cb79a87",
+        "model": "openrouter-3o__dev"
+      },
+      "human_author": "TerryChi629 <1125605344@qq.com>"
+    }
+  },
+  "attestation_metadata": {
+    ".gitignore": [
+      {
+        "hash": "s_6f12ba3155198d::t_b085a0ae535c72",
+        "line_ranges": [
+          {
+            "Range": [
+              106,
+              108
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e609e84b8df319cb79e5c",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  106,
+                  108
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "CLAUDE.md": [
+      {
+        "hash": "s_6f12ba3155198d::t_ba462f6b81ef35",
+        "line_ranges": [
+          {
+            "Range": [
+              104,
+              112
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5ed7df84b8df319cb79e9a",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  104,
+                  112
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "PROGRESS_v4.md": [
+      {
+        "hash": "s_6f12ba3155198d::t_47eab672698bc2",
+        "line_ranges": [
+          {
+            "Range": [
+              18,
+              19
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5ed79384b8df319cb79e88",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  18,
+                  19
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_6f12ba3155198d::t_b7ebd9ccfde9d4",
+        "line_ranges": [
+          {
+            "Range": [
+              316,
+              354
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5ed7af84b8df319cb79e91",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  316,
+                  354
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_6f12ba3155198d::t_d5c787bbd8cd51",
+        "line_ranges": [
+          {
+            "Single": 31
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5ed79d84b8df319cb79e8b",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Single": 31
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "README.md": [
+      {
+        "hash": "s_6f12ba3155198d::t_062286d8d58486",
+        "line_ranges": [
+          {
+            "Range": [
+              37,
+              84
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e60d784b8df319cb79e6e",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  37,
+                  84
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "nanoscope/eval/report.py": [
+      {
+        "hash": "s_6f12ba3155198d::t_26f4ed64e337a5",
+        "line_ranges": [
+          {
+            "Range": [
+              1,
+              57
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e607e84b8df319cb79e56",
+            "tool_type": "agent",
+            "tool_id": "Write",
+            "line_ranges": [
+              {
+                "Range": [
+                  1,
+                  57
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "nanoscope/eval/reporter.py": [
+      {
+        "hash": "s_6f12ba3155198d::t_02b83844217a85",
+        "line_ranges": [
+          {
+            "Single": 239
+          },
+          {
+            "Single": 243
+          },
+          {
+            "Range": [
+              246,
+              271
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e5ef484b8df319cb79e2b",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Single": 239
+              },
+              {
+                "Single": 243
+              },
+              {
+                "Range": [
+                  246,
+                  271
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_6f12ba3155198d::t_802e6435180715",
+        "line_ranges": [
+          {
+            "Range": [
+              244,
+              245
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e5f0d84b8df319cb79e2e",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  244,
+                  245
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_6f12ba3155198d::t_9eaf880ef46c6b",
+        "line_ranges": [
+          {
+            "Single": 452
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e60b484b8df319cb79e62",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Single": 452
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_6f12ba3155198d::t_246cebc81b89ce",
+        "line_ranges": [
+          {
+            "Range": [
+              515,
+              517
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e600a84b8df319cb79e47",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  515,
+                  517
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_6f12ba3155198d::t_72799a7e15f88a",
+        "line_ranges": [
+          {
+            "Range": [
+              73,
+              80
+            ]
+          },
+          {
+            "Range": [
+              85,
+              87
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e5ee684b8df319cb79e28",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  73,
+                  80
+                ]
+              },
+              {
+                "Range": [
+                  85,
+                  87
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_6f12ba3155198d::t_fbf06075c5a10e",
+        "line_ranges": [
+          {
+            "Range": [
+              402,
+              451
+            ]
+          },
+          {
+            "Range": [
+              453,
+              498
+            ]
+          },
+          {
+            "Range": [
+              505,
+              507
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e5fe084b8df319cb79e44",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  402,
+                  451
+                ]
+              },
+              {
+                "Range": [
+                  453,
+                  498
+                ]
+              },
+              {
+                "Range": [
+                  505,
+                  507
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_6f12ba3155198d::t_cd858ff0ef7852",
+        "line_ranges": [
+          {
+            "Single": 26
+          },
+          {
+            "Range": [
+              28,
+              34
+            ]
+          },
+          {
+            "Single": 36
+          },
+          {
+            "Range": [
+              43,
+              51
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e5ed484b8df319cb79e25",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Single": 26
+              },
+              {
+                "Range": [
+                  28,
+                  34
+                ]
+              },
+              {
+                "Single": 36
+              },
+              {
+                "Range": [
+                  43,
+                  51
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_6f12ba3155198d::t_30aa70daf1f96c",
+        "line_ranges": [
+          {
+            "Single": 397
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e60c684b8df319cb79e68",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Single": 397
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "tests/scope/test_m10_reporter.py": [
+      {
+        "hash": "s_6f12ba3155198d::t_0ab7e7f221bd71",
+        "line_ranges": [
+          {
+            "Range": [
+              61,
+              76
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e601784b8df319cb79e4a",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  61,
+                  76
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "hash": "s_6f12ba3155198d::t_4c83f473db5f03",
+        "line_ranges": [
+          {
+            "Range": [
+              89,
+              92
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5e602984b8df319cb79e4d",
+            "tool_type": "agent",
+            "tool_id": "Edit",
+            "line_ranges": [
+              {
+                "Range": [
+                  89,
+                  92
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "remote_transcripts": {
+    "s_6f12ba3155198d": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_02b83844217a85": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_062286d8d58486": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_0ab7e7f221bd71": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_246cebc81b89ce": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_26f4ed64e337a5": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_30aa70daf1f96c": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_47eab672698bc2": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_4c83f473db5f03": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_72799a7e15f88a": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_802e6435180715": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_9eaf880ef46c6b": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_b085a0ae535c72": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_b7ebd9ccfde9d4": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_ba462f6b81ef35": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_cd858ff0ef7852": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_d5c787bbd8cd51": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6f12ba3155198d::t_fbf06075c5a10e": {
+      "tool": "trae",
+      "conversation_id": "6a5e3ab984b8df319cb79a87",
+      "session_id": "6a5e3ab984b8df319cb79a87",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    }
+  }
+}
