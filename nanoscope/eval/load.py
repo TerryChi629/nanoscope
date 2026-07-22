@@ -265,8 +265,9 @@ class LittlesLaw:
 
     - lam：到达率（完成数 / 墙钟）。
     - w_mean：平均逗留时间（queue_wait + service_time）。
-    - l_predicted = λ·W；l_measured = Σ逗留时间 / 墙钟（时间加权平均在系统内数）。
-    - rel_error：两者相对误差，佐证"有界准入把 L 钉在上界"。
+    - l_predicted = λ·W。
+    - l_measured：独立 sweep-line 时间积分得到的平均系统内请求数。
+    - rel_error：两条独立计算路径的相对误差。
     """
 
     lam: float
@@ -277,7 +278,7 @@ class LittlesLaw:
 
 
 def littles_law(records: Sequence[TurnRecord], *, wall: float) -> LittlesLaw:
-    """用实测到达率 λ 与平均逗留 W 验证在途数 L（M16.2 数学闭环，L3）。"""
+    """用独立时间积分得到 L，并与实测到达率 λ、平均逗留 W 对照。"""
     completed = [r for r in records if not r.rejected and r.finished_at is not None]
     n = len(completed)
     if n == 0 or wall <= 0:
@@ -286,8 +287,24 @@ def littles_law(records: Sequence[TurnRecord], *, wall: float) -> LittlesLaw:
     sojourns = [r.queue_wait + r.service_time for r in completed]
     w_mean = sum(sojourns) / n
     l_predicted = lam * w_mean
-    # 时间加权在系统内数 = Σ逗留时间 / 墙钟（等价于对 inflight 曲线积分再除以墙钟）。
-    l_measured = sum(sojourns) / wall
+    window_start = min(r.enqueued_at for r in completed)
+    window_end = window_start + wall
+    events: list[tuple[float, int]] = []
+    for record in completed:
+        start = max(record.enqueued_at, window_start)
+        end = min(record.finished_at, window_end)
+        if end > start:
+            events.append((start, 1))
+            events.append((end, -1))
+    events.sort(key=lambda event: (event[0], event[1]))
+    area = 0.0
+    active = 0
+    previous = window_start
+    for timestamp, delta in events:
+        area += active * (timestamp - previous)
+        active += delta
+        previous = timestamp
+    l_measured = area / wall
     denom = l_predicted if l_predicted > 0 else 1.0
     rel_error = abs(l_measured - l_predicted) / denom
     return LittlesLaw(lam, w_mean, l_predicted, l_measured, rel_error)

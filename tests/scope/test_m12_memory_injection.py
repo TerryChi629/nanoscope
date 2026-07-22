@@ -138,17 +138,17 @@ def test_i3_resistance_rate_drops_after_hardening():
     report = collect_injection_resistance()
     assert report.n_payloads >= 20
     # 改前：结构型注入构件原样存活，成功率高。
-    assert report.baseline_success > 0
+    assert report.baseline_probe_survival > 0
     # 改后：成功率显著低于改前（结构型被中和）。
-    assert report.hardened_success < report.baseline_success
-    assert report.hardened_rate < report.baseline_rate
+    assert report.hardened_probe_survival < report.baseline_probe_survival
+    assert report.hardened_survival_rate < report.baseline_survival_rate
 
 
 def test_i3_structural_injections_fully_neutralized():
     """结构型注入（闭合数据块/角色伪造/特殊 token）改后 100% 被中和。"""
     report = collect_injection_resistance()
     # 改后残留全部来自纯自然语言（诚实非零残留），结构型零残留。
-    assert report.hardened_success == report.residual_natural_language
+    assert report.hardened_probe_survival == report.residual_natural_language
 
 
 def test_i3_natural_language_residual_is_honest_nonzero():

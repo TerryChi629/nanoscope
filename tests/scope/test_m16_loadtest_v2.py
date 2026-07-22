@@ -99,6 +99,17 @@ def test_l3_littles_law_consistency():
     assert law.rel_error < 0.5
 
 
+def test_l3_measured_l_clips_records_to_observation_window():
+    """实测 L 必须由观测窗口内的时间积分得到，不能复用 λW 的代数式。"""
+    records = [_rec("p0", 0.0, 0.0, 20.0)]
+
+    law = littles_law(records, wall=10.0)
+
+    assert law.l_predicted == 2.0
+    assert law.l_measured == 1.0
+    assert law.rel_error == 0.5
+
+
 # ---------- L4 多轮聚合 CI ----------
 
 def test_l4_multi_round_reports_ci():

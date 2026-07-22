@@ -78,6 +78,14 @@ def test_s3_multiseed_reports_mean_and_std():
     assert stat.ci95 >= 0.0
 
 
+def test_s3_different_seeds_change_retrieval_statistics():
+    """seed 必须扰动真实检索难度，而不是只改变不参与排序的编号。"""
+    points = run_curve_v2([1500], list(range(1, 21)), k=5)
+
+    assert points[0].grep.std > 0.0
+    assert points[0].grep.ci95 > 0.0
+
+
 # ---------- S4 rank 分布 ----------
 
 def test_s4_reports_gold_rank_distribution():

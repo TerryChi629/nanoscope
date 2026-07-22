@@ -23,7 +23,7 @@ footer{margin-top:40px;color:#888;font-size:12px;border-top:1px solid #eee;paddi
 <body>
 <h1>NanoScope 统一 A/B 报告</h1>
 <p class="lead">一份自包含的改前 vs 改后证据平面：把 P0 记忆隔离内核（含 Recent History 双通道）、
-P1-A 混合检索、P1-B 应用层公平调度、记忆注入抵抗率、端到端背压峰值、带 CI 规模曲线 v2、
+P1-A 混合检索、P1-B 应用层公平调度、记忆注入静态探针残留、端到端背压峰值、带 CI 规模曲线 v2、
 权限感知文档 RAG 七条线的可证伪收益汇于一处（PRD §11-M10 + PRD_v4 §M17 统一报告 v2 + §M18）。</p>
 
 <h2><span class="pill p0">P0</span> 一、隔离安全 A/B（forbidden_prompt_exposure，双通道）</h2>
@@ -44,20 +44,20 @@ P1-A 混合检索、P1-B 应用层公平调度、记忆注入抵抗率、端到�
 ）的召回对比。红=跌破 SLA。</p>
 <table><tr><th>N</th><th>grep R@k</th><th>bm25 R@k</th></tr><tr><td>50</td><td class="bad">0.625</td><td>0.875</td></tr><tr><td>200</td><td class="bad">0.500</td><td>0.875</td></tr><tr><td>1000</td><td class="bad">0.250</td><td>0.875</td></tr><tr><td>5000</td><td class="bad">0.000</td><td>0.875</td></tr></table>
 <div class="verdict">grep 的 Recall@5 在 <b>N≈50</b> 首次跌破 SLA(≥0.8)，即 RAG 介入拐点 M₀；BM25 守住召回。</div>
-<h2><span class="pill p1">P1-B</span> 三、并发公平 A/B（U1-U5 压测）</h2><p class="lead">Mock LLM 隔离网络抖动，同 workload 在 BaselineGate（裸 FIFO Semaphore）vs FairAdmissionController（有界 admission + per-principal 配额 + least-in-flight 公平出队）下各跑一遍。聚合指标见下；per-principal 拆分见 reports/M9_LOADTEST_REPORT.md。</p>
+<h2><span class="pill p1">P1-B</span> 三、并发公平 A/B（U1-U5 压测）</h2><p class="lead">Mock LLM 隔离网络抖动，同 workload 在 BaselineGate（裸 FIFO Semaphore）vs FairAdmissionController（有界 admission + per-principal 配额 + least-in-flight 公平出队）下各跑一遍。聚合 Jain 仅作描述；公平性主要看普通用户与 hog 的 per-principal queue-wait 拆分，详见 reports/M9_LOADTEST_REPORT.md。</p>
 <h3 style="margin-top:22px">U1_ramp</h3>
 <table>
 <tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
 <tr><td>完成 / 拒绝</td><td>12 / 0</td>
 <td>12 / 0</td><td>—</td></tr>
-<tr><td>queue_wait p95(s)</td><td>0.1466</td>
-<td>0.1447</td><td>↓1%</td></tr>
-<tr><td>queue_wait p99(s)</td><td>0.1470</td>
-<td>0.1451</td><td>↓1%</td></tr>
+<tr><td>queue_wait p95(s)</td><td>0.1436</td>
+<td>0.1432</td><td>↓0%</td></tr>
+<tr><td>queue_wait p99(s)</td><td>0.1441</td>
+<td>0.1436</td><td>↓0%</td></tr>
 <tr><td>Jain(completed_turns)</td><td>1.0000</td>
-<td>1.0000</td><td>—</td></tr>
-<tr><td>throughput(turn/s)</td><td>57.54</td>
-<td>58.06</td><td>—</td></tr>
+<td>1.0000</td><td>描述性指标，不单独证明调度公平</td></tr>
+<tr><td>throughput(turn/s)</td><td>58.76</td>
+<td>58.76</td><td>—</td></tr>
 </table>
 
 <h3 style="margin-top:22px">U2_same_session_flood</h3>
@@ -65,14 +65,14 @@ P1-A 混合检索、P1-B 应用层公平调度、记忆注入抵抗率、端到�
 <tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
 <tr><td>完成 / 拒绝</td><td>30 / 0</td>
 <td>30 / 0</td><td>—</td></tr>
-<tr><td>queue_wait p95(s)</td><td>0.1662</td>
-<td>0.5703</td><td>↑243%</td></tr>
-<tr><td>queue_wait p99(s)</td><td>0.1673</td>
-<td>0.5942</td><td>↑255%</td></tr>
+<tr><td>queue_wait p95(s)</td><td>0.1609</td>
+<td>0.5511</td><td>↑242%</td></tr>
+<tr><td>queue_wait p99(s)</td><td>0.1620</td>
+<td>0.5741</td><td>↑254%</td></tr>
 <tr><td>Jain(completed_turns)</td><td>1.0000</td>
-<td>1.0000</td><td>—</td></tr>
-<tr><td>throughput(turn/s)</td><td>138.46</td>
-<td>46.04</td><td>—</td></tr>
+<td>1.0000</td><td>描述性指标，不单独证明调度公平</td></tr>
+<tr><td>throughput(turn/s)</td><td>142.32</td>
+<td>47.59</td><td>—</td></tr>
 </table>
 
 <h3 style="margin-top:22px">U3_slow_isolation</h3>
@@ -80,14 +80,14 @@ P1-A 混合检索、P1-B 应用层公平调度、记忆注入抵抗率、端到�
 <tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
 <tr><td>完成 / 拒绝</td><td>14 / 0</td>
 <td>14 / 0</td><td>—</td></tr>
-<tr><td>queue_wait p95(s)</td><td>0.4309</td>
-<td>0.8727</td><td>↑103%</td></tr>
-<tr><td>queue_wait p99(s)</td><td>0.4314</td>
-<td>0.9773</td><td>↑127%</td></tr>
+<tr><td>queue_wait p95(s)</td><td>0.4281</td>
+<td>0.8708</td><td>↑103%</td></tr>
+<tr><td>queue_wait p99(s)</td><td>0.4286</td>
+<td>0.9750</td><td>↑127%</td></tr>
 <tr><td>Jain(completed_turns)</td><td>0.4949</td>
-<td>0.4949</td><td>—</td></tr>
-<tr><td>throughput(turn/s)</td><td>29.79</td>
-<td>11.57</td><td>—</td></tr>
+<td>0.4949</td><td>描述性指标，不单独证明调度公平</td></tr>
+<tr><td>throughput(turn/s)</td><td>30.02</td>
+<td>11.60</td><td>—</td></tr>
 </table>
 
 <h3 style="margin-top:22px">U4_mixed_fairness</h3>
@@ -95,14 +95,14 @@ P1-A 混合检索、P1-B 应用层公平调度、记忆注入抵抗率、端到�
 <tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
 <tr><td>完成 / 拒绝</td><td>36 / 0</td>
 <td>36 / 0</td><td>—</td></tr>
-<tr><td>queue_wait p95(s)</td><td>0.4398</td>
-<td>0.9077</td><td>↑106%</td></tr>
-<tr><td>queue_wait p99(s)</td><td>0.4412</td>
-<td>0.9928</td><td>↑125%</td></tr>
+<tr><td>queue_wait p95(s)</td><td>0.4367</td>
+<td>0.8960</td><td>↑105%</td></tr>
+<tr><td>queue_wait p99(s)</td><td>0.4379</td>
+<td>0.9797</td><td>↑124%</td></tr>
 <tr><td>Jain(completed_turns)</td><td>0.7500</td>
-<td>0.7500</td><td>—</td></tr>
-<tr><td>throughput(turn/s)</td><td>72.43</td>
-<td>32.49</td><td>—</td></tr>
+<td>0.7500</td><td>描述性指标，不单独证明调度公平</td></tr>
+<tr><td>throughput(turn/s)</td><td>73.03</td>
+<td>32.91</td><td>—</td></tr>
 </table>
 
 <h3 style="margin-top:22px">U5_overload</h3>
@@ -110,31 +110,32 @@ P1-A 混合检索、P1-B 应用层公平调度、记忆注入抵抗率、端到�
 <tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
 <tr><td>完成 / 拒绝</td><td>200 / 0</td>
 <td>35 / 165</td><td>—</td></tr>
-<tr><td>queue_wait p95(s)</td><td>3.2562</td>
-<td>0.5307</td><td>↓84%</td></tr>
-<tr><td>queue_wait p99(s)</td><td>3.3611</td>
-<td>0.5672</td><td>↓83%</td></tr>
+<tr><td>queue_wait p95(s)</td><td>3.2191</td>
+<td>0.5262</td><td>↓84%</td></tr>
+<tr><td>queue_wait p99(s)</td><td>3.3209</td>
+<td>0.5615</td><td>↓83%</td></tr>
 <tr><td>Jain(completed_turns)</td><td>1.0000</td>
-<td>0.9423</td><td>—</td></tr>
-<tr><td>throughput(turn/s)</td><td>57.74</td>
-<td>56.50</td><td>—</td></tr>
+<td>0.9423</td><td>描述性指标，不单独证明调度公平</td></tr>
+<tr><td>throughput(turn/s)</td><td>58.41</td>
+<td>57.08</td><td>—</td></tr>
 </table>
 
-<h2><span class="pill p1">P1</span> 四、记忆注入抵抗率 A/B（持久化 Prompt Injection）</h2>
+<h2><span class="pill p1">P1</span> 四、记忆注入静态探针残留 A/B</h2>
 <p class="lead">同一攻击集经改前（原样 <code>- {content}</code> 拼接）与改后（清洗 + 转义 +
-<code>&lt;memory&gt;</code> 不可信数据块包裹）两条注入链路，统计越权探针是否以可执行形式存活。</p>
+<code>&lt;memory&gt;</code> 不可信数据块包裹）两条链路，统计探针字符串是否原样存活。
+这是结构防护指标，不是模型执行/越权成功率。</p>
 <table>
 <tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
-<tr><td>注入成功数 / 总攻击数</td>
+<tr><td>静态探针残留数 / 总 payload</td>
 <td class="bad">21 / 21</td>
 <td class="good">5 / 21</td><td>↓76%</td></tr>
-<tr><td>注入成功率</td>
+<tr><td>静态探针残留率</td>
 <td class="bad">100.0%</td>
 <td class="good">23.8%</td><td>↓76%</td></tr>
 <tr><td>其中纯自然语言残留（诚实非零）</td><td>—</td>
 <td>5</td><td>—</td></tr>
 </table>
-<div class="verdict">21 条记忆型注入攻击上，改前注入成功 <b>21</b> 条（成功率 100%）；写入清洗 + 读取转义 + 不可信 data-block 包裹后降至 <b>5</b> 条（成功率 24%，↓76%）。其中 <b>5</b> 条为纯自然语言注入残留——结构化手段无法数学消除纯 NL 指令，只能靠模型对齐兜底，此处诚实标注为非零残留。</div>
+<div class="verdict">21 条记忆型注入 payload 上，改前静态探针原样残留 <b>21</b> 条（残留率 100%）；清洗 + 转义 + data-block 包裹后降至 <b>5</b> 条（残留率 24%，↓76%）。其中 <b>5</b> 条为纯自然语言注入残留——本评测未调用模型，不能外推为真实攻击成功率；纯 NL 只能靠模型对齐/行为级红队验证。</div>
 
 <h2><span class="pill p1">P1-B</span> 五、端到端背压峰值 A/B（U7 持续过载，多轮 95% CI）</h2>
 <p class="lead">灌入量远超容量的持续过载下，BaselineGate（无界 bus + 全局 FIFO）vs
@@ -149,10 +150,10 @@ FairAdmissionController（有界 admission，<code>max_queue=32</code>）的
 <td>0.0% ± 0.0%</td>
 <td>70.8% ± 0.0%</td><td>—</td></tr>
 <tr><td>effective_goodput（有效吞吐 turn/s）</td>
-<td>258.9 ± 3.5</td>
-<td>249.7 ± 4.4</td><td>—</td></tr>
+<td>272.9 ± 0.9</td>
+<td>264.2 ± 1.8</td><td>—</td></tr>
 </table>
-<div class="verdict">3 轮聚合下，持续过载（U7_sustained_overload）时基线队列峰值 <b>117.0 ± 0.0</b> 随灌入线性堆积（无界）；改后有界准入把 peak_queue 收敛到 <b>32.0 ± 0.0</b>（=max_queue，↓73%），代价是拒绝率从 0.0% 升至 70.8%（有界背压优雅拒绝），有效吞吐 goodput 基本持平（258.9→249.7 turn/s）——峰值有界成立。</div>
+<div class="verdict">3 轮聚合下，持续过载（U7_sustained_overload）时基线队列峰值 <b>117.0 ± 0.0</b> 随灌入线性堆积（无界）；改后有界准入把 peak_queue 收敛到 <b>32.0 ± 0.0</b>（=max_queue，↓73%），代价是拒绝率从 0.0% 升至 70.8%（有界背压优雅拒绝），有效吞吐 goodput 基本持平（272.9→264.2 turn/s）——峰值有界成立。</div>
 
 <h2><span class="pill p1">P1-A</span> 六、规模曲线 v2（Zipf 自然增长 + 多种子 95% CI）</h2>
 <p class="lead">主题热度按 Zipf 分布、干扰随 N 连续增长（无手工掩埋阈值），每档跑
@@ -175,7 +176,7 @@ Filtered-ANN 三策略——Pre-filter（正确性天花板）/ Post-filter（�
 <tr><td>Post-filter（反面对照：越权进候选被打分）</td><td class="good">0</td></tr>
 <tr><td>Partitioned（选定解：按 ACL 分区，越权子图不遍历）</td><td class="good">0</td></tr>
 </table>
-<div class="verdict">A 部门成员（可见 40 条 chunk）用跨部门 query 「量子加密机密材料纠缠态实验记录与路线」检索：经典全员可见 RAG（关授权、全库向量近邻）泄露 <b>30</b> 条 B 部门越权 chunk（共 30 条越权语料，可证伪基线）；启用权限感知检索后，Pre-filter / Post-filter / Partitioned 三策略越权命中分别为 <b>0</b> / <b>0</b> / <b>0</b>——授权 WHERE 在向量近邻<b>之前</b>生效，隔离不变量从记忆条目扩展到长文档 chunk 依然成立（ANN 底座：真 HNSW）。</div>
+<div class="verdict">A 部门成员（可见 40 条 chunk）用跨部门 query 「量子加密机密材料纠缠态实验记录与路线」检索：经典全员可见 RAG（关授权、全库向量近邻）泄露 <b>30</b> 条 B 部门越权 chunk（共 30 条越权语料，可证伪基线）；Pre-filter / Partitioned 两个正确方案越权命中分别为 <b>0</b> / <b>0</b>，隔离在召回前完成；Post-filter 最终命中虽为 <b>0</b>，但越权向量已进入候选，仅作为反面对照，不满足安全红线（ANN 底座：真 HNSW）。</div>
 
 <footer>由 <code>nanoscope.eval.reporter</code> 生成 · 数据与 tests/scope 各里程碑单测同源 · 分支 ljj/scope_v0</footer>
 </body></html>

@@ -11,6 +11,7 @@ from nanoscope.identity import (
     SecurityContext,
     TenantConflictError,
     audience_type_from_dm,
+    make_audience_id,
     make_principal_id,
 )
 
@@ -22,5 +23,6 @@ __all__ = [
     "SecurityContext",
     "TenantConflictError",
     "audience_type_from_dm",
+    "make_audience_id",
     "make_principal_id",
 ]

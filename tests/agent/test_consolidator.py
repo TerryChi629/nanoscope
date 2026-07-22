@@ -75,6 +75,39 @@ def _tool_round(call_id: str) -> list[dict]:
 
 
 class TestConsolidatorSummarize:
+    async def test_archive_uses_actual_summary_input_for_security_ownership(
+        self, consolidator, mock_provider, store, runtime
+    ):
+        """含其他主体的保留后缀不能被摘要后错误标成被删除前缀的 owner。"""
+        mock_provider.chat_with_retry.return_value = LLMResponse(
+            content="Summary contains both users.",
+        )
+        alice = {
+            "role": "user",
+            "content": "alice secret",
+            "principal_id": "orgA:feishu:alice",
+            "audience_type": "dm",
+            "audience_id": "alice",
+        }
+        bob = {
+            "role": "user",
+            "content": "bob secret",
+            "principal_id": "orgA:feishu:bob",
+            "audience_type": "dm",
+            "audience_id": "bob",
+        }
+
+        await consolidator.archive(
+            [alice],
+            runtime=runtime,
+            summary_messages=[alice, bob],
+        )
+
+        entry = store.read_unprocessed_history(since_cursor=0)[0]
+        assert "principal_id" not in entry
+        assert "audience_type" not in entry
+        assert "audience_id" not in entry
+
     async def test_archive_excludes_model_only_runtime_context(
         self, consolidator, mock_provider, runtime
     ):

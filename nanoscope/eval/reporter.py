@@ -75,8 +75,8 @@ class DocRagReport:
 
     - baseline_exposure：绕过授权 WHERE、直接对全库做向量近邻（业界默认全员可见的经典 RAG），
       A 部门成员的跨部门 query 语义命中 B 部门机密 chunk → 越权泄露 >0（可证伪基线）。
-    - 三策略隔离态：Pre-filter（正确性天花板）/ Post-filter（反面对照，越权进候选被打分）/
-      Partitioned（选定解，越权子图从不遍历）——授权 WHERE 在召回前生效 → 越权命中均为 0。
+    - 正确隔离态：Pre-filter（授权 WHERE）/ Partitioned（租户化 ACL 子图）在召回前隔离。
+    - Post-filter 仅作反面对照：越权项已进候选并被打分，最终命中为 0 不代表满足安全红线。
     - ann_backend：真 hnswlib 是否可用（诚实标注加速层底座）。
     """
 
@@ -95,7 +95,7 @@ class UnifiedReport:
     """六条证据线的一体化 A/B 结果（M10 三线 + M17 统一报告 v2 扩展两线 + M18 文档 RAG）。
 
     NanoScope v2（PRD_v4 §M17.3）在 M10 三线（隔离/召回/并发）基础上新增：
-    - injection：记忆注入抵抗率（M12）改前 vs 改后。
+    - injection：记忆注入静态探针残留（M12）改前 vs 改后。
     - backpressure：端到端背压峰值（M16）改前(线性) vs 改后(有界)。
     - retrieval_v2：带 95% CI 的规模曲线（M15，Zipf 自然增长）。
     - doc_rag：权限感知文档 RAG（M18）三策略越权命中 vs 关授权全库近邻。
@@ -474,7 +474,7 @@ def _render_concurrency(cases: list[AbResult]) -> str:
 <tr><td>queue_wait p99(s)</td><td>{b.queue_wait.p99:.4f}</td>
 <td>{im.queue_wait.p99:.4f}</td><td>{p99}</td></tr>
 <tr><td>Jain(completed_turns)</td><td>{b.jain_completed_turns:.4f}</td>
-<td>{im.jain_completed_turns:.4f}</td><td>—</td></tr>
+<td>{im.jain_completed_turns:.4f}</td><td>描述性指标，不单独证明调度公平</td></tr>
 <tr><td>throughput(turn/s)</td><td>{b.throughput:.2f}</td>
 <td>{im.throughput:.2f}</td><td>—</td></tr>
 </table>
@@ -483,36 +483,38 @@ def _render_concurrency(cases: list[AbResult]) -> str:
         "<h2><span class=\"pill p1\">P1-B</span> 三、并发公平 A/B（U1-U5 压测）</h2>"
         "<p class=\"lead\">Mock LLM 隔离网络抖动，同 workload 在 BaselineGate（裸 FIFO Semaphore）"
         "vs FairAdmissionController（有界 admission + per-principal 配额 + least-in-flight 公平出队）"
-        "下各跑一遍。聚合指标见下；per-principal 拆分见 reports/M9_LOADTEST_REPORT.md。</p>"
+        "下各跑一遍。聚合 Jain 仅作描述；公平性主要看普通用户与 hog 的 per-principal "
+        "queue-wait 拆分，详见 reports/M9_LOADTEST_REPORT.md。</p>"
         + "".join(blocks)
     )
 
 
 def _render_injection(rep: InjectionReport) -> str:
-    """记忆注入抵抗率 A/B（M12）：改前 vs 改后成功率，诚实标注纯 NL 残留。"""
-    b, i = rep.baseline_success, rep.hardened_success
+    """记忆注入静态探针残留 A/B；不把字符串残留解释为模型行为。"""
+    b, i = rep.baseline_probe_survival, rep.hardened_probe_survival
     b_cls = "bad" if b > 0 else "good"
     i_cls = "good" if i < b else "bad"
-    delta = _delta_pct(rep.baseline_rate, rep.hardened_rate)
+    delta = _delta_pct(rep.baseline_survival_rate, rep.hardened_survival_rate)
     verdict = (
-        f"{rep.n_payloads} 条记忆型注入攻击上，改前注入成功 <b>{b}</b> 条"
-        f"（成功率 {rep.baseline_rate:.0%}）；写入清洗 + 读取转义 + 不可信 data-block 包裹后"
-        f"降至 <b>{i}</b> 条（成功率 {rep.hardened_rate:.0%}，{delta}）。"
+        f"{rep.n_payloads} 条记忆型注入 payload 上，改前静态探针原样残留 <b>{b}</b> 条"
+        f"（残留率 {rep.baseline_survival_rate:.0%}）；清洗 + 转义 + data-block 包裹后"
+        f"降至 <b>{i}</b> 条（残留率 {rep.hardened_survival_rate:.0%}，{delta}）。"
         f"其中 <b>{rep.residual_natural_language}</b> 条为纯自然语言注入残留——"
-        f"结构化手段无法数学消除纯 NL 指令，只能靠模型对齐兜底，此处诚实标注为非零残留。"
+        f"本评测未调用模型，不能外推为真实攻击成功率；纯 NL 只能靠模型对齐/行为级红队验证。"
     )
     return f"""
-<h2><span class="pill p1">P1</span> 四、记忆注入抵抗率 A/B（持久化 Prompt Injection）</h2>
+<h2><span class="pill p1">P1</span> 四、记忆注入静态探针残留 A/B</h2>
 <p class="lead">同一攻击集经改前（原样 <code>- {{content}}</code> 拼接）与改后（清洗 + 转义 +
-<code>&lt;memory&gt;</code> 不可信数据块包裹）两条注入链路，统计越权探针是否以可执行形式存活。</p>
+<code>&lt;memory&gt;</code> 不可信数据块包裹）两条链路，统计探针字符串是否原样存活。
+这是结构防护指标，不是模型执行/越权成功率。</p>
 <table>
 <tr><th>指标</th><th>改前 baseline</th><th>改后 nanoscope</th><th>变化</th></tr>
-<tr><td>注入成功数 / 总攻击数</td>
+<tr><td>静态探针残留数 / 总 payload</td>
 <td class="{b_cls}">{b} / {rep.n_payloads}</td>
 <td class="{i_cls}">{i} / {rep.n_payloads}</td><td>{delta}</td></tr>
-<tr><td>注入成功率</td>
-<td class="{b_cls}">{rep.baseline_rate:.1%}</td>
-<td class="{i_cls}">{rep.hardened_rate:.1%}</td><td>{delta}</td></tr>
+<tr><td>静态探针残留率</td>
+<td class="{b_cls}">{rep.baseline_survival_rate:.1%}</td>
+<td class="{i_cls}">{rep.hardened_survival_rate:.1%}</td><td>{delta}</td></tr>
 <tr><td>其中纯自然语言残留（诚实非零）</td><td>—</td>
 <td>{rep.residual_natural_language}</td><td>—</td></tr>
 </table>
@@ -596,10 +598,10 @@ def _render_doc_rag(rep: DocRagReport) -> str:
         f"A 部门成员（可见 {rep.n_visible} 条 chunk）用跨部门 query "
         f"「{html.escape(rep.query)}」检索：经典全员可见 RAG（关授权、全库向量近邻）"
         f"泄露 <b>{b}</b> 条 B 部门越权 chunk（共 {rep.n_forbidden} 条越权语料，可证伪基线）；"
-        f"启用权限感知检索后，Pre-filter / Post-filter / Partitioned 三策略越权命中"
-        f"分别为 <b>{rep.prefilter_exposure}</b> / <b>{rep.postfilter_exposure}</b> / "
-        f"<b>{rep.partitioned_exposure}</b>——授权 WHERE 在向量近邻<b>之前</b>生效，"
-        f"隔离不变量从记忆条目扩展到长文档 chunk 依然成立（ANN 底座：{rep.ann_backend}）。"
+        f"Pre-filter / Partitioned 两个正确方案越权命中分别为 "
+        f"<b>{rep.prefilter_exposure}</b> / <b>{rep.partitioned_exposure}</b>，隔离在召回前完成；"
+        f"Post-filter 最终命中虽为 <b>{rep.postfilter_exposure}</b>，但越权向量已进入候选，"
+        f"仅作为反面对照，不满足安全红线（ANN 底座：{rep.ann_backend}）。"
     )
     return f"""
 <h2><span class="pill p1">P2</span> 七、权限感知文档 RAG A/B（M18，forbidden_doc_exposure）</h2>
@@ -636,7 +638,7 @@ def render_html(report: UnifiedReport, *, title: str = "NanoScope 统一 A/B 报
 <body>
 <h1>{html.escape(title)}</h1>
 <p class="lead">一份自包含的改前 vs 改后证据平面：把 P0 记忆隔离内核（含 Recent History 双通道）、
-P1-A 混合检索、P1-B 应用层公平调度、记忆注入抵抗率、端到端背压峰值、带 CI 规模曲线 v2、
+P1-A 混合检索、P1-B 应用层公平调度、记忆注入静态探针残留、端到端背压峰值、带 CI 规模曲线 v2、
 权限感知文档 RAG 七条线的可证伪收益汇于一处（PRD §11-M10 + PRD_v4 §M17 统一报告 v2 + §M18）。</p>
 {body}
 <footer>由 <code>nanoscope.eval.reporter</code> 生成 · 数据与 tests/scope 各里程碑单测同源 · 分支 ljj/scope_v0</footer>

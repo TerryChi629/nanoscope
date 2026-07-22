@@ -179,6 +179,7 @@ allow-direct-references = true
 [tool.hatch.build]
 include = [
     "nanobot/**/*.py",
+    "nanoscope/**/*.py",
     "nanobot/templates/**/*.md",
     "nanobot/skills/**/*.md",
     "nanobot/skills/**/*.sh",
@@ -192,14 +193,16 @@ artifacts = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["nanobot"]
+packages = ["nanobot", "nanoscope"]
 
 [tool.hatch.build.targets.wheel.sources]
 "nanobot" = "nanobot"
+"nanoscope" = "nanoscope"
 
 [tool.hatch.build.targets.sdist]
 include = [
     "nanobot/",
+    "nanoscope/",
     "nanobot/web/dist/",
     "hatch_build.py",
     "README.md",
@@ -221,7 +224,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["nanobot"]
+source = ["nanobot", "nanoscope"]
 omit = ["tests/*", "**/tests/*"]
 
 [tool.coverage.report]

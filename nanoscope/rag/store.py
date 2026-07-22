@@ -60,6 +60,11 @@ CREATE TABLE IF NOT EXISTS doc_chunks (
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_tenant
   ON doc_chunks(tenant_id, scope, owner_id, acl_group);
+CREATE TABLE IF NOT EXISTS rag_metadata (
+  key   TEXT PRIMARY KEY,
+  value INTEGER NOT NULL
+);
+INSERT OR IGNORE INTO rag_metadata (key, value) VALUES ('chunks_revision', 0);
 """
 
 
@@ -95,6 +100,16 @@ class ChunkStore:
 
     def close(self) -> None:
         self._conn.close()
+
+    @property
+    def revision(self) -> int:
+        """Return the committed chunk revision shared by every store instance."""
+        row = self._conn.execute(
+            "SELECT value FROM rag_metadata WHERE key = 'chunks_revision'"
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("RAG metadata is missing chunks_revision")
+        return int(row["value"])
 
     @staticmethod
     def _content_hash(tenant_id: str, scope: str, key: str, content: str) -> str:
@@ -160,6 +175,9 @@ class ChunkStore:
                 rec.id, rec.tenant_id, rec.scope, rec.owner_id, rec.acl_group,
                 rec.source_doc_id, rec.chunk_index, rec.content, content_hash, now,
             ),
+        )
+        self._conn.execute(
+            "UPDATE rag_metadata SET value = value + 1 WHERE key = 'chunks_revision'"
         )
         self._conn.commit()
         return rec

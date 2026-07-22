@@ -6,8 +6,8 @@ v1（`scale_dataset.py`，保留供对照）用手工 `_BURY_AT=[15,40,…]` **�
 
 1. **主题热度 Zipf 分布**：主题 t 的干扰生成强度 λ_t ∝ 1/(t+1)^s（s≈1），模拟真实 IM
    中少数话题高频、长尾话题低频。
-2. **干扰随 N 连续增长**：规模 N 时同主题 look-alike 干扰数 = round(λ_t · N)，**连续**
-   随 N 增大，不再有阶梯阈值。gold 埋没是干扰密度自然累积的结果。
+2. **干扰随 N 连续增长**：规模 N 时同主题 look-alike 干扰数以 λ_t · N 为期望做随机
+   舍入，随 N 增大且不再有手工阈值。gold 埋没是干扰密度自然累积的结果。
 3. **候选集与 gold rank 可观测**：每个 query 记录候选集大小、gold 实际 rank。
 4. **多种子 + 置信区间**：每档规模跑 R≥5 个种子，报告 Recall@K 均值 ± 标准差（95% CI）。
 
@@ -31,7 +31,7 @@ from nanoscope.eval.scale_dataset import (
     ScaleQuery,
 )
 
-# 干扰密度基准：主题 t 的 look-alike 干扰数 = round(zipf_lambda(t) · N)。
+# 干扰密度基准：主题 t 的 look-alike 干扰数期望 = zipf_lambda(t) · N。
 # density 选 0.02、s=1：热门主题(t=0) λ=0.02，长尾(t=7) λ=0.0025，随 N 连续增长。
 _DEFAULT_DENSITY = 0.02
 _DEFAULT_S = 1.0
@@ -50,7 +50,7 @@ def build_at_scale_v2(
 ) -> tuple[list[ScaleDoc], list[ScaleQuery]]:
     """在规模 N 下按 Zipf 连续增长合成语料 + 查询（无手工掩埋阈值）。
 
-    机制（可证伪）：主题 t 的 look-alike 干扰数 = round(zipf_lambda(t) · N)，随 N
+    机制（可证伪）：主题 t 的 look-alike 干扰数以 zipf_lambda(t) · N 为期望，随 N
     连续增长。gold 最旧（created_at 小），干扰更新——grep 按新近度排序，同主题干扰
     数超过 top_k 时把 gold 挤出窗口（漏召回）；BM25 按相关性排序，gold 子串重合度最高
     稳居前列。二者交叉即拐点，且拐点由真实干扰密度决定，而非预设常量。
@@ -65,14 +65,17 @@ def build_at_scale_v2(
         docs.append(ScaleDoc(id=gid, content=content, created_at=i))
         queries.append(ScaleQuery(query=query, gold_ids=[gid]))
 
-    # Zipf 连续增长：每个主题按 round(λ_t · N) 注入更新的同主题 look-alike 干扰。
+    # Zipf 连续增长：随机舍入保持 E[count]=λ_t·N，同时让不同 seed 真正扰动检索难度。
     ts = 1000  # 干扰起始 created_at，恒大于 gold。
     for t, (topic, _c, _q) in enumerate(_GOLD_SPECS):
-        count = round(zipf_lambda(t, density, s) * n)
+        expected = zipf_lambda(t, density, s) * n
+        count = math.floor(expected)
+        if rng.random() < expected - count:
+            count += 1
         for r in range(count):
             if len(docs) >= n:
                 break
-            frame = _DISTRACTOR_FRAMES[r % len(_DISTRACTOR_FRAMES)]
+            frame = rng.choice(_DISTRACTOR_FRAMES)
             content = frame.format(noise=topic) + f"编号{rng.randint(1000, 999999)}"
             docs.append(ScaleDoc(id=f"dist-{t}-{r}", content=content, created_at=ts))
             ts += 1

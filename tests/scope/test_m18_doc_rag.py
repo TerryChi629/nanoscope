@@ -51,6 +51,16 @@ class _KeywordEmbedder:
         return [[1.0 if w in t else 0.0 for w in self._vocab] for t in texts]
 
 
+class _CountingKeywordEmbedder(_KeywordEmbedder):
+    def __init__(self, vocab: list[str]):
+        super().__init__(vocab)
+        self.batch_sizes: list[int] = []
+
+    def embed(self, texts):
+        self.batch_sizes.append(len(texts))
+        return super().embed(texts)
+
+
 _VOCAB = ["量子", "加密", "通信", "预算", "路线"]
 
 
@@ -204,6 +214,98 @@ def test_d4_partitioned_matches_prefilter_topk(store: ChunkStore):
     assert [c.id for c in part.results] == [c.id for c in pre.results]
 
 
+def test_d4_partitioned_separates_same_named_projects_across_tenants(store: ChunkStore):
+    """同名 ACL 分区必须带 tenant 命名空间，禁止跨租户混入候选。"""
+    tenant_a = SecurityContext(
+        tenant_id="tenant-a",
+        principal_id="tenant-a:feishu:alice",
+        session_key="feishu:alice",
+        audience_type=AUDIENCE_DM,
+        roles=("finance",),
+    )
+    tenant_b = SecurityContext(
+        tenant_id="tenant-b",
+        principal_id="tenant-b:feishu:bob",
+        session_key="feishu:bob",
+        audience_type=AUDIENCE_DM,
+        roles=("finance",),
+    )
+    doc_a = store.register_document(tenant_a, title="A 租户财务")
+    allowed = store.add_chunk(
+        tenant_a,
+        source_doc_id=doc_a,
+        chunk_index=0,
+        content="量子预算 A 租户可见",
+        scope=SCOPE_PROJECT,
+        acl_group="finance",
+    )
+    doc_b = store.register_document(tenant_b, title="B 租户财务")
+    forbidden = store.add_chunk(
+        tenant_b,
+        source_doc_id=doc_b,
+        chunk_index=0,
+        content="量子预算 B 租户机密",
+        scope=SCOPE_PROJECT,
+        acl_group="finance",
+    )
+
+    outcome = PartitionedSearcher(store, _KeywordEmbedder(_VOCAB)).search(
+        tenant_a, "量子预算", top_k=5
+    )
+
+    assert allowed.id in {item.id for item in outcome.results}
+    assert forbidden.id not in {item.id for item in outcome.results}
+    assert all(item.tenant_id == tenant_a.tenant_id for item in outcome.results)
+
+
+def test_d4_doc_search_reuses_prebuilt_partitioned_vector_index(store: ChunkStore):
+    """正式入口传入预构建搜索器后，每次查询不得重新嵌入全部可见文档。"""
+    _seed_cross_dept(store)
+    alice = _ctx("orgX:feishu:alice", roles=("proj_a",))
+    embedder = _CountingKeywordEmbedder(_VOCAB)
+    searcher = PartitionedSearcher(store, embedder)
+    embedder.batch_sizes.clear()
+
+    results = doc_search_visible(
+        store,
+        alice,
+        "量子加密方案",
+        embedder=embedder,
+        vector_searcher=searcher,
+        top_k=5,
+    )
+
+    assert results
+    assert embedder.batch_sizes == [1]
+    assert all(result.tenant_id == alice.tenant_id for result in results)
+
+
+def test_d4_partitioned_refreshes_once_after_chunk_ingestion(store: ChunkStore):
+    """预构建索引必须按持久 revision 刷新，新 chunk 可召回且稳定版本不重复建图。"""
+    admin = _ctx("orgX:feishu:admin", roles=())
+    embedder = _CountingKeywordEmbedder(["刷新"])
+    searcher = PartitionedSearcher(store, embedder)
+    embedder.batch_sizes.clear()
+
+    doc_id = store.register_document(admin, title="索引刷新")
+    added = store.add_chunk(
+        admin,
+        source_doc_id=doc_id,
+        chunk_index=0,
+        content="刷新后才能召回的新增文档",
+        scope=SCOPE_ORG,
+    )
+
+    first = searcher.search(admin, "刷新", top_k=5)
+    assert [item.id for item in first.results] == [added.id]
+    assert embedder.batch_sizes == [1, 1]  # rebuild corpus, then embed query
+
+    embedder.batch_sizes.clear()
+    second = searcher.search(admin, "刷新", top_k=5)
+    assert [item.id for item in second.results] == [added.id]
+    assert embedder.batch_sizes == [1]  # unchanged revision: query only
+
+
 # ---------- D5 重排增益 ----------
 
 def test_d5_rerank_improves_ndcg_and_mrr():
@@ -318,8 +420,8 @@ def test_f3_partitioned_never_accesses_forbidden_subgraph(store: ChunkStore):
     alice = _ctx("orgX:feishu:alice", roles=("proj_a",))
     emb = _KeywordEmbedder(_VOCAB)
     outcome = PartitionedSearcher(store, emb).search(alice, "量子通信协议", top_k=5)
-    assert "project_proj_b" not in outcome.accessed_partitions
-    assert "project_proj_a" in outcome.accessed_partitions
+    assert "tenant=orgX|project=proj_b" not in outcome.accessed_partitions
+    assert "tenant=orgX|project=proj_a" in outcome.accessed_partitions
 
 
 # ---------- F4 兜底降级：分区膨胀退化 pre-filter，正确性不变 ----------

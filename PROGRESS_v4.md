@@ -295,7 +295,7 @@ query 与全库无关时仍返回一批零分文档；`rrf_fuse` 再给这些无
 | U7 goodput(完成/s) | 256.9 ± 2.56 | 249.6 ± 1.88 | 基本持平 |
 | U6 峰值排队（rate=50, 欠载） | 1.0 | 1.0 | 欠载区无回退 |
 | U6 rejection_ratio | — | 0.000 | 欠载不拒绝（L5 基线路径不变） |
-| **Little's Law**（U7 改后） | — | rel_err ≈ 0.000 | L_meas=L_pred=18.23，L=λ·W 数学闭环（L3） |
+| **Little's Law**（U7 改后） | — | rel_err ≈ 0.000 | 同源事件一致性重算；不作为独立证据 |
 
 | 验收点 | 覆盖测试 | 结果 |
 |---|---|---|
@@ -309,7 +309,7 @@ query 与全库无关时仍返回一批零分文档；`rrf_fuse` 再给这些无
 - `tests/scope` 累计：125 → **133 passed**（+8）；`ruff check` 相关文件全绿。
 
 **完成信号**：L1~L5 全绿；M9 报告 §9 给出"peak_queue 改前(117 线性) vs 改后(32 有界)"压测级铁证 +
-Little's Law rel_err≈0 排队论闭环；多轮 CI 使结论带区间。
+Little's Law rel_err≈0 仅作同源一致性重算；有界性以 peak_queue 收敛为直接证据。
 
 ---
 
@@ -472,6 +472,66 @@ repeats=5，真 hnswlib-0.8.0，同机相对量）：
 vs Pre/Post/Partitioned 三策略越权命中恒 0"的 A/B 翻转。验收测试 `test_m10_reporter.py`
 新增 `test_build_report_carries_doc_rag_line`（1 项），`render_html` 自包含断言补"权限感知
 文档 RAG A/B"段。一键复现：`python -m nanoscope.eval.report -o reports/NANOSCOPE_UNIFIED_REPORT.html`。
+
+### M18.9 独立 Review Fix：安全边界、证据独立性与交付闭环 ✅
+
+**复审方法**：不采信已有进展/HTML 的自述，直接按身份、归档、RAG、并发评测、打包调用链
+重新审查，并先写正确期望的负向测试。修复前稳定复现 5 个问题：跨租户同名 ACL 泄露、
+多用户漏参回退全局记忆、raw archive 不支持归属、Little's Law 同式自证、多 seed Recall
+方差恒为 0。
+
+**安全修复**：
+- `PartitionedSearcher` 分区键改为 `(tenant_id, scope, owner_or_acl)`，返回前显式 tenant
+  fail-closed；双租户同名 `finance` 修复前可返回 tenant-b chunk，修复后 exposure=0。
+- 完整安全快照从父 `RequestContext` 经 SpawnTool/SubagentManager/内部 announce 传播到
+  system/subagent 回注入口；多用户 `ContextBuilder` 漏传 scoped memory 时禁止回退全局
+  `MEMORY.md`。
+- history 用户消息补存 audience；归档按已标注 user messages 的唯一归属继承 owner。
+
+**证据与交付修复**：
+- Little's Law 的 `L_measured` 改为 sweep-line 时间积分并修正跨窗裁剪；终审确认完整窗口下
+  仍与 `lambda*W` 代数等价，故降级为一致性重算，独立 gauge 采样留作统计增强项。
+- Zipf 干扰数使用保持 `E[count]=lambda*N` 的随机舍入，seed 真正改变候选/gold rank；
+  临界规模 N=1500 的 Recall 标准差和 CI 非零。
+- 注入指标正名为"静态探针残留"，明确未调用模型；post-filter 明确为召回后反面对照；
+  Jain(completed_turns) 明确为描述性指标。
+- wheel/sdist 纳入 `nanoscope`；Python 3.11 干净 venv 安装 wheel 后从仓库外成功导入 RAG。
+- `doc_search_visible` 可注入并复用预构建 `PartitionedSearcher`；ANN 结果与 SQL 可见集合求交，
+  陈旧/误配索引只能少召回，不能扩大权限。
+
+**验收**：
+- `tests/scope`: **165 passed, 3 skipped**（GLM e2e 无 key 时跳过）。
+- 全仓：**5181 passed, 16 skipped, 2 deselected**。两个 deselect 是既有 workspace 测试硬编码
+  全局 `python`，而本机仅有 `.venv/bin/python`；未为测试放宽 ExecTool 的最小环境安全边界。
+- `compileall nanobot nanoscope`、Ruff 全绿；统一报告重新生成；学习 HTML 同步修正。
+- 详细施工依据与逐项记录见 `FIX_PLAN.md` / `FIX_PROGRESS.md`。
+
+### M18.10 最终安全收口：归档、Audience、工具上下文与索引生命周期 ✅
+
+**终审发现与可证伪基线**：新增 4 个负向测试，修复前为 **4 failed**：
+1. `[legacy 无归属 user, Alice user]` 被错误整体认领给 Alice；
+2. 同租户 Feishu/Slack 的裸 `group-123` audience 发生碰撞；
+3. subagent result 独立 system turn 没有向工具层传 `RequestContext`；
+4. 预构建 `PartitionedSearcher` 在后续 ingestion 后漏召回新 chunk。
+
+**最终修复**：
+- `_history_ownership` 改为检查全部 user message；任一条缺完整归属则 fail-closed。
+  DM 必须同一 owner；group/thread 允许多成员但必须同一 audience。
+- group/thread `audience_id` 规范为 `tenant:channel:type:raw_id`；跨渠道同名群不再相等。
+- `_process_system_message` 将已验证的内部安全快照同时用于 prompt 与
+  `_run_agent_loop(request_context=...)`，工具调用和二级 spawn 可继续继承完整身份。
+- `ChunkStore` 用 SQLite `chunks_revision` 持久版本；`add_chunk` 同事务自增。
+  `PartitionedSearcher` 查询前检测 revision，在锁内构建一致快照；版本不变时不重复建图。
+- 终审补丁：consolidation 摘要按实际 `summary_messages` 定归属，避免 A 的删除前缀把
+  含 B 保留后缀的摘要认领为 A；DM 按 owner、group/thread 按共享 audience 聚合。
+
+**最终验收**：
+- 缺陷探测：修复前 `4 failed`，修复后含 identity 契约共 `5 passed`。
+- 相关模块回归：首轮 `60 passed`；终审归档回归 `53 passed`；
+  `tests/scope`：**169 passed, 3 skipped**。
+- 全仓：**5187 passed, 16 skipped, 2 deselected**；两个 deselect 仍是本机无全局
+  `python` 的既有 workspace 环境用例。
+- Ruff、`compileall`、PEP 517 wheel、Python 3.11 仓库外干净安装/import smoke 全通过。
 
 ---
 

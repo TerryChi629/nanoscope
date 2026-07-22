@@ -1,7 +1,7 @@
-"""M12 记忆注入抵抗率评测 (PRD_v4 §M12.3 I3 / 修 H2)。
+"""M12 记忆注入结构构件残留评测 (PRD_v4 §M12.3 I3 / 修 H2)。
 
 构造一组"记忆型注入"攻击 payload，经"改前（原样 `- {content}` 拼接）"与
-"改后（写入清洗 + 读取转义 + 不可信 data-block 包裹）"两条注入链路，统计注入成功率。
+"改后（写入清洗 + 读取转义 + 不可信 data-block 包裹）"两条链路，统计静态探针残留率。
 
 诚实边界（答辩纪律）：结构化包裹 + 清洗只能显著降低、不能数学上消除 prompt
 injection。因此 payload 分两类：
@@ -9,8 +9,8 @@ injection。因此 payload 分两类：
 - 纯自然语言注入（"忽略上面所有规则……"，无结构构件）：改后仍残留——这是诚实
   标注的非零残留，因为纯 NL 指令无法被结构化手段消除，只能靠模型对齐兜底。
 
-成功判据对两条链路**完全一致**（`_injection_succeeds`）：payload 的"越权探针"是否
-以可执行形式存活于最终注入串里。唯一差异是改后链路施加了清洗/转义/包裹变换。
+判据对两条链路**完全一致**（`_probe_survives`）：payload 的探针是否原样存活于最终
+注入串里。该指标不调用模型，不能解释为真实攻击成功率或模型越权率。
 """
 
 from __future__ import annotations
@@ -29,8 +29,7 @@ class InjectionPayload:
     """一条记忆型注入攻击。
 
     content: 恶意用户写入的记忆正文。
-    probe: 判定"注入成功"的越权探针——若它以原样（可执行）形式存活于注入串，
-           视为注入成功（模型可能据此越权）。
+    probe: 静态残留探针——若它以原样形式存活于注入串，记为结构构件残留。
     structural: True 表示结构型（借数据块闭合/角色伪造/特殊 token），预期改后中和；
                 False 表示纯自然语言，预期改后仍残留（诚实非零残留）。
     """
@@ -118,45 +117,45 @@ def _hardened_injection(content: str) -> str:
     return f"{MEMORY_UNTRUSTED_HEADER}\n\n{block}"
 
 
-def _injection_succeeds(prompt: str, payload: InjectionPayload) -> bool:
-    """越权探针是否以原样（可执行）形式存活。两条链路用同一判据。"""
+def _probe_survives(prompt: str, payload: InjectionPayload) -> bool:
+    """探针是否原样存活。该静态判据不代表模型执行或越权成功。"""
     return payload.probe in prompt
 
 
 @dataclass(frozen=True)
 class InjectionReport:
-    """记忆注入抵抗率 A/B（PRD_v4 §M12.4 完成信号）。"""
+    """记忆注入静态探针残留 A/B。"""
 
     n_payloads: int
-    baseline_success: int  # 改前注入成功数
-    hardened_success: int  # 改后注入成功数（含诚实非零 NL 残留）
+    baseline_probe_survival: int
+    hardened_probe_survival: int
     residual_natural_language: int  # 改后残留中属纯 NL 的条数
 
     @property
-    def baseline_rate(self) -> float:
-        return self.baseline_success / self.n_payloads if self.n_payloads else 0.0
+    def baseline_survival_rate(self) -> float:
+        return self.baseline_probe_survival / self.n_payloads if self.n_payloads else 0.0
 
     @property
-    def hardened_rate(self) -> float:
-        return self.hardened_success / self.n_payloads if self.n_payloads else 0.0
+    def hardened_survival_rate(self) -> float:
+        return self.hardened_probe_survival / self.n_payloads if self.n_payloads else 0.0
 
 
 def collect_injection_resistance() -> InjectionReport:
-    """跑注入攻击集，统计改前 vs 改后成功率（同源可复现）。"""
+    """统计改前 vs 改后的静态探针残留；保留函数名兼容既有调用方。"""
     payloads = load_injection_payloads()
     baseline = sum(
-        1 for p in payloads if _injection_succeeds(_baseline_injection(p.content), p)
+        1 for p in payloads if _probe_survives(_baseline_injection(p.content), p)
     )
     hardened = 0
     residual_nl = 0
     for p in payloads:
-        if _injection_succeeds(_hardened_injection(p.content), p):
+        if _probe_survives(_hardened_injection(p.content), p):
             hardened += 1
             if not p.structural:
                 residual_nl += 1
     return InjectionReport(
         n_payloads=len(payloads),
-        baseline_success=baseline,
-        hardened_success=hardened,
+        baseline_probe_survival=baseline,
+        hardened_probe_survival=hardened,
         residual_natural_language=residual_nl,
     )

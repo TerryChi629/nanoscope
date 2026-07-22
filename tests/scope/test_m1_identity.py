@@ -80,7 +80,7 @@ def test_resolver_group_audience():
     assert ctx.audience_type == AUDIENCE_GROUP
     assert not ctx.is_dm
     assert ctx.principal_id == "orgA:feishu:eve"
-    assert ctx.audience_id == "group-123"
+    assert ctx.audience_id == "orgA:feishu:group:group-123"
 
 
 def test_resolver_tenant_fail_closed_same_workspace():

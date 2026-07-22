@@ -58,8 +58,8 @@ def test_a1_ann_partitioned_zero_exposure_and_no_forbidden_subgraph(scaled_store
             _alice(), "量子加密密钥分发", top_k=10
         )
         assert forbidden_doc_exposure(out.results, forbidden) == 0
-        assert "project_proj_b" not in out.accessed_partitions
-        assert "project_proj_a" in out.accessed_partitions
+        assert "tenant=orgX|project=proj_b" not in out.accessed_partitions
+        assert "tenant=orgX|project=proj_a" in out.accessed_partitions
 
 
 def test_a1_ann_postfilter_zero_exposure_but_scores_forbidden(scaled_store):

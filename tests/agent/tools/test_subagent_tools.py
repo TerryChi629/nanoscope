@@ -67,6 +67,62 @@ async def test_subagent_exec_tool_receives_allowed_env_keys(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_subagent_runner_inherits_parent_security_context(tmp_path):
+    """subagent 内部工具读取到的 RequestContext 必须与父 turn 同源。"""
+    from nanobot.agent.subagent import SubagentManager, SubagentStatus
+    from nanobot.agent.tools.context import current_request_context
+    from nanobot.bus.queue import MessageBus
+
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    mgr = SubagentManager(
+        workspace=tmp_path,
+        bus=MessageBus(),
+        max_tool_result_chars=_MAX_TOOL_RESULT_CHARS,
+    )
+    mgr._announce_result = AsyncMock()
+
+    async def fake_run(spec):
+        ctx = current_request_context()
+        assert ctx is not None
+        assert ctx.tenant_id == "tenant-a"
+        assert ctx.principal_id == "tenant-a:feishu:alice"
+        assert ctx.audience_id == "chat-1"
+        assert ctx.roles == ("finance",)
+        return SimpleNamespace(
+            stop_reason="done", final_content="done", error=None, tool_events=[],
+        )
+
+    mgr.runner.run = AsyncMock(side_effect=fake_run)
+    status = SubagentStatus(
+        task_id="sub-sec",
+        label="secure",
+        task_description="inspect",
+        started_at=time.monotonic(),
+    )
+    await mgr._run_subagent(
+        "sub-sec",
+        "inspect",
+        "secure",
+        {
+            "channel": "feishu",
+            "chat_id": "chat-1",
+            "security_context": {
+                "tenant_id": "tenant-a",
+                "principal_id": "tenant-a:feishu:alice",
+                "audience_type": "dm",
+                "audience_id": "chat-1",
+                "roles": ["finance"],
+            },
+        },
+        status,
+        _runtime(provider),
+    )
+
+    mgr.runner.run.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_subagent_uses_configured_max_iterations(tmp_path):
     """Subagents should honor the configured tool-iteration limit."""
     from nanobot.agent.subagent import SubagentManager, SubagentStatus
@@ -198,6 +254,43 @@ async def test_spawn_tool_rejects_when_at_concurrency_limit(tmp_path):
     release.set()
     # Allow cleanup
     await asyncio.gather(*mgr._running_tasks.values(), return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_spawn_tool_propagates_complete_security_context():
+    """父 turn 的安全快照必须作为内部参数传给 subagent manager。"""
+    from nanobot.agent.tools.context import RequestContext, request_context
+    from nanobot.agent.tools.spawn import SpawnTool
+
+    manager = MagicMock()
+    manager.get_running_count.return_value = 0
+    manager.max_concurrent_subagents = 1
+    manager.spawn = AsyncMock(return_value="started")
+    runtime = MagicMock()
+
+    with request_context(
+        RequestContext(
+            channel="feishu",
+            chat_id="chat-1",
+            session_key="feishu:chat-1",
+            runtime=runtime,
+            tenant_id="tenant-a",
+            principal_id="tenant-a:feishu:alice",
+            audience_type="dm",
+            audience_id="chat-1",
+            roles=("finance",),
+        )
+    ):
+        await SpawnTool(manager).execute(task="inspect")
+
+    security = manager.spawn.await_args.kwargs["security_context"]
+    assert security == {
+        "tenant_id": "tenant-a",
+        "principal_id": "tenant-a:feishu:alice",
+        "audience_type": "dm",
+        "audience_id": "chat-1",
+        "roles": ["finance"],
+    }
 
 
 def test_subagent_default_max_concurrent_matches_agent_defaults(tmp_path):

@@ -21,7 +21,7 @@ import pytest
 from nanobot.agent.context import ContextBuilder
 from nanobot.agent.memory import MemoryStore
 from nanoscope.eval import load_attack_queries, load_forbidden_facts
-from nanoscope.identity import AUDIENCE_DM, AUDIENCE_GROUP
+from nanoscope.identity import AUDIENCE_DM, AUDIENCE_GROUP, IdentityResolver
 
 _A_CANARY = "HIST-CANARY-ALICE-a1a1"
 _B_CANARY = "HIST-CANARY-BOB-b2b2"
@@ -190,3 +190,132 @@ def test_r6_history_channel_isolation_flips_to_zero(store: MemoryStore, tmp_path
         assert fact.canary not in prompt, f"攻击 {attack.id} 经 history 通道泄露"
         total += _count_exposures(prompt)
     assert total == 0
+
+
+def test_multi_user_context_never_falls_back_to_global_memory(tmp_path: Path):
+    """多用户入口漏传 scoped_memory 时也必须 fail-closed，不得注入全局记忆。"""
+    builder = ContextBuilder(tmp_path)
+    builder.multi_user_isolation = True
+    builder.memory.memory_file.write_text("GLOBAL-SECRET-CANARY", encoding="utf-8")
+
+    prompt = builder.build_system_prompt(
+        channel="feishu",
+        include_memory_recent_history=False,
+    )
+
+    assert "GLOBAL-SECRET-CANARY" not in prompt
+
+
+def test_raw_archive_persists_complete_security_ownership(store: MemoryStore):
+    """归档链必须把 principal/audience 归属写入 history，隔离读取才能保留本人数据。"""
+    store.raw_archive(
+        [{"role": "user", "content": "ARCHIVE-CANARY"}],
+        session_key="feishu:alice",
+        principal_id=_ALICE,
+        audience_type=AUDIENCE_DM,
+        audience_id="alice",
+    )
+
+    entries = _read(
+        store,
+        principal_id=_ALICE,
+        audience_type=AUDIENCE_DM,
+        audience_id="alice",
+        isolation=True,
+    )
+    assert "ARCHIVE-CANARY" in " ".join(entry["content"] for entry in entries)
+
+
+def test_raw_archive_mixed_legacy_and_owned_users_remains_unowned(store: MemoryStore):
+    """任一 user 消息缺归属时，整批归档必须 fail-closed，不能认领给唯一已知用户。"""
+    store.raw_archive(
+        [
+            {"role": "user", "content": "LEGACY-UNOWNED-CANARY"},
+            {
+                "role": "user",
+                "content": "ALICE-OWNED-CANARY",
+                "principal_id": _ALICE,
+                "audience_type": AUDIENCE_DM,
+                "audience_id": "alice",
+            },
+        ],
+        session_key="feishu:mixed",
+    )
+
+    entries = _read(
+        store,
+        principal_id=_ALICE,
+        audience_type=AUDIENCE_DM,
+        audience_id="alice",
+        isolation=True,
+    )
+    assert entries == []
+
+
+def test_group_history_same_raw_chat_id_isolated_across_channels(store: MemoryStore):
+    """同租户不同渠道的同名群 ID 不能碰撞，否则 Slack 可读取 Feishu 群历史。"""
+    resolver = IdentityResolver()
+    feishu = resolver.resolve(
+        tenant_id="orgA",
+        channel="feishu",
+        platform_user_id="alice",
+        chat_id="group-123",
+        is_dm=False,
+    )
+    slack = resolver.resolve(
+        tenant_id="orgA",
+        channel="slack",
+        platform_user_id="bob",
+        chat_id="group-123",
+        is_dm=False,
+    )
+    store.append_history(
+        "FEISHU-ONLY-CANARY",
+        principal_id=feishu.principal_id,
+        audience_type=feishu.audience_type,
+        audience_id=feishu.audience_id,
+    )
+
+    entries = _read(
+        store,
+        principal_id=slack.principal_id,
+        audience_type=slack.audience_type,
+        audience_id=slack.audience_id,
+        isolation=True,
+    )
+    assert entries == []
+
+
+def test_raw_archive_preserves_shared_group_audience_for_multiple_members(
+    store: MemoryStore,
+):
+    """同群多成员的聚合归档属于 audience，而不是因 principal 不同被永久丢弃。"""
+    store.raw_archive(
+        [
+            {
+                "role": "user",
+                "content": "ALICE-IN-GROUP",
+                "principal_id": _ALICE,
+                "audience_type": AUDIENCE_GROUP,
+                "audience_id": _GROUP_G,
+            },
+            {
+                "role": "user",
+                "content": "BOB-IN-GROUP",
+                "principal_id": _BOB,
+                "audience_type": AUDIENCE_GROUP,
+                "audience_id": _GROUP_G,
+            },
+        ],
+        session_key="feishu:group-G",
+    )
+
+    entries = _read(
+        store,
+        principal_id=_CAROL,
+        audience_type=AUDIENCE_GROUP,
+        audience_id=_GROUP_G,
+        isolation=True,
+    )
+    assert len(entries) == 1
+    assert entries[0]["audience_id"] == _GROUP_G

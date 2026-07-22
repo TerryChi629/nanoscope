@@ -75,7 +75,16 @@ class SpawnTool(Tool):
         origin_channel = request_ctx.channel
         origin_chat_id = request_ctx.chat_id
         session_key = request_ctx.session_key or f"{origin_channel}:{origin_chat_id}"
-        return await self._manager.spawn(
+        security_context = None
+        if request_ctx.tenant_id and request_ctx.principal_id and request_ctx.audience_type:
+            security_context = {
+                "tenant_id": request_ctx.tenant_id,
+                "principal_id": request_ctx.principal_id,
+                "audience_type": request_ctx.audience_type,
+                "audience_id": request_ctx.audience_id,
+                "roles": list(request_ctx.roles),
+            }
+        spawn_kwargs = dict(
             task=task,
             runtime=request_ctx.runtime,
             label=label,
@@ -86,3 +95,6 @@ class SpawnTool(Tool):
             temperature=temperature,
             workspace_scope=current_workspace_scope(),
         )
+        if security_context is not None:
+            spawn_kwargs["security_context"] = security_context
+        return await self._manager.spawn(**spawn_kwargs)

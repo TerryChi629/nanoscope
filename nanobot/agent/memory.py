@@ -461,16 +461,15 @@ class MemoryStore:
         audience_id: str | None,
     ) -> bool:
         """fail-closed 谓词：决定一条历史条目在隔离下是否可进当前 prompt。"""
-        entry_principal = entry.get("principal_id")
-        # 无归属（老数据）—— fail-closed 丢弃。
-        if not entry_principal:
-            return False
         entry_audience_type = entry.get("audience_type")
         if audience_type == "dm":
             # 私聊：仅本人私聊历史可见。
+            entry_principal = entry.get("principal_id")
+            if not entry_principal:
+                return False
             return entry_audience_type == "dm" and entry_principal == principal_id
         if audience_type in ("group", "thread"):
-            # 群/话题：仅同一 audience 内的群历史；私聊历史绝不进群。
+            # 群聚合可以没有单一 principal，但必须有完整且相同的 audience。
             if entry_audience_type not in ("group", "thread"):
                 return False
             if not audience_id or not entry.get("audience_id"):
@@ -724,14 +723,49 @@ class MemoryStore:
             )
         return "\n".join(lines)
 
+    @staticmethod
+    def _history_ownership(
+        messages: list[dict],
+    ) -> tuple[str | None, str | None, str | None]:
+        """Return a safe DM owner or shared group audience for an aggregate entry."""
+        user_messages = [message for message in messages if message.get("role") == "user"]
+        if not user_messages:
+            return None, None, None
+
+        owners: set[tuple[str, str, str]] = set()
+        for message in user_messages:
+            principal_id = message.get("principal_id")
+            audience_type = message.get("audience_type")
+            audience_id = message.get("audience_id")
+            if not principal_id or not audience_type or not audience_id:
+                return None, None, None
+            owners.add((principal_id, audience_type, audience_id))
+
+        audience_keys = {(audience_type, audience_id) for _, audience_type, audience_id in owners}
+        if len(audience_keys) != 1:
+            return None, None, None
+        audience_type, audience_id = next(iter(audience_keys))
+        if audience_type == "dm":
+            return next(iter(owners)) if len(owners) == 1 else (None, None, None)
+        if audience_type in ("group", "thread"):
+            principals = {principal_id for principal_id, _, _ in owners}
+            principal_id = next(iter(principals)) if len(principals) == 1 else None
+            return principal_id, audience_type, audience_id
+        return None, None, None
+
     def raw_archive(
         self,
         messages: list[dict],
         *,
         max_chars: int | None = None,
         session_key: str | None = None,
+        principal_id: str | None = None,
+        audience_type: str | None = None,
+        audience_id: str | None = None,
     ) -> None:
         """Fallback: dump raw messages to history.jsonl without LLM summarization."""
+        if principal_id is None:
+            principal_id, audience_type, audience_id = self._history_ownership(messages)
         limit = max_chars if max_chars is not None else _RAW_ARCHIVE_MAX_CHARS
         formatted = truncate_text(
             self._format_messages(public_history_messages(messages)),
@@ -741,6 +775,9 @@ class MemoryStore:
             f"[RAW] {len(messages)} messages\n"
             f"{formatted}",
             session_key=session_key,
+            principal_id=principal_id,
+            audience_type=audience_type,
+            audience_id=audience_id,
         )
         logger.warning(
             "Memory consolidation degraded: raw-archived {} messages", len(messages)
@@ -1010,9 +1047,9 @@ class Consolidator:
         """
         if not messages:
             return None
-        messages_to_summarize = public_history_messages(
-            summary_messages if summary_messages is not None else messages
-        )
+        summary_source = summary_messages if summary_messages is not None else messages
+        principal_id, audience_type, audience_id = self.store._history_ownership(summary_source)
+        messages_to_summarize = public_history_messages(summary_source)
         try:
             formatted = MemoryStore._format_messages(messages_to_summarize)
             formatted = self._truncate_to_token_budget(formatted, runtime=runtime)
@@ -1041,11 +1078,20 @@ class Consolidator:
                 summary,
                 max_chars=_ARCHIVE_SUMMARY_MAX_CHARS,
                 session_key=session_key,
+                principal_id=principal_id,
+                audience_type=audience_type,
+                audience_id=audience_id,
             )
             return summary
         except Exception:
             logger.warning("Consolidation LLM call failed, raw-dumping to history")
-            self.store.raw_archive(messages, session_key=session_key)
+            self.store.raw_archive(
+                messages,
+                session_key=session_key,
+                principal_id=principal_id,
+                audience_type=audience_type,
+                audience_id=audience_id,
+            )
             return None
 
     async def maybe_consolidate_by_tokens(

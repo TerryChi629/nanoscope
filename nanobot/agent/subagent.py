@@ -226,6 +226,7 @@ class SubagentManager:
         origin_message_id: str | None = None,
         temperature: float | None = None,
         workspace_scope: WorkspaceScope | None = None,
+        security_context: dict[str, Any] | None = None,
         *,
         runtime: LLMRuntime | None = None,
     ) -> str:
@@ -236,7 +237,13 @@ class SubagentManager:
             runtime = runtime.with_generation_overrides(temperature=temperature)
         task_id = str(uuid.uuid4())[:8]
         display_label = label or task[:30] + ("..." if len(task) > 30 else "")
-        origin = {"channel": origin_channel, "chat_id": origin_chat_id, "session_key": session_key}
+        origin: dict[str, Any] = {
+            "channel": origin_channel,
+            "chat_id": origin_chat_id,
+            "session_key": session_key,
+        }
+        if security_context is not None:
+            origin["security_context"] = dict(security_context)
 
         status = SubagentStatus(
             task_id=task_id,
@@ -280,7 +287,7 @@ class SubagentManager:
         task_id: str,
         task: str,
         label: str,
-        origin: dict[str, str],
+        origin: dict[str, Any],
         status: SubagentStatus,
         runtime: LLMRuntime,
         origin_message_id: str | None = None,
@@ -312,13 +319,21 @@ class SubagentManager:
                 if self._llm_wall_timeout_for_session
                 else None
             )
-            request_token = bind_request_context(RequestContext(
-                channel=origin["channel"],
-                chat_id=origin["chat_id"],
-                message_id=origin_message_id,
-                session_key=sess_key,
-                runtime=runtime,
-            ))
+            security = origin.get("security_context") or {}
+            request_token = bind_request_context(
+                RequestContext(
+                    channel=origin["channel"],
+                    chat_id=origin["chat_id"],
+                    message_id=origin_message_id,
+                    session_key=sess_key,
+                    runtime=runtime,
+                    tenant_id=security.get("tenant_id"),
+                    principal_id=security.get("principal_id"),
+                    audience_type=security.get("audience_type"),
+                    audience_id=security.get("audience_id"),
+                    roles=tuple(security.get("roles") or ()),
+                )
+            )
             token = bind_workspace_scope(workspace_scope) if workspace_scope is not None else None
             try:
                 result = await self.runner.run(AgentRunSpec(
@@ -374,7 +389,7 @@ class SubagentManager:
         label: str,
         task: str,
         result: str,
-        origin: dict[str, str],
+        origin: dict[str, Any],
         status: str,
         origin_message_id: str | None = None,
     ) -> None:
@@ -401,6 +416,9 @@ class SubagentManager:
         }
         if origin_message_id:
             metadata["origin_message_id"] = origin_message_id
+        security = origin.get("security_context")
+        if security:
+            metadata["_security_context"] = dict(security)
         msg = InboundMessage(
             channel="system",
             sender_id="subagent",
@@ -408,6 +426,9 @@ class SubagentManager:
             content=announce_content,
             session_key_override=override,
             metadata=metadata,
+            principal_id=security.get("principal_id") if security else None,
+            audience_type=security.get("audience_type") if security else None,
+            audience_id=security.get("audience_id") if security else None,
         )
 
         await self.bus.publish_inbound(msg)

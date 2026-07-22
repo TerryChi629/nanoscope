@@ -34,6 +34,8 @@ class RequestContext:
     tenant_id: str | None = None
     principal_id: str | None = None
     audience_type: str | None = None
+    audience_id: str | None = None
+    roles: tuple[str, ...] = ()
 
 
 @runtime_checkable

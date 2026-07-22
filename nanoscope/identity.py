@@ -62,6 +62,20 @@ def make_principal_id(tenant_id: str, channel: str, platform_user_id: str) -> st
     return f"{tenant_id}:{channel}:{platform_user_id}"
 
 
+def make_audience_id(
+    tenant_id: str,
+    channel: str,
+    audience_type: str,
+    platform_audience_id: str,
+) -> str:
+    """Namespace a non-DM audience so equal raw IDs cannot collide across channels."""
+    if not (tenant_id and channel and platform_audience_id):
+        raise ValueError("tenant_id/channel/platform_audience_id 均不能为空")
+    if audience_type not in {AUDIENCE_GROUP, AUDIENCE_THREAD}:
+        raise ValueError(f"非私聊 audience_type 非法: {audience_type!r}")
+    return f"{tenant_id}:{channel}:{audience_type}:{platform_audience_id}"
+
+
 def audience_type_from_dm(is_dm: bool) -> str:
     """从渠道确定性的 is_dm 读出受众类型（不做概率判断，PRD §4.1）。"""
     return AUDIENCE_DM if is_dm else AUDIENCE_GROUP
@@ -100,8 +114,12 @@ class IdentityResolver:
             principal_id=make_principal_id(tenant_id, channel, platform_user_id),
             session_key=session_key or f"{channel}:{chat_id}",
             audience_type=audience_type,
-            # 私聊受众即本人，群聊受众为会话 id（前向兼容 conversation scope）。
-            audience_id=platform_user_id if is_dm else chat_id,
+            # 群受众必须带 tenant/channel/type 命名空间，裸 chat_id 跨平台并不唯一。
+            audience_id=(
+                platform_user_id
+                if is_dm
+                else make_audience_id(tenant_id, channel, audience_type, chat_id)
+            ),
             roles=roles,
         )
 

@@ -61,10 +61,10 @@ async def test_build_report_carries_three_evidence_lines(tmp_path: Path):
 async def test_build_report_carries_v2_evidence_lines(tmp_path: Path):
     """PRD_v4 §M17.3：统一报告 v2 在三线基础上新增注入/背压/带 CI 曲线三线，方向自洽。"""
     report = await build_report(tmp_path / "ws", tmp_path / "mem.db")
-    # 注入抵抗率：改后成功率显著低于改前，且残留全为纯 NL（诚实非零）。
+    # 静态探针残留：改后显著低于改前，且残留全为纯 NL（不外推模型行为）。
     inj = report.injection
-    assert inj.baseline_success > inj.hardened_success
-    assert inj.hardened_success == inj.residual_natural_language
+    assert inj.baseline_probe_survival > inj.hardened_probe_survival
+    assert inj.hardened_probe_survival == inj.residual_natural_language
     # 背压：改后 peak_queue 有界（收敛到 max_queue），远低于基线线性堆积。
     bp = report.backpressure
     assert bp.improved_peak_queue.mean < bp.baseline_peak_queue.mean
@@ -82,7 +82,7 @@ async def test_build_report_carries_doc_rag_line(tmp_path: Path):
     # 可证伪基线：关授权全库近邻泄露越权 chunk。
     assert dr.baseline_exposure > 0
     assert dr.n_forbidden > 0
-    # 三策略隔离态：授权 WHERE 在召回前生效，越权命中均为 0。
+    # pre/partitioned 召回前隔离；post-filter 仅记录最终命中为 0 的反面对照。
     assert dr.prefilter_exposure == 0
     assert dr.postfilter_exposure == 0
     assert dr.partitioned_exposure == 0
@@ -101,7 +101,9 @@ async def test_render_html_is_self_contained(tmp_path: Path):
     # NanoScope (PRD_v4 §M11.4)：双通道隔离段（含 Recent History）渲染出来。
     assert "Recent History 通道" in doc
     # NanoScope 统一报告 v2 (PRD_v4 §M17.3)：新增三段小节都渲染出来。
-    assert "记忆注入抵抗率 A/B" in doc
+    assert "记忆注入静态探针残留 A/B" in doc
+    assert "不是模型执行/越权成功率" in doc
+    assert "仅作为反面对照，不满足安全红线" in doc
     assert "端到端背压峰值 A/B" in doc
     assert "规模曲线 v2" in doc
     # NanoScope (PRD_v4 §M18)：权限感知文档 RAG 段渲染出来。

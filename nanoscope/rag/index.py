@@ -29,6 +29,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from threading import RLock
 
 from nanoscope.eval.embedding import Embedder
 from nanoscope.identity import SecurityContext
@@ -268,8 +269,9 @@ class PostFilterSearcher:
 class PartitionedSearcher:
     """✅ 选定解（PRD_v4 §M18.7.2）：按 ACL group 分区建索引，只搜用户可见子图。
 
-    分区结构：{org_shared: 大图, project_<g>: 子图, user_<owner>: 子图}。查询时
-    用户可见分区 = org_shared ∪ 其 DM 个人分区 ∪ 其所属 project 子图；只在这几个
+    分区结构：{(tenant, org): 大图, (tenant, project, g): 子图,
+    (tenant, user, owner): 子图}。查询时用户可见分区 = 同 tenant 的 org_shared
+    ∪ 其 DM 个人分区 ∪ 其所属 project 子图；只在这几个
     分区跑 ANN，结果合并。越权子图**从未被加载/访问**（F3），隔离由分区结构保证。
 
     本项目 ACL 维度是 org/project（部门/项目，数量级几~几十），分区数天然可控——
@@ -296,40 +298,65 @@ class PartitionedSearcher:
         self._m = m
         self._ef_construction = ef_construction
         self._ef_search = ef_search
-        self._partitions: dict[str, _EmbeddedCorpus] = {}
+        self._partitions: dict[tuple[str, str, str | None], _EmbeddedCorpus] = {}
+        self._revision = -1
+        self._refresh_lock = RLock()
         self._build_partitions()
 
     @staticmethod
-    def _partition_key(c: DocChunkRecord) -> str:
+    def _partition_key(c: DocChunkRecord) -> tuple[str, str, str | None]:
         if c.scope == SCOPE_ORG:
-            return "org_shared"
+            return (c.tenant_id, SCOPE_ORG, None)
         if c.scope == SCOPE_PROJECT:
-            return f"project_{c.acl_group}"
-        return f"user_{c.owner_id}"  # SCOPE_USER
+            return (c.tenant_id, SCOPE_PROJECT, c.acl_group)
+        return (c.tenant_id, "user", c.owner_id)
+
+    @staticmethod
+    def _audit_partition_key(key: tuple[str, str, str | None]) -> str:
+        tenant_id, scope, owner = key
+        suffix = owner if owner is not None else "shared"
+        return f"tenant={tenant_id}|{scope}={suffix}"
 
     def _build_partitions(self) -> None:
         """建索引阶段：按分区 key 把全库 chunk 分桶，各桶独立建（可选）HNSW 子图。"""
-        buckets: dict[str, list[DocChunkRecord]] = {}
-        for c in self._store.all_chunks_unfiltered():
-            buckets.setdefault(self._partition_key(c), []).append(c)
-        self._partitions = {
-            key: _EmbeddedCorpus(
-                chunks, self._embedder, use_ann=self._use_ann,
-                m=self._m, ef_construction=self._ef_construction, ef_search=self._ef_search,
-            )
-            for key, chunks in buckets.items()
-        }
+        with self._refresh_lock:
+            if self._revision == self._store.revision:
+                return
+            while True:
+                revision_before = self._store.revision
+                buckets: dict[tuple[str, str, str | None], list[DocChunkRecord]] = {}
+                for c in self._store.all_chunks_unfiltered():
+                    buckets.setdefault(self._partition_key(c), []).append(c)
+                partitions = {
+                    key: _EmbeddedCorpus(
+                        chunks, self._embedder, use_ann=self._use_ann,
+                        m=self._m, ef_construction=self._ef_construction,
+                        ef_search=self._ef_search,
+                    )
+                    for key, chunks in buckets.items()
+                }
+                revision_after = self._store.revision
+                if revision_before == revision_after:
+                    self._partitions = partitions
+                    self._revision = revision_after
+                    return
 
-    def _visible_partition_keys(self, ctx: SecurityContext) -> list[str]:
+    def _refresh_if_stale(self) -> None:
+        """Atomically rebuild partitions when committed ingestion advances the revision."""
+        if self._store.revision != self._revision:
+            self._build_partitions()
+
+    def _visible_partition_keys(self, ctx: SecurityContext) -> list[tuple[str, str, str | None]]:
         """用户可见分区 key = org_shared ∪ DM 个人分区 ∪ 所属 project 子图。"""
-        keys = ["org_shared"]
+        keys = [(ctx.tenant_id, SCOPE_ORG, None)]
         if ctx.audience_type == "dm":
-            keys.append(f"user_{ctx.principal_id}")
+            keys.append((ctx.tenant_id, "user", ctx.principal_id))
         for g in (ctx.roles or ()):
-            keys.append(f"project_{g}")
+            keys.append((ctx.tenant_id, SCOPE_PROJECT, g))
         return keys
 
     def search(self, ctx: SecurityContext, query: str, top_k: int = 5) -> SearchOutcome:
+        self._refresh_if_stale()
         if len(self._partitions) > self._MAX_PARTITIONS:
             # fail-safe 降级：分区爆炸 → pre-filter 暴力保底（正确性不变）。
             return PreFilterSearcher(self._store, self._embedder).search(ctx, query, top_k)
@@ -342,13 +369,16 @@ class PartitionedSearcher:
             corpus = self._partitions.get(key)
             if corpus is None or not corpus.chunks:
                 continue
-            accessed.add(key)  # ★ 只访问可见分区
+            accessed.add(self._audit_partition_key(key))
             hits = _corpus_topk(corpus, q, top_k)
             merged.extend(hits)
             scored.update(c.id for c in corpus.chunks)
         merged.sort(key=lambda cs: (-cs[1], cs[0].id))
+        results = [c for c, _ in merged[:top_k]]
+        if any(c.tenant_id != ctx.tenant_id for c in results):
+            raise RuntimeError("partitioned search tenant isolation violation")
         return SearchOutcome(
-            results=[c for c, _ in merged[:top_k]],
+            results=results,
             scored_chunk_ids=scored,
             accessed_partitions=accessed,
         )

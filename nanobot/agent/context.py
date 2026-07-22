@@ -108,7 +108,7 @@ class ContextBuilder:
                     f"{MEMORY_UNTRUSTED_HEADER}\n\n"
                     f"{MEMORY_UNTRUSTED_CONSTRAINT}\n\n{scoped_memory}"
                 )
-        else:
+        elif not self.multi_user_isolation:
             memory = self.memory.get_memory_context()
             if memory and not self._is_template_content(self.memory.read_memory(), "memory/MEMORY.md"):
                 parts.append(f"# Memory\n\n{memory}")

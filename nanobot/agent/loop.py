@@ -682,6 +682,10 @@ class AgentLoop:
             # NanoScope (PRD §5, M1): 落 principal_id 供 Dream/审计事后追溯 owner。
             if msg.principal_id:
                 extra.setdefault("principal_id", msg.principal_id)
+            if msg.audience_type:
+                extra.setdefault("audience_type", msg.audience_type)
+            if msg.audience_id:
+                extra.setdefault("audience_id", msg.audience_id)
             text = msg.content if isinstance(msg.content, str) else ""
             text_override, automation_extra = automation_history_overrides(msg.metadata)
             if text_override is not None:
@@ -745,9 +749,15 @@ class AgentLoop:
         ctx = self.resolve_security_context(msg)
         if ctx is None:
             return None
+        return self._scoped_memory_for_context(ctx, msg.content)
+
+    def _scoped_memory_for_context(self, ctx, query: str) -> str:
+        """Return only memories visible to an already authenticated context."""
+        if self.memory_repository is None:
+            return ""
         # M7 (PRD §14): 传 query 让可见集合内走 BM25 相关性排序；隔离仍由
         # search_visible 的授权 WHERE 强制，BM25 只排序不决定可见性。
-        records = self.memory_repository.search_visible(ctx, query=msg.content)
+        records = self.memory_repository.search_visible(ctx, query=query)
         if not records:
             return ""
         # NanoScope (PRD_v4 §M12, 修 H2)：召回记忆是不可信用户数据，包进显式
@@ -755,11 +765,37 @@ class AgentLoop:
         from nanoscope.memory.sanitize import wrap_untrusted_memory
         return wrap_untrusted_memory((r.id, r.content) for r in records)
 
+    def _internal_security_context(self, msg: InboundMessage, session_key: str):
+        """Restore the trusted parent context attached to an in-process subagent event."""
+        if self._identity_resolver is None:
+            return None
+        if (
+            msg.sender_id != "subagent"
+            or msg.metadata.get("injected_event") != "subagent_result"
+        ):
+            return None
+        raw = msg.metadata.get("_security_context")
+        if not isinstance(raw, dict):
+            return None
+        from nanoscope.identity import SecurityContext
+
+        tenant_id = raw.get("tenant_id")
+        if tenant_id != self.multi_user.tenant_id:
+            raise ValueError("subagent security context tenant mismatch")
+        return SecurityContext(
+            tenant_id=tenant_id,
+            principal_id=raw.get("principal_id") or "",
+            session_key=session_key,
+            audience_type=raw.get("audience_type") or "",
+            audience_id=raw.get("audience_id"),
+            roles=tuple(raw.get("roles") or ()),
+        )
+
     def _request_context_for_turn(self, ctx: TurnContext) -> RequestContext:
         scope = self.workspace_scopes.for_message(ctx.msg, ctx.session.metadata)
         # NanoScope (PRD §6, M3): multi_user 下把安全上下文注入 RequestContext，
         # 供 memory_remember 运行时决定 owner/scope（模型无法伪造）。
-        sec_tenant = self.multi_user.tenant_id if self._identity_resolver else None
+        sec_ctx = self.resolve_security_context(ctx.msg) if self._identity_resolver else None
         return RequestContext(
             channel=ctx.msg.channel,
             chat_id=ctx.msg.chat_id,
@@ -771,9 +807,11 @@ class AgentLoop:
             sender_id=ctx.msg.sender_id,
             turn_id=ctx.turn_id,
             workspace=scope.project_path,
-            tenant_id=sec_tenant,
-            principal_id=ctx.msg.principal_id if self._identity_resolver else None,
-            audience_type=ctx.msg.audience_type if self._identity_resolver else None,
+            tenant_id=sec_ctx.tenant_id if sec_ctx else None,
+            principal_id=sec_ctx.principal_id if sec_ctx else None,
+            audience_type=sec_ctx.audience_type if sec_ctx else None,
+            audience_id=sec_ctx.audience_id if sec_ctx else None,
+            roles=sec_ctx.roles if sec_ctx else (),
         )
 
     async def _resolve_runtime_context_for_turn(
@@ -1200,15 +1238,24 @@ class AgentLoop:
             await self.close_mcp()
 
     def _stamp_principal(self, msg: InboundMessage) -> InboundMessage:
-        """NanoScope (PRD §5, M1): 渠道验签后解析 principal_id 并 stamp 到消息上。
+        """NanoScope：渠道验签后把完整 principal/audience stamp 到消息上。
 
         供 _persist_user_message_early 落 history（Dream/审计追溯 owner），以及 M13
         入口/前移准入用 principal_id 作准入键。multi_user 关闭或已 stamp 时原样返回。
         """
-        if self._identity_resolver is not None and msg.principal_id is None:
+        if self._identity_resolver is not None and (
+            msg.principal_id is None
+            or msg.audience_type is None
+            or msg.audience_id is None
+        ):
             ctx = self.resolve_security_context(msg)
             if ctx is not None:
-                msg = dataclasses.replace(msg, principal_id=ctx.principal_id)
+                msg = dataclasses.replace(
+                    msg,
+                    principal_id=ctx.principal_id,
+                    audience_type=ctx.audience_type,
+                    audience_id=ctx.audience_id,
+                )
         return msg
 
     async def _dispatch(self, msg: InboundMessage) -> None:
@@ -1497,6 +1544,8 @@ class AgentLoop:
         }
         history = session.get_history(**_hist_kwargs)
         workspace_scope = self.workspace_scopes.for_message(msg, session.metadata)
+        sec_ctx = self._internal_security_context(msg, key)
+        isolation_enabled = self._identity_resolver is not None
 
         messages = self.context.build_messages(
             history=history,
@@ -1510,6 +1559,31 @@ class AgentLoop:
             workspace=workspace_scope.project_path,
             session_key=key,
             unified_session=self._unified_session,
+            scoped_memory=(
+                self._scoped_memory_for_context(sec_ctx, msg.content)
+                if sec_ctx is not None
+                else ("" if isolation_enabled else None)
+            ),
+            memory_isolation=isolation_enabled,
+            history_principal_id=sec_ctx.principal_id if sec_ctx else None,
+            history_audience_type=sec_ctx.audience_type if sec_ctx else None,
+            history_audience_id=sec_ctx.audience_id if sec_ctx else None,
+        )
+        request_ctx = RequestContext(
+            channel=channel,
+            chat_id=chat_id,
+            message_id=msg.metadata.get("message_id"),
+            session_key=key,
+            original_user_text=None,
+            runtime=runtime,
+            metadata=dict(msg.metadata or {}),
+            sender_id=msg.sender_id,
+            workspace=workspace_scope.project_path,
+            tenant_id=sec_ctx.tenant_id if sec_ctx else None,
+            principal_id=sec_ctx.principal_id if sec_ctx else None,
+            audience_type=sec_ctx.audience_type if sec_ctx else None,
+            audience_id=sec_ctx.audience_id if sec_ctx else None,
+            roles=sec_ctx.roles if sec_ctx else (),
         )
         t_wall = time.time()
         final_content, _, all_msgs, stop_reason, _ = await self._run_agent_loop(
@@ -1521,6 +1595,7 @@ class AgentLoop:
             original_user_text=None,
             pending_queue=pending_queue,
             hook_factories=hook_factories,
+            request_context=request_ctx,
         )
         wall_done = time.time()
         latency_ms = max(0, int((wall_done - t_wall) * 1000))

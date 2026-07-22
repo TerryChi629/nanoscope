@@ -13,6 +13,7 @@ from nanobot.agent.tools.context import (
 )
 from nanobot.bus.events import InboundMessage
 from nanobot.bus.queue import MessageBus
+from nanobot.config.schema import MultiUserConfig
 from nanobot.providers.base import LLMResponse, ToolCallRequest
 from nanobot.session.turn_continuation import INTERNAL_CONTINUATION_META
 
@@ -240,3 +241,53 @@ async def test_process_message_captures_original_text_before_restore(
         )
 
     assert seen == [(expected, runtime)]
+
+
+@pytest.mark.asyncio
+async def test_subagent_system_turn_passes_parent_security_context_to_tools(
+    tmp_path: Path,
+) -> None:
+    """独立续跑的 system turn 必须把可信父身份绑定到工具 RequestContext。"""
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=provider,
+        workspace=tmp_path,
+        model="test-model",
+        multi_user=MultiUserConfig(enabled=True, tenant_id="tenant-a"),
+    )
+    loop._run_agent_loop = AsyncMock(
+        return_value=("done", [], [], "complete", False)
+    )
+    loop._schedule_background = lambda coro: coro.close()
+
+    msg = InboundMessage(
+        channel="system",
+        sender_id="subagent",
+        chat_id="feishu:group-123",
+        content="subagent result",
+        session_key_override="feishu:group-123",
+        metadata={
+            "injected_event": "subagent_result",
+            "_security_context": {
+                "tenant_id": "tenant-a",
+                "principal_id": "tenant-a:feishu:alice",
+                "audience_type": "group",
+                "audience_id": "tenant-a:feishu:group:group-123",
+                "roles": ["finance"],
+            },
+        },
+    )
+
+    await loop._process_system_message(msg, runtime=loop.llm_runtime())
+    request_ctx = loop._run_agent_loop.await_args.kwargs["request_context"]
+
+    assert request_ctx.tenant_id == "tenant-a"
+    assert request_ctx.principal_id == "tenant-a:feishu:alice"
+    assert request_ctx.audience_type == "group"
+    assert request_ctx.audience_id == "tenant-a:feishu:group:group-123"
+    assert request_ctx.roles == ("finance",)
+    assert request_ctx.channel == "feishu"
+    assert request_ctx.chat_id == "group-123"
+    assert request_ctx.session_key == "feishu:group-123"

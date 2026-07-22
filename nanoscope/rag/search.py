@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from nanoscope.eval.embedding import Embedder
 from nanoscope.eval.retrieval import Bm25Retriever, Doc, VectorRetriever, rrf_fuse
 from nanoscope.identity import SecurityContext
-from nanoscope.rag.index import PreFilterSearcher
+from nanoscope.rag.index import PartitionedSearcher, PreFilterSearcher
 from nanoscope.rag.rerank import Reranker, StubReranker
 from nanoscope.rag.store import ChunkStore, DocChunkRecord
 
@@ -30,11 +30,13 @@ def doc_search_visible(
     top_k: int = 5,
     reranker: Reranker | None = None,
     fanout: int = 20,
+    vector_searcher: PartitionedSearcher | None = None,
 ) -> list[DocChunkRecord]:
     """权限感知文档检索：授权 WHERE 召回前过滤 → BM25+向量 RRF 融合 → rerank → top_k。
 
     1. 授权 WHERE 先取可见 chunk 集合（越权 chunk 从不进候选，隔离在召回前）。
-    2. 在可见集合内：BM25（trigram）+ 向量（ANN 底座 = pre-filter 暴力）各出一路 ranking。
+    2. 在可见集合内：BM25 + 向量各出一路 ranking。传入预构建的
+       `PartitionedSearcher` 时复用其 HNSW；否则使用 pre-filter 暴力基线。
     3. RRF 融合两路（复用 M14 硬化融合：确定性 tie-break + 空输入 abstain）。
     4. reranker 对融合 top-N 做 cross-encoder 重排（默认 StubReranker）。
     5. 返回 top_k 对应的 chunk 记录。
@@ -45,9 +47,13 @@ def doc_search_visible(
     by_id = {c.id: c for c in visible}
     docs = [Doc(id=c.id, content=c.content, created_at=c.created_at) for c in visible]
 
-    # 向量路：复用 pre-filter 语义（在可见集合内暴力余弦），底层同 M14 VectorRetriever。
-    vec = VectorRetriever(docs, embedder)
-    vec_ranking = vec.search(query, fanout)
+    if vector_searcher is None:
+        vec = VectorRetriever(docs, embedder)
+        vec_ranking = vec.search(query, fanout)
+    else:
+        outcome = vector_searcher.search(ctx, query, fanout)
+        # SQL 可见集合是最终授权真值；交集防止陈旧/误配索引扩大权限。
+        vec_ranking = [chunk.id for chunk in outcome.results if chunk.id in by_id]
 
     # BM25 路：可见集合内 trigram 相关性排序。
     bm25 = Bm25Retriever(docs)
