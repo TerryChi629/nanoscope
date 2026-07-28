@@ -32,7 +32,7 @@ from nanoscope.rag.index import (
     hnswlib_available,
 )
 from nanoscope.rag.ingest import chunk_by_structure, chunk_fixed_window, ingest_document
-from nanoscope.rag.rerank import StubReranker
+from nanoscope.rag.rerank import SiliconFlowReranker, StubReranker
 from nanoscope.rag.search import doc_search_visible, forbidden_doc_exposure
 from nanoscope.rag.store import (
     SCOPE_ORG,
@@ -57,6 +57,7 @@ __all__ = [
     "SearchOutcome",
     "hnswlib_available",
     "StubReranker",
+    "SiliconFlowReranker",
     "doc_search_visible",
     "forbidden_doc_exposure",
 ]

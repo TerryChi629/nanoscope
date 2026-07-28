@@ -1,14 +1,20 @@
 """M18 · Reranker (PRD_v4 §M18.2 第 5 点)。
 
-cross-encoder 重排：对融合后的 top-N 候选，用"query×chunk 联合打分"重排。真实
-cross-encoder（如 bge-reranker）留待接入；本模块给出可离线跑的确定性 stub，用于
-在自建 gold 上证明"重排后 nDCG/MRR ≥ 重排前"（D5/M18.3）。
+cross-encoder 重排：对融合后的 top-N 候选，用"query×chunk 联合打分"重排。本模块给出
+两档实现，共用 `Reranker` 契约：
+- `StubReranker`：可离线跑的确定性 stub（字符级重合度），用于在自建 gold 上证明
+  "重排后 nDCG/MRR ≥ 重排前"（D5/M18.3），无需网络/密钥。
+- `SiliconFlowReranker`：真实 cross-encoder（SiliconFlow 托管 `bge-reranker-v2-m3`），
+  urllib 直连，凭证从**环境变量**注入（绝不入库），风格对齐 `eval.embedding.GlmEmbedder`。
 
 红线：rerank 只对**已隔离的可见候选**排序，绝不改变可见性。
 """
 
 from __future__ import annotations
 
+import json
+import os
+import urllib.request
 from collections.abc import Sequence
 from typing import Protocol
 
@@ -41,3 +47,72 @@ class StubReranker:
         # 稳定降序：分数高在前，同分按原下标（确定性 tie-break）。
         scored.sort(key=lambda kv: (-kv[1], kv[0]))
         return [idx for idx, _ in scored]
+
+
+_DEFAULT_SF_BASE_URL = "https://api.siliconflow.cn/v1"
+_DEFAULT_SF_MODEL = "BAAI/bge-reranker-v2-m3"
+
+
+class SiliconFlowReranker:
+    """真实 cross-encoder 重排（SiliconFlow 托管 `bge-reranker-v2-m3`）。
+
+    与 `StubReranker` 同实现 `Reranker` 契约，因此 `doc_search_visible` 主链路一行不改
+    即可注入；stub 保留为离线/缺密钥时的 fallback。凭证走**环境变量**（绝不入库）：
+        SILICONFLOW_API_KEY   （必需）
+        SILICONFLOW_BASE_URL  （默认 https://api.siliconflow.cn/v1）
+        SILICONFLOW_RERANK_MODEL（默认 BAAI/bge-reranker-v2-m3）
+
+    行为红线：只对已隔离的可见候选**重排下标**，不增删候选、不改变可见性。返回的下标
+    是输入 candidates 的一个全排列——服务端只返回 top_n 时，未覆盖的下标按原序补齐，
+    保证「重排只调序、不丢候选」的契约不破。
+    """
+
+    name = "siliconflow_bge_reranker_v2_m3"
+
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        model: str | None = None,
+        timeout: float = 30.0,
+    ):
+        self.api_key = api_key or os.environ.get("SILICONFLOW_API_KEY")
+        if not self.api_key:
+            raise RuntimeError(
+                "缺少 SILICONFLOW_API_KEY（请设为环境变量，不要写入代码/配置库）"
+            )
+        self.base_url = (
+            base_url or os.environ.get("SILICONFLOW_BASE_URL") or _DEFAULT_SF_BASE_URL
+        ).rstrip("/")
+        self.model = model or os.environ.get("SILICONFLOW_RERANK_MODEL") or _DEFAULT_SF_MODEL
+        self.timeout = timeout
+
+    def rerank(self, query: str, candidates: Sequence[str]) -> list[int]:
+        docs = list(candidates)
+        if not query.strip() or not docs:
+            return list(range(len(docs)))
+        payload = {
+            "model": self.model,
+            "query": query,
+            "documents": docs,
+            "top_n": len(docs),
+            "return_documents": False,
+        }
+        req = urllib.request.Request(
+            f"{self.base_url}/rerank",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        # 服务端按相关性降序返回 {index, relevance_score}；只取 index 即重排序。
+        order = [item["index"] for item in body["results"]]
+        # fail-closed 兜底：服务端漏返/越界的下标按原序补齐，绝不丢候选、不改可见性。
+        seen = set(order)
+        order.extend(i for i in range(len(docs)) if i not in seen)
+        return [i for i in order if 0 <= i < len(docs)]
