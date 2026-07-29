@@ -1,0 +1,44 @@
+{
+  "agent_dataset": "agent60.v1",
+  "metric_schema_version": "1.0",
+  "rag_dataset": "rag96.v1",
+  "rounds": 2,
+  "stats": {
+    "agent.p95_ms": {
+      "ci95": 5.637531316606327,
+      "mean": 13.33383351447992
+    },
+    "agent.strict_tsr": {
+      "ci95": 0.0,
+      "mean": 1.0
+    },
+    "agent.tokens_per_success": {
+      "ci95": 0.0,
+      "mean": 58.0
+    },
+    "rag.mrr": {
+      "ci95": 0.0,
+      "mean": 1.0
+    },
+    "rag.ndcg_at_k": {
+      "ci95": 0.0,
+      "mean": 0.9584445230391379
+    },
+    "rag.p95_ms": {
+      "ci95": 0.08089026086963713,
+      "mean": 0.8124794985633343
+    },
+    "rag.recall_at_k": {
+      "ci95": 0.0,
+      "mean": 0.953125
+    },
+    "security.attack_success_rate": {
+      "ci95": 0.0,
+      "mean": 0.0
+    },
+    "security.violations": {
+      "ci95": 0.0,
+      "mean": 0.0
+    }
+  }
+}

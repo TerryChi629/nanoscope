@@ -1,0 +1,31 @@
+{
+  "artifact_type": "agent",
+  "board": {
+    "argument_accuracy": 1.0,
+    "cached_tokens": 280,
+    "completion_tokens": 680,
+    "context_fidelity": 1.0,
+    "cost_per_success": null,
+    "cost_total": null,
+    "error_recovery_rate": null,
+    "latency_p50_ms": 9.404833952430636,
+    "latency_p95_ms": 10.800959018524736,
+    "max_iteration_termination_rate": 0.0,
+    "n_eligible": 60,
+    "n_errored": 0,
+    "n_skipped": 0,
+    "n_success": 60,
+    "n_total": 60,
+    "partial_tsr": 1.0,
+    "prompt_tokens": 2800,
+    "redundant_tool_rate": 0.0,
+    "retry_rate": 0.0,
+    "strict_tsr": 1.0,
+    "tokens_per_success": 58.0,
+    "tool_selection_precision": 1.0,
+    "tool_selection_recall": 1.0,
+    "tool_sequence_success_rate": 1.0,
+    "usage_estimated_rate": 0.0
+  },
+  "schema_version": "1.0"
+}

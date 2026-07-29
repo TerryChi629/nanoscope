@@ -1,0 +1,25 @@
+{
+  "datasets": {
+    "agent": {
+      "sha256": "1cff58316a8af098fe582dbbc59bc30f6125ed306c4083bfcf2a0ba4771cf4d5",
+      "source": "nanoscope/eval/agent_dataset.py",
+      "version": "agent60.v1"
+    },
+    "agent_live": {
+      "sha256": "fee052964f5e3660f00b583f86a572bbb9fa5862a4de14f90c9e28eb6a0b8c62",
+      "source": "nanoscope/eval/agent_live_dataset.py",
+      "version": "agent-live24.v1"
+    },
+    "rag": {
+      "sha256": "92135c47b749b8c8a383b3459bae979f45e32a385c6ab599dee09ad60833dab5",
+      "source": "nanoscope/eval/rag_frozen.py",
+      "version": "rag96.v1"
+    },
+    "security": {
+      "sha256": "c8052f90467fd3355c44b493ebf011baf2247995d86a51c21f838020ff03c382",
+      "source": "nanoscope/eval/security_cases.py",
+      "version": "security8.v1"
+    }
+  },
+  "schema_version": "1.0"
+}

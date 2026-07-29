@@ -12,11 +12,11 @@ cross-encoder 重排：对融合后的 top-N 候选，用"query×chunk 联合打
 
 from __future__ import annotations
 
-import json
 import os
-import urllib.request
 from collections.abc import Sequence
 from typing import Protocol
+
+from nanoscope.eval.http_client import JsonHttpClient
 
 
 class Reranker(Protocol):
@@ -76,6 +76,8 @@ class SiliconFlowReranker:
         base_url: str | None = None,
         model: str | None = None,
         timeout: float = 30.0,
+        requests_per_second: float = 2.0,
+        http_client: JsonHttpClient | None = None,
     ):
         self.api_key = api_key or os.environ.get("SILICONFLOW_API_KEY")
         if not self.api_key:
@@ -87,6 +89,10 @@ class SiliconFlowReranker:
         ).rstrip("/")
         self.model = model or os.environ.get("SILICONFLOW_RERANK_MODEL") or _DEFAULT_SF_MODEL
         self.timeout = timeout
+        self.http_client = http_client or JsonHttpClient(
+            timeout=timeout,
+            requests_per_second=requests_per_second,
+        )
 
     def rerank(self, query: str, candidates: Sequence[str]) -> list[int]:
         docs = list(candidates)
@@ -99,20 +105,26 @@ class SiliconFlowReranker:
             "top_n": len(docs),
             "return_documents": False,
         }
-        req = urllib.request.Request(
+        body = self.http_client.post(
             f"{self.base_url}/rerank",
-            data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
             },
-            method="POST",
+            payload=payload,
         )
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
         # 服务端按相关性降序返回 {index, relevance_score}；只取 index 即重排序。
-        order = [item["index"] for item in body["results"]]
+        results = body.get("results")
+        if not isinstance(results, list):
+            raise ValueError("SiliconFlow response results must be a list")
+        try:
+            order = [int(item["index"]) for item in results]
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("SiliconFlow response has an invalid result index") from None
+        valid = [index for index in order if 0 <= index < len(docs)]
+        if len(set(valid)) != len(valid):
+            raise ValueError("SiliconFlow response contains duplicate result indexes")
         # fail-closed 兜底：服务端漏返/越界的下标按原序补齐，绝不丢候选、不改可见性。
-        seen = set(order)
-        order.extend(i for i in range(len(docs)) if i not in seen)
-        return [i for i in order if 0 <= i < len(docs)]
+        seen = set(valid)
+        valid.extend(i for i in range(len(docs)) if i not in seen)
+        return valid
