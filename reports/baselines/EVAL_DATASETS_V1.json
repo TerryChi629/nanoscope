@@ -6,9 +6,14 @@
       "version": "agent60.v1"
     },
     "agent_live": {
-      "sha256": "fee052964f5e3660f00b583f86a572bbb9fa5862a4de14f90c9e28eb6a0b8c62",
+      "sha256": "5f7eb1d1718e791e5d3770dd883e509d3680eead4e52890393ccc8fddf8f7779",
       "source": "nanoscope/eval/agent_live_dataset.py",
       "version": "agent-live24.v1"
+    },
+    "agent_open": {
+      "sha256": "683dbf1b3bea15cd47de3d225f9d86400a483ad4014c9d33b7c626fc40ab0d27",
+      "source": "nanoscope/eval/agent_open_dataset.py",
+      "version": "agent-open30.v1"
     },
     "rag": {
       "sha256": "92135c47b749b8c8a383b3459bae979f45e32a385c6ab599dee09ad60833dab5",

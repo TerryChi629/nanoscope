@@ -26,6 +26,7 @@ class AgentCaseResult:
     eligible: bool
     answer_passed: bool
     expected_tools: tuple[str, ...] = ()
+    allowed_tools: tuple[str, ...] = ()
     actual_tools: tuple[str, ...] = ()
     argument_checks: tuple[bool, ...] = ()
     forbidden_tool_calls: int = 0
@@ -114,19 +115,30 @@ def _quantile(values: Sequence[float], q: float) -> float:
     return ordered[max(0, math.ceil(q * len(ordered)) - 1)]
 
 
-def _tool_counts(records: Sequence[AgentCaseResult]) -> tuple[int, int, int]:
-    true_positive = 0
+def _tool_counts(records: Sequence[AgentCaseResult]) -> tuple[int, int, int, int]:
+    required_matches = 0
+    accepted_calls = 0
     expected = 0
     actual = 0
     for record in records:
         expected_counts = Counter(record.expected_tools)
+        allowed_counts = Counter(record.allowed_tools)
         actual_counts = Counter(record.actual_tools)
         expected += sum(expected_counts.values())
         actual += sum(actual_counts.values())
-        true_positive += sum(
+        record_required_matches = sum(
             min(count, actual_counts.get(name, 0)) for name, count in expected_counts.items()
         )
-    return true_positive, expected, actual
+        allowed_matches = sum(
+            min(
+                count,
+                max(0, actual_counts.get(name, 0) - expected_counts.get(name, 0)),
+            )
+            for name, count in allowed_counts.items()
+        )
+        required_matches += record_required_matches
+        accepted_calls += record_required_matches + allowed_matches
+    return required_matches, accepted_calls, expected, actual
 
 
 def aggregate_agent_board(
@@ -137,7 +149,7 @@ def aggregate_agent_board(
     """按同一可评分集合聚合 Agent 五维看板，所有分母显式可审计。"""
     scored = [r for r in records if r.eligible and not r.skipped]
     successes = [r for r in scored if r.strict_success]
-    true_positive, expected_tools, actual_tools = _tool_counts(scored)
+    required_matches, accepted_calls, expected_tools, actual_tools = _tool_counts(scored)
     argument_checks = [check for r in scored for check in r.argument_checks]
     prompt_tokens = sum(r.prompt_tokens for r in scored)
     completion_tokens = sum(r.completion_tokens for r in scored)
@@ -170,13 +182,13 @@ def aggregate_agent_board(
         n_skipped=sum(1 for r in records if r.skipped),
         n_errored=sum(1 for r in scored if r.error is not None),
         strict_tsr=len(successes) / len(scored) if scored else 0.0,
-        tool_selection_precision=true_positive / actual_tools if actual_tools else 1.0,
-        tool_selection_recall=true_positive / expected_tools if expected_tools else 1.0,
+        tool_selection_precision=accepted_calls / actual_tools if actual_tools else 1.0,
+        tool_selection_recall=required_matches / expected_tools if expected_tools else 1.0,
         argument_accuracy=(
             sum(argument_checks) / len(argument_checks) if argument_checks else None
         ),
         redundant_tool_rate=(
-            (actual_tools - true_positive) / actual_tools if actual_tools else 0.0
+            (actual_tools - accepted_calls) / actual_tools if actual_tools else 0.0
         ),
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,

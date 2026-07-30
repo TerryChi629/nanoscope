@@ -1,0 +1,93 @@
+{
+  "artifact_type": "agent_open",
+  "board": {
+    "automatic": {
+      "argument_accuracy": 1.0,
+      "cached_tokens": 231680,
+      "completion_tokens": 94769,
+      "context_fidelity": 0.8985507246376812,
+      "cost_per_success": null,
+      "cost_total": null,
+      "error_recovery_rate": 1.0,
+      "latency_p50_ms": 8226.838707982097,
+      "latency_p95_ms": 38323.50691698957,
+      "max_iteration_termination_rate": 0.022222222222222223,
+      "n_eligible": 90,
+      "n_errored": 1,
+      "n_skipped": 0,
+      "n_success": 64,
+      "n_total": 90,
+      "partial_tsr": 0.975,
+      "prompt_tokens": 274442,
+      "redundant_tool_rate": 0.7557755775577558,
+      "retry_rate": 0.0,
+      "strict_tsr": 0.7111111111111111,
+      "tokens_per_success": 2408.15625,
+      "tool_selection_precision": 0.24422442244224424,
+      "tool_selection_recall": 1.0,
+      "tool_sequence_success_rate": 0.7444444444444445,
+      "usage_estimated_rate": 0.0
+    },
+    "automatic_gate_pass": false,
+    "dataset_version": "agent-open30.v1",
+    "human_gate_pass": false,
+    "human_review_status": "pending",
+    "human_score": null,
+    "n_human_required": 90,
+    "n_human_reviewed": 0,
+    "n_runs": 90,
+    "n_tasks": 30,
+    "overall_gate_pass": false,
+    "partial_tsr": {
+      "ci95_high": 0.975,
+      "ci95_low": 0.975,
+      "mean": 0.975,
+      "n": 3
+    },
+    "repeats": 3,
+    "stage_latency": {
+      "model": {
+        "p50_ms": 8226.14241699921,
+        "p95_ms": 35269.20699898619
+      },
+      "orchestration": {
+        "p50_ms": 1.9168329308740795,
+        "p95_ms": 102.0259180222638
+      },
+      "tool": {
+        "p50_ms": 0.002374988980591297,
+        "p95_ms": 0.01745589543133974
+      },
+      "total": {
+        "p50_ms": 8226.838707982097,
+        "p95_ms": 38323.50691698957
+      }
+    },
+    "strict_tsr": {
+      "ci95_high": 0.7328888888888889,
+      "ci95_low": 0.6893333333333334,
+      "mean": 0.7111111111111111,
+      "n": 3
+    }
+  },
+  "gate": {
+    "automatic": false,
+    "human": false,
+    "human_review_status": "pending",
+    "overall": false
+  },
+  "run": {
+    "credential_env_names": [
+      "DEEPSEEK_API_KEY"
+    ],
+    "dataset_sha256": "683dbf1b3bea15cd47de3d225f9d86400a483ad4014c9d33b7c626fc40ab0d27",
+    "dataset_version": "agent-open30.v1",
+    "human_review_path": "reports/reviews/AGENT_OPEN_V1_HUMAN-p1b2.jsonl",
+    "model": "deepseek-v4-flash",
+    "provider": "deepseek",
+    "raw_trace_path": "reports/checkpoints/agent_open/agent-open30.v1-p1b2.jsonl",
+    "repeats": 3,
+    "started_at": "2026-07-29T19:06:59.953429+00:00"
+  },
+  "schema_version": "1.0"
+}

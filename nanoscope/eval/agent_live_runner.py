@@ -52,6 +52,25 @@ class ToolAttempt:
     name: str
     arguments: dict[str, Any]
     status: str
+    latency_ms: float = 0.0
+
+
+class TimedProvider:
+    """Measure model wait time without changing the provider contract."""
+
+    def __init__(self, delegate: Any):
+        self._delegate = delegate
+        self.model_latency_ms = 0.0
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._delegate, name)
+
+    async def chat_with_retry(self, **kwargs: Any):
+        started = time.perf_counter()
+        try:
+            return await self._delegate.chat_with_retry(**kwargs)
+        finally:
+            self.model_latency_ms += (time.perf_counter() - started) * 1000
 
 
 class BenchmarkTool(Tool):
@@ -84,6 +103,7 @@ class BenchmarkTool(Tool):
 class LiveToolHarness:
     def __init__(self):
         self.attempts: list[ToolAttempt] = []
+        self.tool_latency_ms = 0.0
         self._unstable_counts: Counter[str] = Counter()
         self.registry = ToolRegistry()
         key_schema = {
@@ -147,15 +167,17 @@ class LiveToolHarness:
         )
 
     def _lookup(self, key: str) -> Any:
+        started = time.perf_counter()
         if key not in _LOOKUP_VALUES:
             result = ToolResult.error(f"unknown key: {key}")
-            self.attempts.append(ToolAttempt("lookup", {"key": key}, "error"))
+            self._record_attempt("lookup", {"key": key}, "error", started)
             return result
         value = _LOOKUP_VALUES[key]
-        self.attempts.append(ToolAttempt("lookup", {"key": key}, "ok"))
+        self._record_attempt("lookup", {"key": key}, "ok", started)
         return f"{key}={value}"
 
     def _calculate(self, left: float, right: float, operation: str) -> Any:
+        started = time.perf_counter()
         arguments = {"left": left, "right": right, "operation": operation}
         try:
             result = {
@@ -165,22 +187,34 @@ class LiveToolHarness:
                 "divide": left / right,
             }[operation]
         except (KeyError, ZeroDivisionError) as exc:
-            self.attempts.append(ToolAttempt("calculate", arguments, "error"))
+            self._record_attempt("calculate", arguments, "error", started)
             return ToolResult.error(str(exc))
-        self.attempts.append(ToolAttempt("calculate", arguments, "ok"))
+        self._record_attempt("calculate", arguments, "ok", started)
         return f"result={result:g}"
 
     def _unstable_lookup(self, key: str) -> Any:
+        started = time.perf_counter()
         arguments = {"key": key}
         self._unstable_counts[key] += 1
         if self._unstable_counts[key] == 1:
-            self.attempts.append(ToolAttempt("unstable_lookup", arguments, "error"))
+            self._record_attempt("unstable_lookup", arguments, "error", started)
             return ToolResult.error("transient error: retry the same call once")
         if key not in _UNSTABLE_VALUES:
-            self.attempts.append(ToolAttempt("unstable_lookup", arguments, "error"))
+            self._record_attempt("unstable_lookup", arguments, "error", started)
             return ToolResult.error(f"unknown key: {key}")
-        self.attempts.append(ToolAttempt("unstable_lookup", arguments, "ok"))
+        self._record_attempt("unstable_lookup", arguments, "ok", started)
         return f"{key}={_UNSTABLE_VALUES[key]}"
+
+    def _record_attempt(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        status: str,
+        started: float,
+    ) -> None:
+        latency_ms = (time.perf_counter() - started) * 1000
+        self.tool_latency_ms += latency_ms
+        self.attempts.append(ToolAttempt(name, arguments, status, latency_ms))
 
 
 async def run_live_agent_task(
@@ -188,6 +222,8 @@ async def run_live_agent_task(
     *,
     provider,
     model: str,
+    conversation_messages: list[dict[str, Any]] | None = None,
+    system_prompt: str | None = None,
 ) -> AgentCaseResult:
     """Execute one constrained task through the real AgentRunner and ToolRegistry."""
     tools = LiveToolHarness()
@@ -196,25 +232,27 @@ async def run_live_agent_task(
         "generation",
         GenerationSettings(temperature=0.0, max_tokens=1024),
     )
+    timed_provider = TimedProvider(provider)
     runtime = LLMRuntime(
-        provider=provider,
+        provider=timed_provider,
         model=model,
         generation=generation,
         context_window_tokens=8192,
     )
     started = time.perf_counter()
+    messages = conversation_messages or [{"role": "user", "content": task.prompt}]
     result = await AgentRunner().run(
         spec=AgentRunSpec(
             initial_messages=[
                 {
                     "role": "system",
-                    "content": (
+                    "content": system_prompt or (
                         "你正在执行可审计 Agent 评测。只在任务需要时调用工具；"
                         "严格使用工具 schema；工具瞬态失败时根据提示恢复；"
                         "最终答案简洁并包含问题要求的事实。"
                     ),
                 },
-                {"role": "user", "content": task.prompt},
+                *messages,
             ],
             tools=tools.registry,
             runtime=runtime,
@@ -232,6 +270,7 @@ async def run_live_agent_task(
         for index, expected in enumerate(task.expected_arguments)
     )
     expected_counts = Counter(task.expected_tools)
+    allowed_counts = Counter(task.allowed_tools)
     actual_counts = Counter(actual_tools)
     matched_tools = sum(
         min(count, actual_counts.get(name, 0))
@@ -248,7 +287,10 @@ async def run_live_agent_task(
         not task.expected_any
         or any(marker.casefold() in normalized_answer for marker in task.expected_any)
     )
-    sequence_passed = actual_tools == task.expected_tools
+    expected_index = 0
+    for name in actual_tools:
+        if expected_index < len(task.expected_tools) and name == task.expected_tools[expected_index]:
+            expected_index += 1
     errors = [attempt for attempt in tools.attempts if attempt.status == "error"]
     recovered = bool(
         task.recovery_expected
@@ -258,8 +300,14 @@ async def run_live_agent_task(
     )
     unhandled_errors = 0 if not errors or recovered else len(errors)
     unexpected_tools = sum(
-        max(0, count - expected_counts.get(name, 0))
+        max(
+            0,
+            count - expected_counts.get(name, 0) - allowed_counts.get(name, 0),
+        )
         for name, count in actual_counts.items()
+    )
+    sequence_passed = (
+        expected_index == len(task.expected_tools) and unexpected_tools == 0
     )
     completed = result.stop_reason == "completed" and result.error is None
     partial_score = (
@@ -268,7 +316,7 @@ async def run_live_agent_task(
         + argument_score
         + float(completed)
     ) / 4
-    expected_context = task.expected_facts if task.suite == "context" else ()
+    expected_context = task.context_facts
     retained_context = sum(
         1 for fact in expected_context if fact.casefold() in answer.casefold()
     )
@@ -278,6 +326,7 @@ async def run_live_agent_task(
         eligible=True,
         answer_passed=answer_passed,
         expected_tools=task.expected_tools,
+        allowed_tools=task.allowed_tools,
         actual_tools=actual_tools,
         argument_checks=argument_checks,
         forbidden_tool_calls=unexpected_tools,
@@ -290,6 +339,8 @@ async def run_live_agent_task(
             and not result.usage.get("provider_tokens")
         ),
         latency_ms=latency_ms,
+        model_latency_ms=timed_provider.model_latency_ms,
+        tool_latency_ms=tools.tool_latency_ms,
         stop_reason=result.stop_reason,
         context_facts_expected=len(expected_context),
         context_facts_retained=retained_context,

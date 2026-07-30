@@ -1082,7 +1082,7 @@ order.extend(i <span class="kw">for</span> i <span class="kw">in</span> range(le
   <p class="lead">测评对象必须正交：<b>Agent</b>评价完整任务执行，<b>Security</b>评价攻击是否突破边界，<b>RAG</b>评价摄取、召回、重排、拒答与生成。三套看板共享运行清单与证据格式，但绝不把 RAG 子包结果冒充完整 Agent 结果；总门禁只做布尔合取，不做会掩盖单次安全事故的加权平均。</p>
 
   <div class="box why"><div class="t">核心设计：确定性隔离墙与概率性质量正交</div>
-    检索和生成质量是概率性的，可以用均值、分位数与置信区间比较；ACL、SSRF、工作区逃逸、凭证泄露是确定性红线，必须 fail-closed。于是 <b>Overall PASS = Agent Gate ∧ Security Gate ∧ Security Completeness ∧ RAG Gate</b>。任一越权样本都不能被 99 个高质量样本平均掉。
+    检索和生成质量是概率性的，可以用均值、分位数与置信区间比较；ACL、SSRF、工作区逃逸、凭证泄露是确定性红线，必须 fail-closed。于是基础门禁为 <b>Agent Scripted ∧ Agent Live ∧ Security ∧ Security Completeness ∧ RAG</b>；启用 P1-B 后再与 <b>Agent Open</b> 做布尔合取。任一越权样本或未完成人审都不能被高质量样本平均掉。
   </div>
 
   <h4>5.10.1 总览：一页结论、三张 Board 与核心口径</h4>
@@ -1186,7 +1186,7 @@ order.extend(i <span class="kw">for</span> i <span class="kw">in</span> range(le
       <tr><td>5</td><td class="ok">☑ 已完成</td><td>实现 Security 八分面门禁</td><td>ASR、fail-closed、红线计数、完整性门禁与测试</td></tr>
       <tr><td>6</td><td class="ok">☑ 已完成</td><td>实现统一运行清单与总门禁</td><td>数据集 SHA-256、commit、模型、价格表、随机种子、凭证变量名和原子报告</td></tr>
       <tr><td>7</td><td class="ok">☑ 已完成</td><td>重跑 RAG L0-L3</td><td>四档无异常，安全门禁 PASS；修正 CPS=231.75；保留 L2 负向 A/B</td></tr>
-      <tr><td>8</td><td class="ok">☑ 已完成</td><td>全量回归与静态检查</td><td>最新 tests/scope 216 passed, 6 skipped；ruff 全绿</td></tr>
+      <tr><td>8</td><td class="ok">☑ 已完成</td><td>全量回归与静态检查</td><td>最新 tests/scope 225 passed, 6 skipped；ruff 全绿</td></tr>
       <tr><td>9</td><td class="ok">☑ 已完成</td><td>重写学习指南第 5.10 节</td><td>记录数据集构造、指标公式、边界、实测、面试追问和复现命令</td></tr>
       <tr><td>10</td><td class="ok">☑ 已完成</td><td>构造并冻结 Agent v1 任务集</td><td>agent60.v1 七组 60 条，全部走真实 AgentRunner 控制流</td></tr>
       <tr><td>11</td><td class="ok">☑ 已完成</td><td>映射现有安全证据到统一事件</td><td>八分面直接执行 collector，Security 与 Completeness 双门禁 PASS</td></tr>
@@ -1303,7 +1303,7 @@ order.extend(i <span class="kw">for</span> i <span class="kw">in</span> range(le
     <thead><tr><th>证据</th><th>结果</th><th>结论</th></tr></thead>
     <tbody>
       <tr><td>三体系最小测试集</td><td class="ok">22 passed, 2 skipped</td><td>快速回归；2 skip 为默认进程不可见的 live key 测试</td></tr>
-      <tr><td>tests/scope 全量</td><td class="ok">216 passed, 6 skipped</td><td>无历史回归；skip 均为既有联网/密钥门控</td></tr>
+      <tr><td>tests/scope 全量</td><td class="ok">225 passed, 6 skipped</td><td>无历史回归；skip 均为既有联网/密钥门控</td></tr>
       <tr><td>Agent agent60.v1</td><td>60/60 strict success；Tool P/R=1.000；Tokens/Success=58；Context Fidelity=1.000</td><td>确定性 Runner 基线，评估框架控制流</td></tr>
       <tr><td>Agent agent-live24.v1</td><td class="ok">DeepSeek-V4-flash 24/24；Strict/Partial TSR=1.000；Tool P/R=1.000/1.000；Recovery=1.000；P95=6.95s</td><td>真实模型受约束基线；不外推到开放答案、人审任务和生产分布</td></tr>
       <tr><td>Security 八分面</td><td class="ok">8/8 executed；ASR=0；violations=0；Security/Completeness PASS</td><td>真实 collector，不从测试输出抄结果</td></tr>
@@ -1315,7 +1315,7 @@ order.extend(i <span class="kw">for</span> i <span class="kw">in</span> range(le
       <tr><td>RAG L2 GLM+BGE（rag96）</td><td>84/84；Recall@5=0.972656；MRR=1.000；nDCG@5=0.967713；E2E P95=1154.69ms</td><td>相对 L1：ΔRecall=-0.01172，ΔnDCG=-0.01208；真实 BGE 仍未产生收益</td></tr>
       <tr><td>RAG L3 DeepSeek-V4-flash（rag96）</td><td>96/96；Literal Fact=1.000；Groundedness=1.000；Citation P/R=1.000/0.750；CPS=271.84；E2E P95=1113.13ms</td><td>全部问法都生成；引用准确但没有覆盖每个 gold chunk，故 Citation Recall 不是 1</td></tr>
       <tr><td>安全与可靠性</td><td class="ok">L0-L3 exposure=0、candidate touch=0、SVR=0、SR=1、两道门禁 PASS</td><td>确定性分区/pre-filter 红线保持成立，远程链路无异常</td></tr>
-      <tr><td>全量验证</td><td class="ok">216 passed, 6 skipped；ruff: All checks passed</td><td>skip 为密钥门控联网测试；真实 Agent 与 RAG live 已由独立 runner 完整执行</td></tr>
+      <tr><td>全量验证</td><td class="ok">225 passed, 6 skipped；ruff: All checks passed</td><td>skip 为密钥门控联网测试；真实 Agent、Agent Open 与 RAG live 已由独立 runner 完整执行</td></tr>
     </tbody>
   </table>
   <div class="box warn"><div class="t">历史结果与未完成 live 如何处理</div>
@@ -1458,16 +1458,17 @@ order.extend(i <span class="kw">for</span> i <span class="kw">in</span> range(le
       <tr><td><code class="inline">reports/baselines/AGENT_LIVE_V1.json</code></td><td>DeepSeek-V4-flash 24 条真实 Agent Board、模型、数据集、live gate</td><td>机器可读脱敏 summary；逐 case trace 保存在 checkpoint JSONL</td></tr>
       <tr><td><code class="inline">reports/baselines/SECURITY_V1.json</code></td><td>八分面汇总、七类红线计数、Security/Completeness 双门禁</td><td>机器可读脱敏 summary</td></tr>
       <tr><td><code class="inline">reports/baselines/RAG_V1.json</code></td><td>L0 + 真实 L1-L3 完整 Board、模型标识、checkpoint 状态</td><td>机器可读脱敏 summary；凭证只记录变量名</td></tr>
+      <tr><td><code class="inline">reports/baselines/AGENT_OPEN_V1.json</code></td><td>30 条 × 3 轮开放 Agent 汇总、CI、分阶段延迟与人审状态</td><td>Automatic=false；Human=pending；Overall=false</td></tr>
       <tr><td><code class="inline">reports/baselines/UNIFIED_V1.json</code></td><td>三体系独立看板与布尔总门禁</td><td>机器可读；Overall PASS 不做加权平均</td></tr>
-      <tr><td><code class="inline">reports/baselines/MANIFEST_V1.json</code></td><td>五份 artifact 的 path、SHA-256、schema、type、gate、records_included</td><td>含 agent_live；所有 artifact gate=true</td></tr>
+      <tr><td><code class="inline">reports/baselines/MANIFEST_V1.json</code></td><td>六份 artifact 的 path、SHA-256、schema、type、gate、records_included</td><td>五项既有门禁 true；agent_open=false；六份哈希校验 PASS</td></tr>
       <tr><td><code class="inline">reports/runs/RAG96_LIVE_V1.jsonl</code></td><td>L1-L3 的 288 条逐场景 trace + 三张 Board + level status</td><td>机器可读 live 证据；中断时 checkpoint 仍保留已完成场景</td></tr>
       <tr><td><code class="inline">reports/checkpoints/agent_live/agent-live24.v1-p1a3.jsonl</code></td><td>24 条真实 Agent 的答案、实际工具/参数/状态、usage、错误与判分</td><td>逐 case 诊断证据；按 case_id 恢复，不能复用 RAG 的 id loader</td></tr>
-      <tr><td><code class="inline">tests/scope</code></td><td>指标纯函数、冻结集形状、collector、nightly、L4、P0/P1-A artifact 契约</td><td>代码证据；216 passed, 6 skipped</td></tr>
+      <tr><td><code class="inline">tests/scope</code></td><td>指标纯函数、冻结集形状、collector、nightly、L4、P0/P1-A/P1-B artifact 契约</td><td>代码证据；225 passed, 6 skipped</td></tr>
       <tr><td><code class="inline">nanoscope/eval/*.py</code></td><td>指标实现、数据集、collector、趋势判定和统一报告契约</td><td>源码级定义</td></tr>
     </tbody>
   </table>
   <div class="box good">
-    <b>P0/P1-A 证据闭环已完成：</b>四份核心 summary、AGENT_LIVE_V1 与 manifest 已落盘，逐场景 live trace 单独保存。summary 默认剔除 records 以控制仓库体积，JSONL 保留诊断证据；manifest 的 SHA-256 可检测任一摘要被改写。仍需注意当前 worktree 为 dirty，正式发布基线应在提交后重跑一次，使 manifest 的 commit 与 clean 状态可复现。
+    <b>P0/P1-A 发布基线已收口：</b>提交后曾复用 Live trace 重建 clean 快照，绑定 commit <code class="inline">ffae9088</code> 且 <code class="inline">dirty_worktree=false</code>。当前 manifest 已进一步纳入 P1-B 第六份 artifact，因此开发阶段重新标记 dirty；六份 artifact 哈希校验 PASS，但正式发布仍应在本轮提交后再重建一次 clean manifest。
   </div>
 
   <h4>5.10.14 补测路线图：摄取质量、拒答矩阵、安全行为与成本</h4>
@@ -1477,13 +1478,46 @@ order.extend(i <span class="kw">for</span> i <span class="kw">in</span> range(le
       <tr><td class="ok">P0 完成</td><td>live96 分档与可恢复调度</td><td>L1/L2/L3 各 96 条完成；provider 限流/重试；逐场景 checkpoint</td><td>已产出 Groundedness/Citation/Token 与真实质量结果</td></tr>
       <tr><td class="ok">P0 完成</td><td>四份完整机器可读 summary</td><td>Agent/Security/RAG/Unified + manifest path/SHA/gate</td><td>HTML 是复习入口，JSON 是机器真值，职责分离</td></tr>
       <tr><td class="ok">P1-A 完成</td><td>真实 Agent 受约束任务集</td><td>DeepSeek 24/24；Partial TSR、工具序列、故障恢复、Token、P95</td><td>补上 scripted provider 不能证明真实模型能力的缺口</td></tr>
-      <tr><td>P1-B</td><td>真实 Agent 开放任务与多轮统计</td><td>脱敏生产任务、人审答案正确率、3+ 轮均值/95% CI、分阶段耗时</td><td>当前 24 条是结构化受约束集，仍不足以代表生产分布</td></tr>
+      <tr><td>P1-B 自动部分完成</td><td>真实 Agent 开放任务与多轮统计</td><td>agent-open30.v1 合成脱敏任务；3 轮共 90 次；Strict TSR=0.711；人审模板 90/90 待填写</td><td>自动门禁未过且人审 pending，Overall=false；不把完成运行包装成质量 PASS</td></tr>
       <tr><td>P1</td><td>RAG 摄取质量集</td><td>PDF/Markdown/HTML 的解析、span 覆盖、结构保持和去重指标</td><td>当前评测从已切好的 chunk 开始，漏掉摄取链路</td></tr>
       <tr><td>P1</td><td>拒答混淆矩阵与鲁棒性</td><td>Abstention P/R/F1、False Answer Rate、四种改写退化率</td><td>现有拒答只有无答案集合，没有完整分类矩阵</td></tr>
       <tr><td>P1</td><td>行为型 Prompt Injection</td><td>真实模型执行恶意指令的 ASR，并与静态残留分表</td><td>静态清洗结果不能代表模型行为安全</td></tr>
       <tr><td>P2</td><td>成本与分阶段延迟</td><td>版本化价格表；Cost/Success、Cost/Query；embedding/rerank/generation/tool/queue P50/P95</td><td>面试和生产都需要效果—成本—延迟联合决策</td></tr>
     </tbody>
   </table>
+  <h5>P1-B 设计：agent-open30.v1、三轮统计与人工门禁</h5>
+  <p><b>数据集构造：</b><code class="inline">agent-open30.v1</code> 使用完全合成且脱敏的业务事实，不使用真实用户或生产数据。六组各 5 条：综合回答、开放单工具、多工具规划、故障恢复、多轮上下文、澄清与安全拒答。它不是生产流量的替代品，而是从受约束 live24 向开放答案过渡的可公开冻结集。</p>
+  <p><b>三层证据职责：</b><code class="inline">agent60.v1</code> 隔离模型随机性并证明 Runner 控制流；<code class="inline">agent-live24.v1</code> 证明真实模型在结构化任务上的工具与恢复能力；<code class="inline">agent-open30.v1</code> 测量开放表达、多轮一致性和合理工具路径。三者分别发布，不用新结果覆盖旧基线。</p>
+  <div class="box">
+    <b>重复实验公式：</b>每轮严格成功率 TSRᵣ = N_success,r ÷ 30；三轮均值 μ = ΣTSRᵣ ÷ 3；95% CI = μ ± 1.96 × s ÷ √3，并截断到 [0,1]。这里只量化三次运行波动，n=3 的区间仍很粗，不能包装成大样本统计结论。
+  </div>
+  <p><b>人工评分：</b>每个 case-run 按 Correctness、Completeness、Instruction Following、Tool Rationality 四维各打 0–4 分，单条 Human Score = 四维总分 ÷ 16。90 条评分必须全部完成才算 <code class="inline">human_review_status=completed</code>；缺一条即 pending。</p>
+  <div class="box warn">
+    <b>Fail-Closed 总门禁：</b>Overall = Automatic Gate ∧ Human Gate。自动事实和工具指标即使满分，只要人工评分未完成，<code class="inline">overall=false</code>。这防止 substring scorer 把语言流畅但不完整、建议不合理的开放答案误包装成 PASS。
+  </div>
+  <p><b>可恢复性：</b>checkpoint 主键为 <code class="inline">case_id + run_index</code>，并逐条校验 dataset_version、task SHA-256、model、provider。只按 case_id 恢复会把改题、换模型后的旧答案混入新实验，因此指纹不一致直接报错，不自动纠正。</p>
+  <p><b>分阶段耗时：</b>Total = Model + Tool + Orchestration；分别报告 P50/P95。Model 计 provider await 时间，Tool 计真实工具执行时间，Orchestration = max(0, Total − Model − Tool)。当前框架没有独立队列，因此不伪造 Queue 指标。</p>
+  <p><b>机器证据：</b><code class="inline">AGENT_OPEN_V1.json</code> 保存无逐条答案的汇总；<code class="inline">reports/checkpoints/agent_open/agent-open30.v1-p1b2.jsonl</code> 保存最终 90 条 raw trace；<code class="inline">reports/reviews/AGENT_OPEN_V1_HUMAN-p1b2.jsonl</code> 是人工评分模板。密钥值零入库，只记录 <code class="inline">DEEPSEEK_API_KEY</code> 变量名；p1b1 trace 只保留为 scorer 修正的历史诊断。</p>
+  <h5>P1-B 实测：开放任务显著低于受约束基线</h5>
+  <table>
+    <thead><tr><th>指标</th><th>agent-open30.v1 × 3</th><th>解释</th></tr></thead>
+    <tbody>
+      <tr><td>Strict TSR</td><td class="bad">0.711；95% CI [0.689, 0.733]</td><td>64/90 strict success，低于 0.8 自动门槛</td></tr>
+      <tr><td>Partial TSR</td><td>0.975；95% CI [0.975, 0.975]</td><td>事实、必需工具、参数和完成度大多正确，但严格工具纪律不足</td></tr>
+      <tr><td>Tool P/R</td><td class="warn">0.244 / 1.000</td><td>必需工具全部覆盖，但无关或重复调用很多；高 Recall 不能掩盖低 Precision</td></tr>
+      <tr><td>Redundant Tool Rate</td><td class="bad">0.756</td><td>开放综合、多轮和澄清任务中出现工具循环</td></tr>
+      <tr><td>Argument / Recovery</td><td>1.000 / 1.000</td><td>一旦选择正确工具，参数与瞬态恢复稳定</td></tr>
+      <tr><td>Context Fidelity</td><td>0.899</td><td>多轮事实仍有遗漏，低于 live24 的 1.000</td></tr>
+      <tr><td>Max-Iteration</td><td>0.022</td><td>2/90 因工具循环触发最大迭代终止</td></tr>
+      <tr><td>Token / Success</td><td>2408.16</td><td>高于 live24 的 1676.29，开放任务与冗余调用共同放大成本</td></tr>
+      <tr><td>Total P50 / P95</td><td>8.23s / 38.32s</td><td>尾延迟主要来自模型与恢复调用</td></tr>
+      <tr><td>Model P50 / P95</td><td>8.23s / 35.27s</td><td>Provider 等待占主要耗时</td></tr>
+      <tr><td>Human / Overall</td><td class="warn">pending / false</td><td>90 条四维人工评分未填写，按 fail-closed 不发布 PASS</td></tr>
+    </tbody>
+  </table>
+  <div class="box warn">
+    <b>一次 scorer 假阴性修正：</b>p1b1 强制多工具题必须调用 calculate，模型查询后正确心算也被判失败，Strict TSR=0.589。p1b2 改为“必需工具 + 有界允许工具”：lookup 必须出现，calculate 可出现 0–1 次，重复仍失败；独立 checkpoint 重跑后 TSR=0.711。随后又发现 allowed-tools 使 Recall 分子大于分母，出现 1.233；修正为 Precision 分子包含合法可选调用、Recall 分子只含必需工具命中，最终 Recall=1.000。两次修正都保留旧 trace，不原地篡改证据。
+  </div>
 
   <h4>5.10.15 面试高频追问：指标取舍、安全门禁与真实 Agent</h4>
   <table>
@@ -1520,6 +1554,14 @@ source "$HOME/.bash_profile"
   --checkpoint reports/checkpoints/agent_live/agent-live24.v1-p1a3.jsonl \
   --out reports/baselines/AGENT_LIVE_V1.json
 
+<span class="cm"># P1-B 开放 Agent：30 条 × 3 轮；中断后可恢复</span>
+.venv/bin/python -m nanoscope.eval.agent_open_runner --repeats 3 --resume \
+  --raw-trace reports/checkpoints/agent_open/agent-open30.v1-p1b2.jsonl \
+  --human-review reports/reviews/AGENT_OPEN_V1_HUMAN-p1b2.jsonl \
+  --out reports/baselines/AGENT_OPEN_V1.json
+
+<span class="cm"># 人工评分：填写四维 0–4 分并把 status 改为 completed，再运行同一命令聚合</span>
+
 <span class="cm"># 生成统一基线；同时并入 Agent/RAG live artifact</span>
 .venv/bin/python -m nanoscope.eval.generate_baselines --repo . \
   --out-dir reports/baselines \
@@ -1542,7 +1584,7 @@ export DEEPSEEK_MODEL="deepseek-v4-flash"
 
 <span class="cm"># L4 默认关闭；显式配置示例（身份仍由 RequestContext 注入）</span>
 {"tools":{"rag":{"enabled":true,"databasePath":"~/.nanobot/rag.db","embedder":"hashing","reranker":"stub","topK":5}}}</pre>
-  <p class="fp">Agent <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/agent_bench.py">agent_bench.py</a> ｜ Agent Live <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/agent_live_runner.py">agent_live_runner.py</a> ｜ Agent Live 数据集 <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/agent_live_dataset.py">agent_live_dataset.py</a> ｜ Security <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/security_cases.py">security_cases.py</a> ｜ RAG <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/rag_bench.py">rag_bench.py</a> ｜ L4 Tool <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanobot/agent/tools/rag.py">rag.py</a> ｜ Nightly <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/nightly.py">nightly.py</a>。</p>
+  <p class="fp">Agent <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/agent_bench.py">agent_bench.py</a> ｜ Agent Live <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/agent_live_runner.py">agent_live_runner.py</a> ｜ Agent Open <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/agent_open_runner.py">agent_open_runner.py</a> ｜ Agent Open 数据集 <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/agent_open_dataset.py">agent_open_dataset.py</a> ｜ Security <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/security_cases.py">security_cases.py</a> ｜ RAG <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/rag_bench.py">rag_bench.py</a> ｜ L4 Tool <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanobot/agent/tools/rag.py">rag.py</a> ｜ Nightly <a href="file:///Users/bytedance/Desktop/codes/nanoscope/nanoscope/nanoscope/eval/nightly.py">nightly.py</a>。</p>
 </section>
 
 <hr>

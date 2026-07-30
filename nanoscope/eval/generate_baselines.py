@@ -11,6 +11,7 @@ from pathlib import Path
 
 from nanoscope.eval.agent_dataset import AGENT_DATASET_VERSION
 from nanoscope.eval.agent_live_dataset import AGENT_LIVE_DATASET_VERSION
+from nanoscope.eval.agent_open_dataset import AGENT_OPEN_DATASET_VERSION
 from nanoscope.eval.agent_runner_bench import run_agent_v1_sync
 from nanoscope.eval.artifacts import atomic_write_json
 from nanoscope.eval.rag_bench import build_benchmark, run_board
@@ -32,11 +33,13 @@ def generate_offline_baselines(
     *,
     rag_live_path: str | Path | None = None,
     agent_live_path: str | Path | None = None,
+    agent_open_path: str | Path | None = None,
 ) -> dict[str, Path]:
     repo_path = Path(repo).resolve()
     output_path = Path(output_dir)
     agent_source = repo_path / "nanoscope/eval/agent_dataset.py"
     agent_live_source = repo_path / "nanoscope/eval/agent_live_dataset.py"
+    agent_open_source = repo_path / "nanoscope/eval/agent_open_dataset.py"
     rag_source = repo_path / "nanoscope/eval/rag_frozen.py"
     security_source = repo_path / "nanoscope/eval/security_cases.py"
     catalog_path = output_path / "EVAL_DATASETS_V1.json"
@@ -54,6 +57,11 @@ def generate_offline_baselines(
                     "version": AGENT_LIVE_DATASET_VERSION,
                     "source": str(agent_live_source.relative_to(repo_path)),
                     "sha256": sha256_file(agent_live_source),
+                },
+                "agent_open": {
+                    "version": AGENT_OPEN_DATASET_VERSION,
+                    "source": str(agent_open_source.relative_to(repo_path)),
+                    "sha256": sha256_file(agent_open_source),
                 },
                 "rag": {
                     "version": RAG_DATASET_VERSION,
@@ -91,6 +99,7 @@ def generate_offline_baselines(
         dataset_path=catalog_path,
         dataset_version=(
             f"{AGENT_DATASET_VERSION}+{AGENT_LIVE_DATASET_VERSION}+"
+            f"{AGENT_OPEN_DATASET_VERSION}+"
             f"{RAG_DATASET_VERSION}+security8.v1"
         ),
         model="scripted+hashing",
@@ -112,6 +121,7 @@ def generate_offline_baselines(
     rag_summary: dict = {"offline": asdict(rag), "live": [], "level_statuses": []}
     unified_summary = unified.to_dict()
     agent_live_data: dict | None = None
+    agent_open_data: dict | None = None
     if agent_live_path is not None:
         agent_live_data = json.loads(
             Path(agent_live_path).read_text(encoding="utf-8")
@@ -124,6 +134,22 @@ def generate_offline_baselines(
         unified_summary["gates"]["agent_live"] = live_gate
         unified_summary["gates"]["overall"] = bool(
             unified_summary["gates"]["overall"] and live_gate
+        )
+    if agent_open_path is not None:
+        agent_open_data = json.loads(
+            Path(agent_open_path).read_text(encoding="utf-8")
+        )
+        if (
+            agent_open_data.get("artifact_type") != "agent_open"
+            or agent_open_data.get("run", {}).get("dataset_version")
+            != AGENT_OPEN_DATASET_VERSION
+        ):
+            raise ValueError("Agent open artifact must use agent-open30.v1")
+        open_gate = bool(agent_open_data.get("gate", {}).get("overall"))
+        unified_summary["agent_open"] = agent_open_data
+        unified_summary["gates"]["agent_open"] = open_gate
+        unified_summary["gates"]["overall"] = bool(
+            unified_summary["gates"]["overall"] and open_gate
         )
     if rag_live_path is not None:
         for line in Path(rag_live_path).read_text(encoding="utf-8").splitlines():
@@ -174,6 +200,21 @@ def generate_offline_baselines(
         }
         atomic_write_json(outputs["manifest"], manifest_data)
         outputs["agent_live"] = live_path
+    if agent_open_path is not None and agent_open_data is not None:
+        open_path = Path(agent_open_path)
+        manifest_data = json.loads(outputs["manifest"].read_text(encoding="utf-8"))
+        manifest_data["artifacts"]["agent_open"] = {
+            "path": str(open_path.relative_to(output_path))
+            if open_path.is_relative_to(output_path)
+            else str(open_path),
+            "sha256": hashlib.sha256(open_path.read_bytes()).hexdigest(),
+            "schema_version": agent_open_data.get("schema_version"),
+            "artifact_type": "agent_open",
+            "gate": bool(agent_open_data.get("gate", {}).get("overall")),
+            "records_included": False,
+        }
+        atomic_write_json(outputs["manifest"], manifest_data)
+        outputs["agent_open"] = open_path
     return outputs
 
 
@@ -183,12 +224,14 @@ def main() -> int:
     parser.add_argument("--out-dir", default="reports/baselines")
     parser.add_argument("--rag-live")
     parser.add_argument("--agent-live")
+    parser.add_argument("--agent-open")
     args = parser.parse_args()
     outputs = generate_offline_baselines(
         args.repo,
         args.out_dir,
         rag_live_path=args.rag_live,
         agent_live_path=args.agent_live,
+        agent_open_path=args.agent_open,
     )
     for name, path in outputs.items():
         print(f"{name}: {path}")

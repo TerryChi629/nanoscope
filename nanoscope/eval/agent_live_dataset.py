@@ -18,6 +18,7 @@ class LiveAgentTask:
     context_facts: tuple[str, ...] = ()
     recovery_expected: bool = False
     expected_any: tuple[str, ...] = ()
+    allowed_tools: tuple[str, ...] = ()
 
 
 def load_agent_live_v1() -> list[LiveAgentTask]:
