@@ -6,7 +6,7 @@
       "path": "AGENT_V1.json",
       "records_included": false,
       "schema_version": "1.0",
-      "sha256": "792ca5e04d22ec422b868ac6d75c9f31c2ce5d2da75cfb0a46ec884c7e791b06"
+      "sha256": "91a3a41b35cbb859d6060ab123eccda655f9be554f2691481a053b7dcf053f3a"
     },
     "agent_live": {
       "artifact_type": "agent_live",
@@ -16,13 +16,21 @@
       "schema_version": "1.0",
       "sha256": "87f97e1f6b31c259cdbfc70a6ce33b319eb97525f2ad3834471e468cd9cc5b12"
     },
+    "agent_open": {
+      "artifact_type": "agent_open",
+      "gate": false,
+      "path": "AGENT_OPEN_V1.json",
+      "records_included": false,
+      "schema_version": "1.0",
+      "sha256": "c97f97ea5d9b4335bf885317587d6eb763b04b967173135016d6f99635f3b444"
+    },
     "rag": {
       "artifact_type": "rag",
       "gate": true,
       "path": "RAG_V1.json",
       "records_included": false,
       "schema_version": "1.0",
-      "sha256": "522c28036046ce821bf9e23f34417d7ccadc307ce4e99286fec15fccaedbd399"
+      "sha256": "f8a36fec53ebd208a24ac179f21fd14b3fbf21e19b3d36687e4976a53b373137"
     },
     "security": {
       "artifact_type": "security",
@@ -34,11 +42,11 @@
     },
     "unified": {
       "artifact_type": "unified",
-      "gate": true,
+      "gate": false,
       "path": "UNIFIED_V1.json",
       "records_included": false,
       "schema_version": "1.0",
-      "sha256": "d2801b3e3889a737d2917f1e26f9d35cb3896a270cd746c7dbc826c10650fd42"
+      "sha256": "9142bc96dc2647d4de4e7be89097d5b192758e946f8b31e7f98819b8a49362db"
     }
   },
   "run": {
@@ -47,10 +55,10 @@
       "GLM_API_KEY",
       "SILICONFLOW_API_KEY"
     ],
-    "dataset_sha256": "626e6de7fddde824923a26c1d0fce3dbb06d9c92061a1d5b557183671a4f186f",
-    "dataset_version": "agent60.v1+agent-live24.v1+rag96.v1+security8.v1",
-    "dirty_worktree": true,
-    "git_commit": "c83fa36ac8453230a1aa7fd35b3d5c4757f57234",
+    "dataset_sha256": "5d6dea6de52da0523bb83e59f12d5501db4b02d0f4b7dd584025a9e1a772602f",
+    "dataset_version": "agent60.v1+agent-live24.v1+agent-open30.v1+rag96.v1+security8.v1",
+    "dirty_worktree": false,
+    "git_commit": "32f4632dc55090403cbf2f16176929cd89396272",
     "metric_schema_version": "1.0",
     "model": "scripted+hashing",
     "platform": "macOS-26.5.2-arm64-arm-64bit",
@@ -58,8 +66,8 @@
     "provider": "offline",
     "python_version": "3.11.15",
     "random_seed": 0,
-    "run_id": "33f7987cd278313d",
-    "started_at": "2026-07-29T18:10:07.047119+00:00"
+    "run_id": "77801e7c9ddfae5b",
+    "started_at": "2026-07-30T03:26:24.766476+00:00"
   },
   "schema_version": "1.0"
 }
