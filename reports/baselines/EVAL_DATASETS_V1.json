@@ -15,10 +15,25 @@
       "source": "nanoscope/eval/agent_open_dataset.py",
       "version": "agent-open30.v1"
     },
+    "ingest": {
+      "sha256": "a23704e80d18481ae9070139434b7579e3dc0daa9c7e8ffdd60d5242bfeac41c",
+      "source": "nanoscope/eval/ingest_dataset.py",
+      "version": "ingest.v1"
+    },
+    "injection_asr": {
+      "sha256": "36f4121bdacb7ae2d04c1c6a65d465b77bea14979dca218a781ba2f5e250d66b",
+      "source": "nanoscope/eval/injection_asr_bench.py",
+      "version": "injection_asr.v1"
+    },
     "rag": {
       "sha256": "92135c47b749b8c8a383b3459bae979f45e32a385c6ab599dee09ad60833dab5",
       "source": "nanoscope/eval/rag_frozen.py",
       "version": "rag96.v1"
+    },
+    "refusal": {
+      "sha256": "e96cfcf424d7e621fc4839f6166a2b38de57ca39ebe558fe6d6d2445ad2a3276",
+      "source": "nanoscope/eval/refusal_bench.py",
+      "version": "refusal.v1"
     },
     "security": {
       "sha256": "c8052f90467fd3355c44b493ebf011baf2247995d86a51c21f838020ff03c382",

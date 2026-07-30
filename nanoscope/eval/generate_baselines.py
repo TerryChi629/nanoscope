@@ -14,8 +14,11 @@ from nanoscope.eval.agent_live_dataset import AGENT_LIVE_DATASET_VERSION
 from nanoscope.eval.agent_open_dataset import AGENT_OPEN_DATASET_VERSION
 from nanoscope.eval.agent_runner_bench import run_agent_v1_sync
 from nanoscope.eval.artifacts import atomic_write_json
+from nanoscope.eval.ingest_dataset import INGEST_DATASET_VERSION
+from nanoscope.eval.injection_asr_bench import INJECTION_ASR_VERSION
 from nanoscope.eval.rag_bench import build_benchmark, run_board
 from nanoscope.eval.rag_frozen import RAG_DATASET_VERSION
+from nanoscope.eval.refusal_bench import REFUSAL_MATRIX_VERSION
 from nanoscope.eval.security_cases import collect_security_cases
 from nanoscope.eval.summary_writers import write_evaluation_artifacts
 from nanoscope.eval.unified_bench import (
@@ -42,6 +45,9 @@ def generate_offline_baselines(
     agent_open_source = repo_path / "nanoscope/eval/agent_open_dataset.py"
     rag_source = repo_path / "nanoscope/eval/rag_frozen.py"
     security_source = repo_path / "nanoscope/eval/security_cases.py"
+    ingest_source = repo_path / "nanoscope/eval/ingest_dataset.py"
+    refusal_source = repo_path / "nanoscope/eval/refusal_bench.py"
+    injection_asr_source = repo_path / "nanoscope/eval/injection_asr_bench.py"
     catalog_path = output_path / "EVAL_DATASETS_V1.json"
     atomic_write_json(
         catalog_path,
@@ -73,6 +79,21 @@ def generate_offline_baselines(
                     "source": str(security_source.relative_to(repo_path)),
                     "sha256": sha256_file(security_source),
                 },
+                "ingest": {
+                    "version": INGEST_DATASET_VERSION,
+                    "source": str(ingest_source.relative_to(repo_path)),
+                    "sha256": sha256_file(ingest_source),
+                },
+                "refusal": {
+                    "version": REFUSAL_MATRIX_VERSION,
+                    "source": str(refusal_source.relative_to(repo_path)),
+                    "sha256": sha256_file(refusal_source),
+                },
+                "injection_asr": {
+                    "version": INJECTION_ASR_VERSION,
+                    "source": str(injection_asr_source.relative_to(repo_path)),
+                    "sha256": sha256_file(injection_asr_source),
+                },
             },
         },
     )
@@ -100,7 +121,8 @@ def generate_offline_baselines(
         dataset_version=(
             f"{AGENT_DATASET_VERSION}+{AGENT_LIVE_DATASET_VERSION}+"
             f"{AGENT_OPEN_DATASET_VERSION}+"
-            f"{RAG_DATASET_VERSION}+security8.v1"
+            f"{RAG_DATASET_VERSION}+security8.v1+{INGEST_DATASET_VERSION}+"
+            f"{REFUSAL_MATRIX_VERSION}+{INJECTION_ASR_VERSION}"
         ),
         model="scripted+hashing",
         provider="offline",

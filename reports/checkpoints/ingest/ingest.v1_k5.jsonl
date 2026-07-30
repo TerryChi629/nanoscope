@@ -1,0 +1,6 @@
+{"_type": "ingest_config", "forbidden_exposure": 0, "mrr": 0.763888888888889, "n_queries": 6, "n_visible_chunks": 32, "ndcg_at_k": 0.8217794263455654, "overlap": 0, "recall_at_k": 1.0, "size": 100, "strategy": "fixed", "top_k": 5}
+{"_type": "ingest_config", "forbidden_exposure": 0, "mrr": 1.0, "n_queries": 6, "n_visible_chunks": 40, "ndcg_at_k": 0.986620131524698, "overlap": 40, "recall_at_k": 1.0, "size": 100, "strategy": "fixed", "top_k": 5}
+{"_type": "ingest_config", "forbidden_exposure": 0, "mrr": 1.0, "n_queries": 6, "n_visible_chunks": 16, "ndcg_at_k": 1.0, "overlap": 0, "recall_at_k": 1.0, "size": 200, "strategy": "fixed", "top_k": 5}
+{"_type": "ingest_config", "forbidden_exposure": 0, "mrr": 1.0, "n_queries": 6, "n_visible_chunks": 16, "ndcg_at_k": 1.0, "overlap": 40, "recall_at_k": 1.0, "size": 200, "strategy": "fixed", "top_k": 5}
+{"_type": "ingest_config", "forbidden_exposure": 0, "mrr": 1.0, "n_queries": 6, "n_visible_chunks": 8, "ndcg_at_k": 1.0, "overlap": 80, "recall_at_k": 1.0, "size": 400, "strategy": "fixed", "top_k": 5}
+{"_type": "ingest_config", "forbidden_exposure": 0, "mrr": 0.7222222222222223, "n_queries": 6, "n_visible_chunks": 40, "ndcg_at_k": 0.75, "overlap": 0, "recall_at_k": 0.8333333333333334, "size": 400, "strategy": "structure", "top_k": 5}

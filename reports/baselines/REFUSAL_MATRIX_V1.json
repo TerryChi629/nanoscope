@@ -1,0 +1,53 @@
+{
+  "best_availability_policy": {
+    "over_refusal_rate": 0.0,
+    "policy": "faithful",
+    "recall": 1.0
+  },
+  "dataset_version": "refusal.v1",
+  "gate": {
+    "overall": true,
+    "security": true
+  },
+  "n_policies": 2,
+  "n_scenarios": 96,
+  "pareto_front": [
+    "faithful"
+  ],
+  "policies": [
+    {
+      "f1": 1.0,
+      "false_answer": 0,
+      "false_refuse": 0,
+      "isolation_leaks": 0,
+      "n": 96,
+      "over_refusal_rate": 0.0,
+      "policy": "faithful",
+      "precision": 1.0,
+      "recall": 1.0,
+      "security_gate_pass": true,
+      "true_answer": 64,
+      "true_refuse": 32,
+      "under_refusal_rate": 0.0
+    },
+    {
+      "f1": 0.761904761904762,
+      "false_answer": 0,
+      "false_refuse": 20,
+      "isolation_leaks": 0,
+      "n": 96,
+      "over_refusal_rate": 0.3125,
+      "policy": "over_cautious",
+      "precision": 0.6153846153846154,
+      "recall": 1.0,
+      "security_gate_pass": true,
+      "true_answer": 44,
+      "true_refuse": 32,
+      "under_refusal_rate": 0.0
+    }
+  ],
+  "security_gate_pass": true,
+  "source_dataset_version": "rag96.v1",
+  "top_k": 5,
+  "total_isolation_leaks": 0
+}
