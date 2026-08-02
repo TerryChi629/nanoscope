@@ -42,8 +42,8 @@ def test_s1_distractor_count_grows_continuously_with_n():
 
 # ---------- S2 单调性 ----------
 
-def test_s2_grep_degrades_bm25_holds_under_ci():
-    """随 N 增大，grep Recall@K 均值下降；BM25 相对守住高位。"""
+def test_s2_grep_degrades_bm25_is_more_robust_under_ci():
+    """硬负例下两者都可下降，但 BM25 应比新近序更稳。"""
     scales = [50, 500, 3000]
     seeds = [11, 22, 33, 44, 55]
     points = run_curve_v2(scales, seeds, k=5)
@@ -51,8 +51,11 @@ def test_s2_grep_degrades_bm25_holds_under_ci():
     bm25_means = [p.bm25.mean for p in points]
     # grep 末端明显低于首端。
     assert grep_means[-1] < grep_means[0]
-    # bm25 全程守住高位（相关性排序不受干扰密度影响）。
-    assert all(m >= 0.8 for m in bm25_means)
+    # 不再人为要求 BM25 永远 ≥0.8；只要求它在同负载下不劣于 grep，
+    # 且末端仍保留显著召回，允许完整复述 query 的硬负例造成真实退化。
+    assert all(bm25 >= grep for bm25, grep in zip(bm25_means, grep_means, strict=True))
+    assert bm25_means[-1] > grep_means[-1]
+    assert bm25_means[-1] < 1.0
     # 存在拐点（grep 均值跌破 SLA）。
     assert find_crossover_v2(points, sla=0.8) is not None
 

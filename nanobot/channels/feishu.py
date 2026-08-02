@@ -2606,6 +2606,10 @@ class FeishuChannel(BaseChannel):
             else:
                 content_parts.append(MSG_TYPE_MAP.get(msg_type, f"[{msg_type}]"))
 
+            # Preserve exactly what the user authored before quoted reply
+            # context is prepended for the model.
+            original_user_text = "\n".join(content_parts) if content_parts else ""
+
             # Extract reply context (parent/root message IDs)
             parent_id = getattr(message, "parent_id", None) or None
             root_id = getattr(message, "root_id", None) or None
@@ -2657,6 +2661,7 @@ class FeishuChannel(BaseChannel):
                 media=media_paths,
                 metadata={
                     "message_id": message_id,
+                    "create_time": getattr(message, "create_time", None),
                     "chat_type": chat_type,
                     "msg_type": msg_type,
                     "parent_id": parent_id,
@@ -2665,6 +2670,7 @@ class FeishuChannel(BaseChannel):
                 },
                 session_key=session_key,
                 is_dm=chat_type == "p2p",
+                original_user_text=original_user_text,
             )
 
         except Exception:

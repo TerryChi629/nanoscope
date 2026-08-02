@@ -1,4 +1,4 @@
-"""摄取质量集 ingest.v1 测试 (RAG 摄取专项)。
+"""摄取质量集 ingest.v2 测试 (RAG 摄取专项)。
 
 离线纪律：默认用确定性 `HashingEmbedder`，不依赖网络/密钥。真实 GLM 端到端
 （合成语料）见 `test_ingest_glm_e2e`（需 `GLM_API_KEY`，缺失时跳过）。
@@ -36,7 +36,8 @@ def test_dataset_shapes():
     queries = load_ingest_queries()
     assert len(visible) == 6
     assert len(forbidden) == 4
-    assert len(queries) == len(visible)
+    assert len(queries) == 2 * len(visible)
+    assert len({query.query for query in queries}) == len(queries)
     # 每篇可见文档足够长以切出多个 chunk。
     assert all(len(doc.text) > 200 for doc in visible)
     # needle 关键词唯一且出现在对应文本中。
@@ -66,6 +67,9 @@ def test_quality_metrics_bounded_and_discriminative():
     # 帕累托前沿非空且是全体子集。
     front = board["pareto_front"]
     assert 1 <= len(front) <= len(board["configs"])
+    # 困难集必须有至少一个非满分点，避免所有参数看起来同样完美。
+    assert any(r < 1.0 for r in recalls)
+    assert any(n < 1.0 for n in ndcgs)
 
 
 def test_pareto_front_not_dominated():

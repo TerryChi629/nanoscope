@@ -1,8 +1,8 @@
-"""拒答混淆矩阵 refusal.v1：把单向"该拒的拒了没"补成完整 2×2 混淆矩阵。
+"""拒答混淆矩阵 refusal.v2：用检索证据驱动策略补全 2×2 混淆矩阵。
 
 背景（源码级空白）：`rag_bench._judge` 的 GROUP_ABSTAIN 分支只判 `rec.refused if
 rec.generated else False`——只度量"**该拒的拒了没**"（refusal recall 方向），完全没有
-度量"**不该拒却拒了没**"（over-refusal）。本专项复用 rag96.v1 的 96 条场景与既有
+度量"**不该拒却拒了没**"（over-refusal）。本专项复用 rag96.v2 的 96 条场景与既有
 `is_refusal` 判定，按 ground-truth 轴 `should_refuse = not answerable` 与预测轴
 `refused = is_refusal(answer)` 交叉，构造完整混淆矩阵：
 
@@ -39,22 +39,40 @@ from nanoscope.eval.rag_bench import (
 from nanoscope.rag import ChunkStore, StubReranker
 from nanoscope.rag.sweep import HashingEmbedder
 
-REFUSAL_MATRIX_VERSION = "refusal.v1"
-# refusal.v1 是对 rag96.v1 语料的派生分析（复用场景 + is_refusal 判定，不新增语料）。
-_SOURCE_DATASET_VERSION = "rag96.v1"
+REFUSAL_MATRIX_VERSION = "refusal.v2"
+_SOURCE_DATASET_VERSION = "rag96.v2"
 _TOP_K = 5
 
-# 过度保守策略拒答的组：把 rerank 短事实题（"多少分钟/多少张卡"）当成敏感数字误拒。
-_OVER_CAUTIOUS_REFUSED_GROUPS = ("rerank",)
 _REFUSAL_TEXT = "文档中未提及。"
+_SENSITIVE_MARKERS = (
+    "机密",
+    "保密",
+    "内部",
+    "无权限",
+    "另一部门",
+    "另一个部门",
+    "B组",
+    "隐藏",
+    "未公开",
+    "私人",
+    "个人手机号",
+)
+_CAUTIOUS_MARKERS = (
+    "多少",
+    "多久",
+    "几点",
+    "比例",
+    "时限",
+    "规模",
+    "经费",
+    "预算",
+    "周期",
+    "时间",
+)
 
 
 class PolicyChat:
-    """确定性策略桩：query 命中 answer_key 则回答，否则拒答（不依赖网络/密钥）。
-
-    answer_key 的键是**基础问法原文**（rag96 首个 paraphrase 模板即 "{query}"，故
-    基础问法是全部 4 个 variant 的公共子串），命中即回答；未命中一律拒答。
-    """
+    """显式映射策略，仅供定向测试恶意漏拒，不用于正式 board。"""
 
     def __init__(self, name: str, answer_key: dict[str, str], refusal: str = _REFUSAL_TEXT):
         self.name = name
@@ -73,45 +91,50 @@ class PolicyChat:
         return self._refusal
 
 
-def _base_key(scenario_id: str) -> str:
-    """"R1V3" -> "R1"（去掉 paraphrase 后缀）。"""
-    return re.sub(r"V\d+$", "", scenario_id)
+def _cjk_bigrams(text: str) -> set[str]:
+    normalized = re.sub(r"[^\w\u4e00-\u9fff]+", "", text.casefold())
+    return {normalized[index:index + 2] for index in range(max(0, len(normalized) - 1))}
 
 
-def base_queries_by_group(bench: Benchmark) -> dict[str, list[str]]:
-    """按 group 收集去重后的基础问法原文（取 V1 variant，其 query 即基础问法）。"""
-    out: dict[str, list[str]] = {}
-    seen: set[str] = set()
-    for sc in bench.scenarios:
-        if not sc.id.endswith("V1"):
-            continue
-        base = _base_key(sc.id)
-        if base in seen:
-            continue
-        seen.add(base)
-        out.setdefault(sc.group, []).append(sc.query)
-    return out
+def _question_and_evidence(user: str) -> tuple[str, str]:
+    question_match = re.search(r"【问题】(.*?)\n【证据】", user, re.DOTALL)
+    evidence_match = re.search(r"【证据】\n(.*?)(?:\n请依据证据|$)", user, re.DOTALL)
+    question = question_match.group(1).strip() if question_match else ""
+    evidence = evidence_match.group(1).strip() if evidence_match else ""
+    return question, evidence
 
 
-def build_answer_key(bench: Benchmark, groups: tuple[str, ...]) -> dict[str, str]:
-    """为指定 group 的基础问法造非拒答的忠实占位答案（不以拒答前缀开头）。"""
-    by_group = base_queries_by_group(bench)
-    key: dict[str, str] = {}
-    for group in groups:
-        for query in by_group.get(group, []):
-            key[query] = f"根据证据，关于「{query}」文档已给出对应结论。"
-    return key
+class EvidencePolicyChat:
+    """只根据 query 与实际检索证据作拒答决策，不读取场景标签或 gold。"""
+
+    def __init__(self, name: str, *, min_overlap: int, cautious: bool):
+        self.name = name
+        self._min_overlap = min_overlap
+        self._cautious = cautious
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+
+    def complete(self, system: str, user: str) -> str:
+        del system
+        self.prompt_tokens += 10
+        self.completion_tokens += 5
+        question, evidence = _question_and_evidence(user)
+        if any(marker in question for marker in _SENSITIVE_MARKERS):
+            return _REFUSAL_TEXT
+        if self._cautious and any(marker in question for marker in _CAUTIOUS_MARKERS):
+            return _REFUSAL_TEXT
+        overlap = len(_cjk_bigrams(question) & _cjk_bigrams(evidence))
+        if overlap < self._min_overlap:
+            return _REFUSAL_TEXT
+        return "根据当前可见证据，可以回答该问题。"
 
 
-def build_policies(bench: Benchmark) -> list[PolicyChat]:
-    """构造两个对照策略：忠实（全答应答题）vs 过度保守（误拒 rerank 应答题）。"""
-    answerable_groups = ("recall", "rerank", "generation")
-    faithful = PolicyChat("faithful", build_answer_key(bench, answerable_groups))
-    cautious_groups = tuple(
-        g for g in answerable_groups if g not in _OVER_CAUTIOUS_REFUSED_GROUPS
-    )
-    over_cautious = PolicyChat("over_cautious", build_answer_key(bench, cautious_groups))
-    return [faithful, over_cautious]
+def build_policies(_bench: Benchmark) -> list[EvidencePolicyChat]:
+    """构造证据驱动策略与更高拒答倾向的对照策略。"""
+    return [
+        EvidencePolicyChat("evidence_balanced", min_overlap=2, cautious=False),
+        EvidencePolicyChat("evidence_cautious", min_overlap=4, cautious=True),
+    ]
 
 
 @dataclass(frozen=True)
@@ -205,7 +228,7 @@ def refusal_matrix(records: list[ScenarioRecord], *, policy: str) -> RefusalMatr
 def run_refusal_policy(
     store: ChunkStore,
     bench: Benchmark,
-    policy: PolicyChat,
+    policy,
     *,
     embedder,
     reranker=None,

@@ -568,6 +568,7 @@ class AgentLoop:
         ctx = ToolContext(
             config=self.tools_config,
             workspace=str(self.workspace),
+            channels_config=self.channels_config,
             bus=self.bus,
             subagent_manager=self.subagents,
             cron_service=self.cron_service,
@@ -1671,7 +1672,11 @@ class AgentLoop:
             original_user_text=(
                 None
                 if turn_continuation.internal_continuation_inbound(msg.metadata)
-                else msg.content
+                else (
+                    msg.original_user_text
+                    if msg.original_user_text is not None
+                    else msg.content
+                )
             ),
             turn_wall_started_at=t0,
             visible_run_started_at=turn_continuation.internal_continuation_run_started_at(

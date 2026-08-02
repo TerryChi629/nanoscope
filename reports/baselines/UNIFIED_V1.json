@@ -9,8 +9,8 @@
       "cost_per_success": null,
       "cost_total": null,
       "error_recovery_rate": null,
-      "latency_p50_ms": 11.306375032290816,
-      "latency_p95_ms": 12.831542000640184,
+      "latency_p50_ms": 10.434208030346781,
+      "latency_p95_ms": 12.261790980119258,
       "max_iteration_termination_rate": 0.0,
       "n_eligible": 60,
       "n_errored": 0,
@@ -28,9 +28,153 @@
       "tool_sequence_success_rate": 1.0,
       "usage_estimated_rate": 0.0
     },
+    "agent_live": {
+      "artifact_type": "agent_live",
+      "board": {
+        "_type": "agent_board",
+        "argument_accuracy": 1.0,
+        "cached_tokens": 42624,
+        "completion_tokens": 8369,
+        "context_fidelity": 0.8333333333333334,
+        "cost_per_success": null,
+        "cost_total": null,
+        "error_recovery_rate": 1.0,
+        "latency_p50_ms": 3330.1661669975147,
+        "latency_p95_ms": 11105.453833995853,
+        "max_iteration_termination_rate": 0.0,
+        "n_eligible": 24,
+        "n_errored": 0,
+        "n_skipped": 0,
+        "n_success": 21,
+        "n_total": 24,
+        "partial_tsr": 0.9791666666666666,
+        "prompt_tokens": 48082,
+        "redundant_tool_rate": 0.6333333333333333,
+        "retry_rate": 0.0,
+        "strict_tsr": 0.875,
+        "tokens_per_success": 1722.952380952381,
+        "tool_selection_precision": 0.36666666666666664,
+        "tool_selection_recall": 1.0,
+        "tool_sequence_success_rate": 0.875,
+        "usage_estimated_rate": 0.0
+      },
+      "gate": {
+        "complete": true,
+        "minimum_strict_tsr": 0.8,
+        "overall": true,
+        "strict_tsr_pass": true
+      },
+      "run": {
+        "credential_env_names": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "dataset_sha256": "b5bac44cfd37ed33e36e25071699e297fc2187eda03374a622cfdbbd10de6979",
+        "dataset_version": "agent-live24.v2",
+        "model": "deepseek-v4-flash",
+        "provider": "deepseek",
+        "started_at": "2026-08-01T13:59:06.677450+00:00"
+      },
+      "schema_version": "1.0"
+    },
+    "agent_open": {
+      "artifact_type": "agent_open",
+      "board": {
+        "automatic": {
+          "argument_accuracy": 1.0,
+          "cached_tokens": 231680,
+          "completion_tokens": 94769,
+          "context_fidelity": 0.8985507246376812,
+          "cost_per_success": null,
+          "cost_total": null,
+          "error_recovery_rate": 1.0,
+          "latency_p50_ms": 8226.838707982097,
+          "latency_p95_ms": 38323.50691698957,
+          "max_iteration_termination_rate": 0.022222222222222223,
+          "n_eligible": 90,
+          "n_errored": 1,
+          "n_skipped": 0,
+          "n_success": 64,
+          "n_total": 90,
+          "partial_tsr": 0.975,
+          "prompt_tokens": 274442,
+          "redundant_tool_rate": 0.7557755775577558,
+          "retry_rate": 0.0,
+          "strict_tsr": 0.7111111111111111,
+          "tokens_per_success": 2408.15625,
+          "tool_selection_precision": 0.24422442244224424,
+          "tool_selection_recall": 1.0,
+          "tool_sequence_success_rate": 0.7444444444444445,
+          "usage_estimated_rate": 0.0
+        },
+        "automatic_gate_pass": false,
+        "dataset_version": "agent-open30.v1",
+        "human_gate_pass": false,
+        "human_review_status": "pending",
+        "human_score": null,
+        "n_human_required": 90,
+        "n_human_reviewed": 0,
+        "n_runs": 90,
+        "n_tasks": 30,
+        "overall_gate_pass": false,
+        "partial_tsr": {
+          "ci95_high": 0.975,
+          "ci95_low": 0.975,
+          "mean": 0.975,
+          "n": 3
+        },
+        "repeats": 3,
+        "stage_latency": {
+          "model": {
+            "p50_ms": 8226.14241699921,
+            "p95_ms": 35269.20699898619
+          },
+          "orchestration": {
+            "p50_ms": 1.9168329308740795,
+            "p95_ms": 102.0259180222638
+          },
+          "tool": {
+            "p50_ms": 0.002374988980591297,
+            "p95_ms": 0.01745589543133974
+          },
+          "total": {
+            "p50_ms": 8226.838707982097,
+            "p95_ms": 38323.50691698957
+          }
+        },
+        "strict_tsr": {
+          "ci95_high": 0.7328888888888889,
+          "ci95_low": 0.6893333333333334,
+          "mean": 0.7111111111111111,
+          "n": 3
+        }
+      },
+      "gate": {
+        "automatic": false,
+        "human": false,
+        "human_review_status": "pending",
+        "overall": false
+      },
+      "run": {
+        "credential_env_names": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "dataset_sha256": "683dbf1b3bea15cd47de3d225f9d86400a483ad4014c9d33b7c626fc40ab0d27",
+        "dataset_version": "agent-open30.v1",
+        "human_review_path": "reports/reviews/AGENT_OPEN_V1_HUMAN-p1b2.jsonl",
+        "model": "deepseek-v4-flash",
+        "provider": "deepseek",
+        "raw_trace_path": "reports/checkpoints/agent_open/agent-open30.v1-p1b2.jsonl",
+        "repeats": 3,
+        "started_at": "2026-07-29T19:06:59.953429+00:00"
+      },
+      "schema_version": "1.0"
+    },
     "gates": {
       "agent": true,
-      "overall": true,
+      "agent_live": true,
+      "agent_open": false,
+      "agent_scripted": true,
+      "overall": false,
       "rag": true,
       "security": true,
       "security_completeness": true
@@ -41,10 +185,10 @@
         "GLM_API_KEY",
         "SILICONFLOW_API_KEY"
       ],
-      "dataset_sha256": "75635b2a18d654cef578244838a4cef09c2d154f6ff97ec4f3db181c02aba22d",
-      "dataset_version": "agent60.v1+agent-live24.v1+agent-open30.v1+rag96.v1+security8.v1+ingest.v1+refusal.v1+injection_asr.v1",
+      "dataset_sha256": "5060d2f6499338a2bed60e10d86c7f3eb57d5e42177295c0598ee59219756005",
+      "dataset_version": "agent60.v1+agent-live24.v2+agent-open30.v1+rag96.v2+security8.v1+ingest.v2+refusal.v2+injection_asr.v2",
       "dirty_worktree": true,
-      "git_commit": "abf1bb842ed0d0e931973c6f2dc6415b5d26d027",
+      "git_commit": "8007e64acf64901f1a00367beb4782494d0c60cd",
       "metric_schema_version": "1.0",
       "model": "scripted+hashing",
       "platform": "macOS-26.5.2-arm64-arm-64bit",
@@ -52,8 +196,8 @@
       "provider": "offline",
       "python_version": "3.11.15",
       "random_seed": 0,
-      "run_id": "e9ead9dc51ad9fdf",
-      "started_at": "2026-07-30T05:07:37.863910+00:00"
+      "run_id": "3e8d2ad0434de2bb",
+      "started_at": "2026-08-01T14:45:26.856988+00:00"
     },
     "rag": {
       "chat": null,
@@ -61,28 +205,207 @@
       "citation_recall": null,
       "claim_groundedness": null,
       "cps_tokens_per_success": null,
-      "e2e_p95_ms": 1.1777919717133045,
+      "e2e_p95_ms": 1.538334006909281,
       "embedder": "HashingEmbedder",
       "faithfulness": null,
       "forbidden_candidate_touch_total": 0,
       "forbidden_exposure_total": 0,
       "label": "L0 offline",
-      "mrr": 1.0,
+      "mrr": 0.6799479166666667,
       "n_errored": 0,
       "n_scored_for_tsr": 84,
-      "n_success": 84,
+      "n_success": 77,
       "n_total": 96,
       "n_violation": 0,
-      "ndcg_at_k": 0.9584445230391379,
-      "rag_p95_ms": 1.2517079594545066,
-      "recall_at_k": 0.953125,
+      "ndcg_at_k": 0.7014606114994641,
+      "rag_p95_ms": 1.383042021188885,
+      "recall_at_k": 0.8359375,
       "reliability_gate_pass": true,
       "reranker": "stub_reranker",
       "security_gate_pass": true,
       "sr": 1.0,
       "svr": 0.0,
       "top_k": 5,
-      "tsr": 1.0
+      "tsr": 0.9166666666666666
+    },
+    "rag_live": {
+      "level_statuses": [
+        {
+          "_type": "level_status",
+          "checkpoint": "reports/checkpoints/rag96/rag96.v2_p0v4_L1_k5.jsonl",
+          "checkpoint_schema": "p0v4",
+          "credential_env_names": [
+            "GLM_API_KEY"
+          ],
+          "dataset_version": "rag96.v2",
+          "level": "L1",
+          "models": {
+            "embedding": "embedding-3",
+            "generation": null,
+            "reranker": "stub_reranker"
+          },
+          "n_records": 96,
+          "status": "completed"
+        },
+        {
+          "_type": "level_status",
+          "checkpoint": "reports/checkpoints/rag96/rag96.v2_p0v4_L2_k5.jsonl",
+          "checkpoint_schema": "p0v4",
+          "credential_env_names": [
+            "GLM_API_KEY",
+            "SILICONFLOW_API_KEY"
+          ],
+          "dataset_version": "rag96.v2",
+          "level": "L2",
+          "models": {
+            "embedding": "embedding-3",
+            "generation": null,
+            "reranker": "BAAI/bge-reranker-v2-m3"
+          },
+          "n_records": 96,
+          "status": "completed"
+        },
+        {
+          "_type": "level_status",
+          "checkpoint": "reports/checkpoints/rag96/rag96.v2_p0v4_L3_k5.jsonl",
+          "checkpoint_schema": "p0v4",
+          "credential_env_names": [
+            "GLM_API_KEY",
+            "SILICONFLOW_API_KEY",
+            "DEEPSEEK_API_KEY"
+          ],
+          "dataset_version": "rag96.v2",
+          "level": "L3",
+          "models": {
+            "embedding": "embedding-3",
+            "generation": "deepseek-chat",
+            "reranker": "BAAI/bge-reranker-v2-m3"
+          },
+          "n_records": 96,
+          "status": "completed"
+        }
+      ],
+      "live": [
+        {
+          "_type": "board_summary",
+          "chat": null,
+          "citation_precision": null,
+          "citation_recall": null,
+          "claim_groundedness": null,
+          "cps_tokens_per_success": null,
+          "e2e_p95_ms": 871.4504580129869,
+          "embedder": "GlmEmbedder",
+          "faithfulness": null,
+          "forbidden_candidate_touch_total": 0,
+          "forbidden_exposure_total": 0,
+          "label": "L1 glm+stub",
+          "mrr": 0.7544270833333333,
+          "n_errored": 0,
+          "n_scored_for_tsr": 84,
+          "n_success": 80,
+          "n_total": 96,
+          "n_violation": 0,
+          "ndcg_at_k": 0.787844428864646,
+          "rag_p95_ms": 835.2217500214465,
+          "recall_at_k": 0.921875,
+          "reliability_gate_pass": true,
+          "reranker": "stub_reranker",
+          "security_gate_pass": true,
+          "sr": 1.0,
+          "svr": 0.0,
+          "top_k": 5,
+          "tsr": 0.9523809523809523
+        },
+        {
+          "_type": "board_summary",
+          "chat": null,
+          "citation_precision": null,
+          "citation_recall": null,
+          "claim_groundedness": null,
+          "cps_tokens_per_success": null,
+          "e2e_p95_ms": 1129.4548750156537,
+          "embedder": "GlmEmbedder",
+          "faithfulness": null,
+          "forbidden_candidate_touch_total": 0,
+          "forbidden_exposure_total": 0,
+          "label": "L2 glm+bge",
+          "mrr": 0.8776041666666667,
+          "n_errored": 0,
+          "n_scored_for_tsr": 84,
+          "n_success": 84,
+          "n_total": 96,
+          "n_violation": 0,
+          "ndcg_at_k": 0.8942155568114996,
+          "rag_p95_ms": 1058.165166003164,
+          "recall_at_k": 0.984375,
+          "reliability_gate_pass": true,
+          "reranker": "siliconflow_bge_reranker_v2_m3",
+          "security_gate_pass": true,
+          "sr": 1.0,
+          "svr": 0.0,
+          "top_k": 5,
+          "tsr": 1.0
+        },
+        {
+          "_type": "board_summary",
+          "chat": "deepseek_chat",
+          "citation_precision": 0.86,
+          "citation_recall": 0.95,
+          "claim_groundedness": 0.95,
+          "cps_tokens_per_success": 235.6595744680851,
+          "e2e_p95_ms": 1307.6034580008127,
+          "embedder": "GlmEmbedder",
+          "faithfulness": 0.9416666666666668,
+          "forbidden_candidate_touch_total": 0,
+          "forbidden_exposure_total": 0,
+          "label": "L3 generation",
+          "mrr": 0.8776041666666667,
+          "n_errored": 0,
+          "n_scored_for_tsr": 96,
+          "n_success": 94,
+          "n_total": 96,
+          "n_violation": 0,
+          "ndcg_at_k": 0.8905093425494793,
+          "rag_p95_ms": 1307.6034580008127,
+          "recall_at_k": 0.9765625,
+          "reliability_gate_pass": true,
+          "reranker": "siliconflow_bge_reranker_v2_m3",
+          "security_gate_pass": true,
+          "sr": 1.0,
+          "svr": 0.0,
+          "top_k": 5,
+          "tsr": 0.9791666666666666
+        }
+      ],
+      "offline": {
+        "chat": null,
+        "citation_precision": null,
+        "citation_recall": null,
+        "claim_groundedness": null,
+        "cps_tokens_per_success": null,
+        "e2e_p95_ms": 1.538334006909281,
+        "embedder": "HashingEmbedder",
+        "faithfulness": null,
+        "forbidden_candidate_touch_total": 0,
+        "forbidden_exposure_total": 0,
+        "label": "L0 offline",
+        "mrr": 0.6799479166666667,
+        "n_errored": 0,
+        "n_scored_for_tsr": 84,
+        "n_success": 77,
+        "n_total": 96,
+        "n_violation": 0,
+        "ndcg_at_k": 0.7014606114994641,
+        "rag_p95_ms": 1.383042021188885,
+        "recall_at_k": 0.8359375,
+        "reliability_gate_pass": true,
+        "reranker": "stub_reranker",
+        "security_gate_pass": true,
+        "sr": 1.0,
+        "svr": 0.0,
+        "top_k": 5,
+        "tsr": 0.9166666666666666
+      }
     },
     "schema_version": "1.0",
     "security": {

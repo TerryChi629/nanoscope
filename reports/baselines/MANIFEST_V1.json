@@ -6,15 +6,31 @@
       "path": "AGENT_V1.json",
       "records_included": false,
       "schema_version": "1.0",
-      "sha256": "9040b355684c65c2ec8dd9b10e28babd5e2d50ab831069f1410f68fc056fdcc4"
+      "sha256": "c61dcd69dd0bf50114582f5a33d9cbb8c58b9264e687cb7d6a4e9aaebf1b3711"
+    },
+    "agent_live": {
+      "artifact_type": "agent_live",
+      "gate": true,
+      "path": "AGENT_LIVE_V1.json",
+      "records_included": false,
+      "schema_version": "1.0",
+      "sha256": "58b503aae55252d1065e77c15a24d0003310fc0b28e5486d2b29feb0d11c566c"
+    },
+    "agent_open": {
+      "artifact_type": "agent_open",
+      "gate": false,
+      "path": "AGENT_OPEN_V1.json",
+      "records_included": false,
+      "schema_version": "1.0",
+      "sha256": "c97f97ea5d9b4335bf885317587d6eb763b04b967173135016d6f99635f3b444"
     },
     "rag": {
       "artifact_type": "rag",
-      "gate": null,
+      "gate": true,
       "path": "RAG_V1.json",
       "records_included": false,
       "schema_version": "1.0",
-      "sha256": "973baeab20132b6dda86fbd969c8b7c8e6d18def2cc319704e97d12b2e820005"
+      "sha256": "211ba031ca9c6ea05a1ecfd41c6858321de381e756bc71d6f62926483eb32086"
     },
     "security": {
       "artifact_type": "security",
@@ -26,11 +42,11 @@
     },
     "unified": {
       "artifact_type": "unified",
-      "gate": true,
+      "gate": false,
       "path": "UNIFIED_V1.json",
       "records_included": false,
       "schema_version": "1.0",
-      "sha256": "ec444c500c1b93bf9190afd5e650c262c7f202df9a5d159c79829f4049f9f038"
+      "sha256": "d89d3e06bbed817d3785a1bcc0ef86bbfdec097341c711f127408043f8176c7b"
     }
   },
   "run": {
@@ -39,10 +55,10 @@
       "GLM_API_KEY",
       "SILICONFLOW_API_KEY"
     ],
-    "dataset_sha256": "75635b2a18d654cef578244838a4cef09c2d154f6ff97ec4f3db181c02aba22d",
-    "dataset_version": "agent60.v1+agent-live24.v1+agent-open30.v1+rag96.v1+security8.v1+ingest.v1+refusal.v1+injection_asr.v1",
+    "dataset_sha256": "5060d2f6499338a2bed60e10d86c7f3eb57d5e42177295c0598ee59219756005",
+    "dataset_version": "agent60.v1+agent-live24.v2+agent-open30.v1+rag96.v2+security8.v1+ingest.v2+refusal.v2+injection_asr.v2",
     "dirty_worktree": true,
-    "git_commit": "abf1bb842ed0d0e931973c6f2dc6415b5d26d027",
+    "git_commit": "8007e64acf64901f1a00367beb4782494d0c60cd",
     "metric_schema_version": "1.0",
     "model": "scripted+hashing",
     "platform": "macOS-26.5.2-arm64-arm-64bit",
@@ -50,8 +66,8 @@
     "provider": "offline",
     "python_version": "3.11.15",
     "random_seed": 0,
-    "run_id": "e9ead9dc51ad9fdf",
-    "started_at": "2026-07-30T05:07:37.863910+00:00"
+    "run_id": "3e8d2ad0434de2bb",
+    "started_at": "2026-08-01T14:45:26.856988+00:00"
   },
   "schema_version": "1.0"
 }

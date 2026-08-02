@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aegis-Agent 高强度技术面试手册</title>
+<style>
+  :root{--bg:#f4f6f8;--panel:#fff;--ink:#18212f;--sub:#5b6675;--line:#dfe5ec;
+    --nav:#111827;--blue:#175cd3;--bluebg:#eef4ff;--red:#b42318;--redbg:#fff1f0;
+    --green:#067647;--greenbg:#ecfdf3;--amber:#9a6700;--amberbg:#fff8e6}
+  *{box-sizing:border-box}html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.75 -apple-system,BlinkMacSystemFont,
+    "PingFang SC","Microsoft YaHei",Segoe UI,sans-serif}
+  .layout{display:flex;max-width:1580px;margin:auto}
+  aside{position:sticky;top:0;width:290px;height:100vh;overflow:auto;flex:none;background:var(--nav);
+    color:#d1d5db;padding:24px 18px}
+  aside h1{font-size:18px;color:#fff;margin:0 0 5px}aside p{font-size:12px;color:#94a3b8;margin:0 0 18px}
+  aside a{display:block;color:#cbd5e1;text-decoration:none;padding:6px 10px;border-radius:6px;font-size:13px}
+  aside a:hover{background:#253047;color:#fff}.grp{margin:16px 10px 5px;color:#64748b;font-size:11px;
+    font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  main{min-width:0;flex:1;padding:38px 54px 100px}
+  header,.section{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:30px 34px;margin-bottom:24px;scroll-margin-top:18px}
+  header{background:linear-gradient(135deg,#172554,#1d4ed8);color:#fff;border:0}
+  header h1{font-size:32px;margin:0 0 8px}header p{color:#dbeafe;margin:7px 0}
+  h2{font-size:25px;margin:0 0 18px;border-bottom:2px solid var(--blue);padding-bottom:9px}
+  h3{font-size:18px;margin:28px 0 10px}p{margin:8px 0}ul,ol{padding-left:23px}
+  code{font-family:SFMono-Regular,Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-radius:4px}
+  .tag{display:inline-block;border:1px solid #93c5fd;border-radius:99px;padding:2px 9px;margin:3px;
+    color:#dbeafe;font-size:12px}.box{padding:13px 16px;border-radius:9px;margin:12px 0}
+  .box.blue{background:var(--bluebg);border-left:4px solid var(--blue)}
+  .box.red{background:var(--redbg);border-left:4px solid var(--red)}
+  .box.green{background:var(--greenbg);border-left:4px solid var(--green)}
+  .box.amber{background:var(--amberbg);border-left:4px solid var(--amber)}
+  details.q{border:1px solid var(--line);border-radius:10px;margin:11px 0;background:#fff}
+  details.q>summary{cursor:pointer;padding:14px 17px;font-weight:700;list-style:none}
+  details.q>summary::-webkit-details-marker{display:none}
+  details.q>summary:before{content:"Q";display:inline-grid;place-items:center;width:27px;height:27px;
+    border-radius:7px;background:#dbeafe;color:#1d4ed8;margin-right:10px;font-size:12px}
+  details.q[open]>summary{border-bottom:1px solid var(--line);background:#fafcff}
+  .answer{padding:14px 18px 17px}.pressure{color:var(--red);font-weight:700}
+  .answer-title{font-weight:700;color:var(--green)}.risk{color:var(--red)}
+  .mechanism{background:#f8fafc;border-left:3px solid #64748b;padding:9px 12px}
+  .boundary{background:var(--redbg);border-left:3px solid var(--red);padding:9px 12px}
+  .upgrade{background:var(--bluebg);border-left:3px solid var(--blue);padding:9px 12px}
+  .freq{display:inline-block;border-radius:99px;padding:1px 8px;margin-right:7px;font-size:11px;
+    font-weight:700;background:#fee2e2;color:#991b1b}
+  .source{font-size:12px;color:#64748b;border-top:1px dashed var(--line);padding-top:8px;margin-top:10px}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;margin:12px 0}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#eef4ff}.score{font-weight:700;color:var(--blue)}
+  .check li{margin:5px 0}.mono{font-family:SFMono-Regular,Consolas,monospace}
+  @media(max-width:900px){aside{display:none}main{padding:18px}.section,header{padding:22px}}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside>
+  <h1>Aegis-Agent 拷打手册</h1>
+  <p>开发终面口径 · 源码级答案 · 生产边界</p>
+  <a href="#how">0. 使用方法与评分</a>
+  <div class="grp">主链路</div>
+  <a href="#ownership">1. 项目定位与贡献边界</a>
+  <a href="#runtime">2. Agent Runtime</a>
+  <a href="#concurrency">3. 并发与有界准入</a>
+  <div class="grp">核心模块</div>
+  <a href="#identity">4. 身份、存储与隔离</a>
+  <a href="#rag">5. 权限感知 RAG</a>
+  <a href="#memory">6. 记忆与上下文治理</a>
+  <a href="#write">7. 飞书可信写操作</a>
+  <a href="#eval">8. 确定性评测体系</a>
+  <div class="grp">终面加压</div>
+  <a href="#security">9. 安全与威胁模型</a>
+  <a href="#production">10. 生产化系统设计</a>
+  <a href="#cross">11. Java / 数学迁移追问</a>
+  <a href="#weakness">12. 必须主动承认的薄弱点</a>
+  <a href="#mock">13. 三轮模拟面试</a>
+  <div class="grp">公开面经增补</div>
+  <a href="#sources">14. 面经来源与高频矩阵</a>
+  <a href="#agent-foundations">15. Agent / MCP / Skill 基础</a>
+  <a href="#runtime-recovery">16. 恢复、多 Agent 与长任务</a>
+  <a href="#backend-foundations">17. 后端基础与线上故障</a>
+  <a href="#model-foundations">18. 模型、训练与数学基础</a>
+  <a href="#checklist">19. 面试前检查清单</a>
+</aside>
+<main>
+<header>
+  <h1>Aegis-Agent 高强度技术面试手册</h1>
+  <p>目标岗位：后端开发 / Agent 开发 · 候选人：应用数学硕士，有 Java 秒杀项目经验</p>
+  <div>
+    <span class="tag">工程实现</span><span class="tag">并发</span><span class="tag">存储与一致性</span>
+    <span class="tag">RAG</span><span class="tag">安全</span><span class="tag">评测</span>
+    <span class="tag">性能</span><span class="tag">异常边界</span>
+  </div>
+  <p>依据：项目源码、<code>NANO_AGENT_GUIDE.html</code>、<code>NANOSCOPE_LEARNING_GUIDE.html</code>
+    与最终 JSON Board。本文不是标准答案背诵稿，而是暴露薄弱点的压力测试。</p>
+  <p>共 116 个主问题：86 个项目源码拷打题 + 30 个公开面经高频增补题；覆盖实现、异常路径、
+    量化证据、后端基础、模型基础与生产化演进。</p>
+</header>
+
+<section class="section" id="how">
+  <h2>0. 怎么使用这份手册</h2>
+  <div class="box blue"><b>每题强制按五步回答：</b>一句话结论 → 关键机制 → 证据/指标 →
+    适用边界 → 下一步改进。只讲概念、只报数字、只说“做了优化”都按不合格处理。</div>
+  <table>
+    <tr><th>等级</th><th>表现</th><th>面试官判断</th></tr>
+    <tr><td class="score">A</td><td>能画链路、说状态机和失败窗口，并主动限定指标外推范围</td><td>真正做过，可进入系统设计追问</td></tr>
+    <tr><td class="score">B</td><td>机制基本准确，但说不清事务、并发原语或证据分母</td><td>参与过，深度一般</td></tr>
+    <tr><td class="risk">C</td><td>背项目介绍，回答依赖“Prompt 约束”“加锁了”“测过了”</td><td>包装项目或只会调 API</td></tr>
+  </table>
+  <div class="box red"><b>禁用词：</b>“企业级”“绝对安全”“100% 防注入”“高并发”“完全公平”
+    不能单独出现。必须紧跟具体约束、负载规模、证据和边界。</div>
+  <h3>源码与证据地图</h3>
+  <table>
+    <tr><th>模块</th><th>核心源码</th><th>主要证据</th></tr>
+    <tr><td>Agent Runtime</td><td><code>nanobot/agent/loop.py</code>、<code>runner.py</code>、
+      <code>context_governance.py</code></td><td><code>NANO_AGENT_GUIDE.html</code></td></tr>
+    <tr><td>有界准入</td><td><code>nanoscope/concurrency/admission.py</code></td>
+      <td><code>test_m9_admission.py</code>、<code>loadtest.py</code></td></tr>
+    <tr><td>身份与记忆</td><td><code>nanoscope/identity.py</code>、
+      <code>memory/repository.py</code>、<code>memory/sanitize.py</code></td>
+      <td><code>test_m1_identity.py</code>、<code>test_m11_recent_history_isolation.py</code></td></tr>
+    <tr><td>权限感知 RAG</td><td><code>nanoscope/rag/store.py</code>、<code>index.py</code>、
+      <code>search.py</code>、<code>rerank.py</code></td><td><code>RAG_V1.json</code>、
+      <code>test_m18_doc_rag.py</code></td></tr>
+    <tr><td>可信写操作</td><td><code>nanobot/agent/tools/feishu_actions.py</code>、
+      <code>nanoscope/feishu_actions/pending_store.py</code></td>
+      <td><code>test_feishu_action_tools.py</code></td></tr>
+    <tr><td>确定性评测</td><td><code>nanoscope/eval/agent_bench.py</code>、
+      <code>rag_bench.py</code>、<code>security_bench.py</code></td>
+      <td><code>UNIFIED_V1.json</code>、<code>AGENT_LIVE_V1.json</code></td></tr>
+  </table>
+</section>
+
+<section class="section" id="ownership">
+  <h2>1. 项目定位与贡献边界</h2>
+  <details class="q" open><summary>用 60 秒讲清项目，不准念简历。</summary><div class="answer">
+    <p class="pressure">追问：业务问题是什么？为什么 Nanobot 不够？你的增量到底在哪？</p>
+    <p><span class="answer-title">合格回答：</span>Nanobot 已提供异步消息总线、AgentLoop、
+      AgentRunner、工具注册和会话记忆。我没有重写 ReAct 内核，而是在企业群聊多用户场景补了
+      三条确定性控制面：可信身份与召回前 ACL、有界公平准入、写操作两阶段确认；再用
+      Agent/Security/RAG 三张 Board 验证。核心原则是把 LLM 的概率规划限制在确定性授权和执行边界内。</p>
+    <p class="mechanism"><b>展开链路：</b>飞书 Channel 验签后构造可信 principal/audience，
+      请求先经过会话锁之前的 admission，再由 Runner 做 LLM/Tool 循环；Memory 和 RAG 查询都先在 SQL/分区层算可见集合；
+      写任务只能 prepare 生成冻结预览，用户精确确认后才由 commit claim 并调用远端。</p>
+    <p class="boundary"><b>量化与边界：</b>压测中 admission 峰值等待 117→32，固定 GLM 下 BGE 使 nDCG@5
+      0.788→0.894，Agent Live strict TSR 21/24。它仍是单机 MVP：Bus 无界、SQLite 单写、HNSW 写后全量重建、
+      通用 Agent Resume 未完成，不能包装成十万用户生产系统。</p>
+    <p class="upgrade"><b>若只有 60 秒：</b>先讲业务风险和三条控制面，再讲一组可复算证据，最后主动限定范围；
+      不要按“接飞书、接模型、接向量库”的功能清单叙述。</p>
+    <p class="risk">失分点：声称“从零实现 Agent 框架”或把 Nanobot 的 Dream、压缩、Runner 都算成个人实现。</p>
+    <p class="source">证据：<code>nanobot/bus/queue.py</code>、<code>nanobot/agent/loop.py</code>、
+      <code>nanobot/agent/runner.py</code>；新增集中于 <code>nanoscope/</code>。</p>
+  </div></details>
+  <details class="q"><summary>为什么叫“安全边界与检索质量解耦”？给我集合论解释。</summary><div class="answer">
+    <p class="pressure">追问：调大 <code>ef_search</code> 为什么不会扩大权限？</p>
+    <p><span class="answer-title">合格回答：</span>先由确定性授权得到可见集合
+      <code>V(ctx)</code>，检索与重排只在其上产生排序 <code>R(q,V)</code>，因此返回集满足
+      <code>R ⊆ V</code>。质量参数只改变 V 内部的召回和顺序，不改变 V。Partitioned HNSW
+      更进一步只加载 org、本人 DM 和所属 project 子图。</p>
+    <p class="mechanism"><b>项目实现：</b>SQL 可见性谓词先得到授权 id，分区索引只搜索相应 tenant/scope 子图，
+      最终结果还与 SQL 可见 id 求交。Reranker、RRF、<code>ef_search</code> 都位于这道授权门之后。</p>
+    <p class="boundary"><b>边界：</b>若 ACL 缓存过期、分区映射错误或有人绕过统一查询入口直接访问全局索引，
+      集合不变量仍会被破坏。因此“解耦”是架构约束，不是由 HNSW 自动保证。</p>
+    <p class="upgrade"><b>验证：</b>同时记录 forbidden candidate touch 和最终 exposure；属性测试随机生成
+      tenant/role/scope，断言任意质量参数下始终满足 <code>R⊆V</code>。</p>
+  </div></details>
+  <details class="q"><summary>你为什么选择“增量开发”，而不是重新写一个更干净的框架？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>成熟 Runtime 的工具循环、渠道适配、Provider
+      兼容和上下文治理成本很高；业务风险集中在身份、检索和副作用边界，应优先通过 Tool、
+      Channel 和独立模块扩展。对 Loop 的改动只用于传递可信上下文和前置 admission，符合
+      “core stays small, extend at edges”。代价是要兼容上游生命周期和历史格式。</p>
+    <p class="mechanism"><b>决策依据：</b>先列出上游稳定能力与新增风险点，只在可信上下文传递和准入时改 Loop；
+      ACL、RAG、pending ledger 放在独立模块，飞书副作用通过 Tool 扩展，减少长期 fork 面积。</p>
+    <p class="boundary"><b>代价：</b>上游升级可能改变消息格式、Runner 协议和持久历史语义；局部 patch 也可能
+      与新版本冲突。增量开发不是零成本，必须维护兼容测试和清晰 ownership。</p>
+    <p class="upgrade"><b>工程化：</b>固定上游版本，维护最小补丁清单和集成回归；能通过插件接口完成的能力不改 Core，
+      必须改 Core 的地方建立 contract test，升级时逐项验证。</p>
+  </div></details>
+  <details class="q"><summary>项目最有技术含量的三点是什么？只能选三点。</summary><div class="answer">
+    <p><span class="answer-title">建议：</span>① 鉴权先于召回，并用物理分区 HNSW 保持 ANN 加速；
+      ② LLM 规划与确定性写控制面解耦，处理确认、并发 claim 和未知结果重试；
+      ③ 可证伪评测，把安全硬门禁、候选触达和真实失败落成机器可复算证据。不要选“接入飞书 API”。</p>
+    <p class="mechanism"><b>为什么是这三点：</b>它们分别解决读安全、写安全和结果可信度，且都能落到源码不变量：
+      <code>R⊆V</code>、pending 状态机、版本化 artifact。三者能组成完整工程闭环。</p>
+    <p class="boundary"><b>不要夸大：</b>HNSW 分区仍有全量重建；写状态机仍缺 unknown-result 自动对账；
+      评测集规模有限且 Agent Open 人审未完成。技术含量来自明确处理这些边界，而非避而不谈。</p>
+    <p class="upgrade"><b>回答策略：</b>每点用“问题→设计→一个数字→一个缺口”展开，避免罗列十个功能；
+      面试官选中任一点后再深入源码和失败窗口。</p>
+  </div></details>
+  <details class="q"><summary>如果删掉 LLM，这个项目还剩什么价值？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>仍剩身份解析、ACL 数据模型、隔离检索、准入调度、
+      幂等状态机、审计账本和评测基础设施。LLM 负责自然语言理解和规划，但没有授权能力；这正是
+      “概率性规划 + 确定性控制面”的意义。</p>
+    <p class="mechanism"><b>分工：</b>LLM 把自然语言映射为候选动作；Runtime、SQL、状态机判断动作能否读取、
+      能否执行以及如何重试。删除 LLM 后仍可通过结构化 API 使用这些控制能力。</p>
+    <p class="boundary"><b>损失：</b>自然语言意图理解、开放式规划和答案生成会消失，系统退化成受控检索与任务 API；
+      所以不能说 LLM 没价值，只能说它不是信任根。</p>
+    <p class="upgrade"><b>架构收益：</b>模型可替换、降级甚至临时不可用，而 ACL 和副作用安全不随模型变化；
+      这使模型灰度和 fallback 更容易验证。</p>
+  </div></details>
+</section>
+
+<section class="section" id="runtime">
+  <h2>2. Agent Runtime：不懂上游就不算做过</h2>
+  <details class="q" open><summary>一条飞书消息从进来到回复出去，完整走哪些组件？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Channel 验签并构造 <code>InboundMessage</code> →
+      MessageBus inbound → AgentLoop 消费、解析 session/security context、做 admission 和 session
+      串行 → 构建 system prompt 与 history → AgentRunner 循环调用 Provider、执行工具并回灌
+      <code>role=tool</code> → 保存新 turn → MessageBus outbound → Channel 回复原会话/话题。</p>
+    <p class="mechanism"><b>状态归属：</b>AgentLoop 持有产品生命周期、会话锁、持久化和渠道语义；
+      Runner 只接收 <code>AgentRunSpec</code>，在临时 messages 视图上执行迭代，并返回
+      <code>AgentRunResult</code>。Tool 的可信身份通过 Runtime 的 ContextVar 注入，不从模型参数读取。</p>
+    <p class="boundary"><b>失败路径：</b>Channel 重复投递要靠 message/run 幂等；Provider 超时受 turn deadline 限制；
+      Tool 错误作为 observation 或按策略终止；保存成功但 outbound 失败会出现“已执行未回复”，写 Tool 仍依赖自身幂等，
+      不能靠重跑整条消息解决。</p>
+    <p class="upgrade"><b>生产化：</b>为每段传播 trace_id/run_id，记录排队、LLM、Tool、持久化和发送耗时；
+      将进程内无界 Bus 换成有界背压或持久 MQ，并明确至少一次投递与去重协议。</p>
+    <p class="source"><code>bus/queue.py:16-34</code>；<code>loop.py:1262-1289</code>；
+      <code>runner.py:355-506</code>。</p>
+  </div></details>
+  <details class="q"><summary>AgentLoop 和 AgentRunner 为什么要拆开？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Loop 管产品层生命周期：会话、渠道、锁、命令、
+      持久化、流式输出；Runner 是可复用的 LLM+Tool 执行内核，只接受
+      <code>AgentRunSpec</code> 并返回 <code>AgentRunResult</code>。这样主 Agent、Subagent、
+      Cron 可共享 Runner，测试也能绕开渠道。</p>
+    <p class="mechanism"><b>接口边界：</b>Spec 封装本次运行所需 messages、工具和策略；Result 返回文本、trace、
+      stop reason 与 usage。Runner 不应自行决定飞书回复目标，也不应持有渠道连接。</p>
+    <p class="boundary"><b>拆分失败的信号：</b>若 Runner 直接写 Session 或发送 Channel 消息，Subagent 和离线评测
+      就难复用；若 Loop 介入每次 Tool 迭代，执行内核又无法独立测试。</p>
+    <p class="upgrade"><b>测试：</b>Runner 用 fake Provider/Tool 做确定性单测；Loop 用 fake Runner 验证锁、
+      persistence 和 outbound，使故障定位能区分产品编排与模型执行。</p>
+  </div></details>
+  <details class="q"><summary>Runner 如何防止工具循环失控？</summary><div class="answer">
+    <p class="pressure">追问：空响应、上下文超长、中途新消息分别怎么办？</p>
+    <p><span class="answer-title">合格回答：</span>由 <code>max_iterations</code> 限制总轮次；
+      空响应最多重试 2 次，长度恢复最多 3 次；每轮先对模型副本做 ContextGovernor；
+      中途消息每轮最多注入 3 条、最多 5 个 injection cycle。工具错误可按
+      <code>fail_on_tool_error</code> 决定是否终止。</p>
+    <p class="mechanism"><b>停止条件：</b>最终文本完成、达到迭代/注入/恢复预算、不可恢复 Tool 错误或取消都会终止；
+      每次 Tool Call 和 observation 写入 trace，便于识别重复调用而非只看最终答案。</p>
+    <p class="boundary"><b>仍可能失控：</b>轮次有限不等于成本有限，单轮可能输出巨大 JSON 或调用半小时 Tool；
+      因此还需要 token、单 Tool deadline、整轮 deadline 和结果大小预算。</p>
+    <p class="upgrade"><b>改进：</b>检测相同工具+参数重复、为只读调用做 memoization、给每种工具独立预算；
+      超预算返回明确 observation，让模型收敛或终止。</p>
+  </div></details>
+  <details class="q"><summary>为什么持久历史不能直接在原列表上裁剪？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>原始历史是审计和后续压缩的事实源；模型窗口只是
+      每轮临时视图。Runner 复制消息后修复孤儿 tool result、缺失结果和超窗内容，否则一次模型适配
+      会永久污染历史，并可能移动保存新 turn 的边界。</p>
+    <p class="mechanism"><b>双视图：</b>持久层保留原始事件和审计顺序；发送模型前生成副本，执行 orphan 修复、
+      压缩和 token 裁剪。新 turn 仍基于原始边界追加，避免把合成占位写回事实源。</p>
+    <p class="boundary"><b>代价：</b>模型实际看到的上下文与审计历史不同，排障时必须保存 context manifest 或摘要；
+      否则只能看到原始历史，无法复现模型为何作出决策。</p>
+    <p class="upgrade"><b>验证：</b>记录输入消息 hash、裁剪原因和 token 预算；对复制操作做不可变测试，
+      断言治理前后的持久历史字节不变。</p>
+  </div></details>
+  <details class="q"><summary>工具调用为什么必须有 tool_call_id 配对？断了会怎样？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Assistant 的 tool call 与后续
+      <code>role=tool</code> 结果是协议对；孤儿结果会被 Provider 拒绝或误关联。
+      ContextGovernor 会删除孤儿结果，并为缺失结果补合成错误占位，只修模型副本，不篡改持久记录。</p>
+    <p class="mechanism"><b>并行场景：</b>同一 assistant turn 可发多个调用，名称不足以区分重复调用；
+      ID 才能把每个结果绑定到正确参数和位置。结果顺序变化也不应改变关联关系。</p>
+    <p class="boundary"><b>修复限制：</b>合成错误只能保持协议合法，无法恢复真实副作用；
+      若 Tool 实际成功但结果丢失，必须依赖幂等查询或对账，不能简单补“失败”后重放写操作。</p>
+    <p class="upgrade"><b>持久化：</b>将 call_id、arguments digest、状态和 result digest 作为事件保存；
+      Resume 时先查现有结果，再决定重试。</p>
+  </div></details>
+  <details class="q"><summary>为什么工具上下文用 ContextVar，而不是把 principal 放进工具参数？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>工具参数来自模型，不可信；身份、受众和原始用户文本
+      必须由运行时绑定。<code>ContextVar</code> 在 asyncio Task 内传播并在 context manager
+      退出时恢复，既避免全局变量串请求，也不把安全字段暴露给模型 schema。</p>
+    <p class="mechanism"><b>生命周期：</b>Loop 在执行 Runner 前 set RequestContext，Tool 读取但不能修改，
+      context manager 退出时用 token reset；并发 Task 各有逻辑上下文，不共享普通全局变量。</p>
+    <p class="boundary"><b>传播边界：</b>后台队列、进程和某些线程池不会自动继承可信上下文；
+      跨边界必须显式序列化最小字段并重新验签/校验，不能把 ContextVar 当分布式身份系统。</p>
+    <p class="upgrade"><b>防误用：</b>安全字段不出现在 Tool JSON Schema；Tool 无 Context 时 fail-closed；
+      并发测试交错两个 principal，断言 owner、日志和结果不串位。</p>
+  </div></details>
+  <details class="q"><summary>MessageBus 真正提供了什么？它是不是 Kafka？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>它只是进程内两条 <code>asyncio.Queue</code>，
+      解耦 Channel 与 Agent Core，不提供持久化、消费组、跨进程、重放和投递语义。当前队列默认无界，
+      不能把它描述为生产级消息中间件。</p>
+    <p class="mechanism"><b>实际价值：</b>Channel 只负责收发和规范化消息，Loop 独立消费；测试可直接向 inbound
+      发布事件并检查 outbound，无需启动真实平台连接。</p>
+    <p class="boundary"><b>故障：</b>进程崩溃消息消失，生产者快于消费者时内存持续增长；没有 ack 意味着无法判断
+      消息处理成功还是仅被取出。</p>
+    <p class="upgrade"><b>演进：</b>单机先设置 maxsize 并让 Channel 背压；多副本改用持久 MQ，
+      按 session 分区并加入 message_id 去重、重试和 DLQ。</p>
+  </div></details>
+</section>
+
+<section class="section" id="concurrency">
+  <h2>3. 并发、背压与公平性</h2>
+  <details class="q" open><summary>为什么 admission 必须放在 session lock 之前？</summary><div class="answer">
+    <p class="pressure">追问：放在锁后，global_limit 还是 3，为什么不够？</p>
+    <p><span class="answer-title">合格回答：</span>锁后准入只能限制“已拿到 session lock 的请求”，
+      同 session 洪峰会先创建大量 Task 并阻塞在锁上，完全绕过 admission 队列计数。前置后，请求先占
+      全局/per-principal 配额或进入有界队列，再等待 session 串行，才覆盖端到端等待者。</p>
+    <p class="mechanism"><b>时序：</b>正确顺序是 admission→session lock→inner gate→Runner，释放必须在
+      <code>finally</code>。如果先拿 session lock，再等待 global ticket，该请求还会长时间占着会话资源，
+      放大队头阻塞。</p>
+    <p class="boundary"><b>仍未覆盖：</b>Channel 已经写入无界 inbound Queue 后才会触发这层 admission，
+      所以它只证明执行侧有界；<code>would_reject</code> 又是非预留预检，burst 下仍可能短暂创建多余 Task。</p>
+    <p class="upgrade"><b>改进：</b>在创建 Task 前用 <code>try_acquire</code> 原子拿 ticket 并传入 dispatch；
+      Bus 设置 maxsize，让 Channel 根据平台能力暂停读取或快速拒绝；多实例则在网关增加全局速率配额。</p>
+  </div></details>
+  <details class="q"><summary>FairAdmissionController 的三个不变量是什么？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span><code>global_inflight ≤ global_limit</code>；
+      每个 principal 的 inflight 不超过 <code>per_principal_limit</code>；等待者不超过
+      <code>max_queue</code>，满则抛 <code>AdmissionRejectedError</code>。释放通过 finally，
+      取消等待者会摘队并重新 pump。</p>
+    <p class="mechanism"><b>状态更新：</b>acquire 在同一事件循环临界段检查配额、入队或发 ticket；
+      release 递减全局和 principal 计数后 pump 等待者，选择可满足 per-principal 配额的最小 key。</p>
+    <p class="boundary"><b>必须防的 bug：</b>重复 release 会计数为负，取消 waiter 若未摘队会占坑，
+      异常路径漏 finally 会永久泄漏容量。三个上限只在单进程实例内成立。</p>
+    <p class="upgrade"><b>测试：</b>随机生成 acquire/release/cancel 序列做状态机属性测试；
+      每一步断言计数、队列长度和 ticket 唯一性。</p>
+  </div></details>
+  <details class="q"><summary>你说“公平”，到底是什么公平？能证明无饥饿吗？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>实现的是 least-in-flight，当前占用更少的 principal
+      优先，同占用按 seq FIFO；它抑制单用户霸占，但不是 WFQ，也没有权重、aging 或严格的最大等待时间
+      证明。持续涌入的新 principal 可能让旧热点 principal 等更久，因此应表述为“占用公平”，不是
+      “严格无饥饿公平”。</p>
+    <p class="mechanism"><b>排序键：</b><code>(principal_inflight, seq)</code> 先照顾当前占用少的主体，
+      再在同占用下按到达顺序选择；它比全局 FIFO 更能抑制热点用户占满全部并发。</p>
+    <p class="boundary"><b>反例：</b>大量从未占用的新 principal 持续进入时，已有 inflight 的主体可能反复后移；
+      没有 aging 就无法给出最大等待时间。不同请求成本差异也未被考虑。</p>
+    <p class="upgrade"><b>严格方案：</b>需要时引入 per-principal FIFO + round-robin/DRR、aging 和等待时间 SLO，
+      并用分位数而非平均等待时间验证。</p>
+  </div></details>
+  <details class="q"><summary>为什么不是直接用 asyncio.Semaphore？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Semaphore 只有全局在飞上限，没有 per-principal
+      配额和等待队列上限；等待者本身可以无界增长，也无法按租户/用户调度。它适合限制资源并发，不足以
+      完成多租户准入。</p>
+    <p class="mechanism"><b>区别：</b>Semaphore 回答“最多同时多少个”，Admission 还回答“谁可以排队、
+      最多排多少、下一位是谁、过载如何拒绝”。后者是完整的接纳策略。</p>
+    <p class="boundary"><b>可组合：</b>底层稀缺资源仍可用 Semaphore，例如 Provider 连接或 CPU rerank；
+      但不能用多个互不协调的 Semaphore 替代端到端准入，否则会形成多层无界等待。</p>
+    <p class="upgrade"><b>设计：</b>在最外层做请求 admission，内部资源池只做局部并发；
+      传播统一 deadline，避免请求在每层重新获得完整等待时间。</p>
+  </div></details>
+  <details class="q"><summary>峰值队列 117→32 是怎么来的？为什么恰好 32？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>U7 模拟瞬时 120 请求，基线约 3 个在飞、117 个等待；
+      改后等待队列配置 <code>max_queue=32</code>，其余过载请求拒绝，所以观测峰值收敛到 32。
+      这是配置上界验证，不是概率性能指标。</p>
+    <p class="mechanism"><b>测量口径：</b>同一批 120 个瞬时请求下，用生命周期事件做 sweep-line 统计等待峰值；
+      baseline 没有有界 admission，约 3 个执行，其余 117 个等待。</p>
+    <p class="boundary"><b>32 的含义：</b>它不是调优得出的最优值，而是配置契约被测试命中；
+      换到真实模型延迟、到达分布和内存预算后必须重新容量规划。</p>
+    <p class="upgrade"><b>选值方法：</b>依据允许的等待时间、服务率和内存估算 queue limit，
+      再扫描 P95、拒绝率、goodput 与公平性，选业务可接受点。</p>
+    <p class="risk">边界：该结果来自 Mock/离散负载，不等于生产 QPS；改后拒绝率约 70.8%。</p>
+  </div></details>
+  <details class="q"><summary>Goodput 只降 2.8%，能证明性能没损失吗？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>只能说明该固定 Mock workload 下成功完成速率接近，
+      不能外推模型 API、网络、SQLite 竞争下的生产吞吐。Goodput 还会因主动拒绝而保持稳定，必须与
+      rejection ratio、P95 和公平性一起报告。</p>
+    <p class="mechanism"><b>解释：</b>有界系统通过早拒绝避免过量请求争抢资源，因此成功完成速率可保持，
+      但被拒用户体验可能显著下降；只报 goodput 会隐藏这部分代价。</p>
+    <p class="boundary"><b>缺失变量：</b>Mock Tool 几乎没有外部尾延迟，也未覆盖 Provider 429、
+      event-loop 阻塞和多实例协调，2.8% 不是生产性能承诺。</p>
+    <p class="upgrade"><b>完整报告：</b>同时给 offered load、accepted/completed/rejected、队列 P95/P99、
+      各 principal 成功率和资源利用率，并在真实依赖的预发布环境复测。</p>
+  </div></details>
+  <details class="q"><summary>入口 would_reject 有 TOCTOU 吗？多个请求会不会都通过预检？</summary><div class="answer">
+    <p><span class="answer-title">必须承认：</span>有。<code>would_reject()</code> 只是观察，不预留
+      ticket；预检与 dispatch 内 <code>acquire()</code> 之间存在窗口。单事件循环降低数据竞争，但
+      burst 下多个 create_task 仍可能先通过预检，之后在 acquire 处被拒。严格方案应在建 Task 前用
+      <code>try_acquire</code> 原子预留 ticket，并把 ticket 传入 dispatch，避免二次 acquire。</p>
+    <p class="mechanism"><b>竞态时序：</b>A、B 先后读取“队列尚未满”，都创建 Task；待 Task 调度到 acquire 时，
+      A 入队后 B 才发现已满。最终上限可能仍守住，但额外 Task 和拒绝通知已产生。</p>
+    <p class="boundary"><b>单线程也存在：</b>TOCTOU 不要求多线程数据竞争，只要 check 和 use 之间发生调度切换即可。
+      因此“asyncio 单线程所以没竞态”是错误回答。</p>
+    <p class="upgrade"><b>修复契约：</b>入口原子返回 ticket 或 rejection；dispatch 只消费已分配 ticket，
+      所有退出路径恰好 release 一次。</p>
+  </div></details>
+  <details class="q"><summary>底层 MessageBus 无界，你凭什么说系统有界？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>当前“有界”覆盖 AgentLoop admission 后的活跃 Task
+      和等待队列，不覆盖 Channel→Bus 的进程内 inbound backlog。因此简历应说“Agent 执行准入有界”，
+      不能说“全链路绝对有界”。生产化要给 Bus 设置 maxsize、Channel 做背压/限流，或换持久队列。</p>
+    <p class="mechanism"><b>分层看待：</b>平台→Channel、Channel→Bus、Bus→Task、Task→session lock、
+      Runner→Provider 每层都可能排队；只给其中一层 max_queue 不能推出端到端有界。</p>
+    <p class="boundary"><b>平台差异：</b>Webhook 入口可快速返回 429，长连接 Channel 则要暂停读取或丢弃策略；
+      若平台会重投，还需 message_id 去重，否则背压会转成重复。</p>
+    <p class="upgrade"><b>目标：</b>画出每层容量、超时和所有者，统一 deadline 与 overload policy，
+      监控实际 queue depth 而不是只监控 admission 内部计数。</p>
+  </div></details>
+  <details class="q"><summary>进程重启后队列和公平状态怎么办？多实例怎么办？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>控制器是单进程内存态，重启后等待请求丢失，多实例
+      各自限流，无法形成全局配额。生产多副本需在网关做一致性路由与全局限流，或用 Redis
+      token bucket / sorted set 实现分布式租约；session 仍要按 key 粘滞或分布式锁。</p>
+    <p class="mechanism"><b>两类状态：</b>等待请求需要持久 MQ 才能重启恢复；公平/配额状态可由网关或 Redis
+      统一维护。会话按 key 分区能减少跨实例锁和乱序。</p>
+    <p class="boundary"><b>分布式代价：</b>Redis 故障、租约过期和时钟偏差会造成超发或误拒；
+      全局严格公平成本很高，通常只保证租户速率与实例局部并发。</p>
+    <p class="upgrade"><b>策略：</b>网关 token bucket 控速，MQ 按 session 分区，worker 做局部 admission；
+      明确 Redis 不可用时 fail-open 还是 fail-closed，并按操作风险区分。</p>
+  </div></details>
+</section>
+
+<section class="section" id="identity">
+  <h2>4. 身份、存储与确定性隔离</h2>
+  <details class="q" open><summary>Principal、Session、Audience、Scope 为什么必须拆成四个维度？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Principal 回答“谁在请求”；Session 决定哪些消息组成
+      对话；Audience 决定答案将被谁看到；Scope 描述数据授权范围。同一个人可在 DM 和群里发问，
+      Session 相同也不推出 Audience 相同。混用会造成“私聊记忆被带到群聊”的泄露。</p>
+    <p class="mechanism"><b>具体例子：</b>A 用户在 DM 中可读 org + owner=A 的 user memory；
+      A 在项目群提问时，最终 audience 是整个群，因此个人 memory 不应进入候选。project 文档还要匹配
+      A 的 acl_group/roles，而 session_key 仅用于消息连续性和串行化。</p>
+    <p class="boundary"><b>不变量：</b>身份来自 Channel 验签，授权由服务端计算；模型生成的“我是管理员”
+      或 Tool 参数里的 owner 不改变 SecurityContext。roles 缓存过期和撤权传播仍是生产窗口，需要 ACL version。</p>
+    <p class="upgrade"><b>建模：</b>所有缓存键、日志和幂等键都要审查是否缺了 tenant/audience；
+      测试至少覆盖同 principal 跨 audience、同 session key 跨 tenant、角色撤销和群聊转私聊。</p>
+  </div></details>
+  <details class="q"><summary>principal_id 为什么不能从消息正文、模型结果或 Tool 参数读取？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>这些都由攻击者或概率模型控制。principal 必须来自
+      Channel 验签后的稳定平台 user ID，并包含 tenant 与 channel 命名空间。模型只看到业务参数，
+      owner 由 RequestContext 注入。</p>
+    <p class="mechanism"><b>生成链路：</b>Channel 校验平台事件后，用 tenant、channel、platform_user_id
+      生成稳定 principal；SecurityContext 以 frozen dataclass 传入 Runtime，Repository 从上下文取 owner。</p>
+    <p class="boundary"><b>风险：</b>Webhook 验签正确不代表目录角色永远新鲜；账号合并、机器人转发和跨平台映射
+      还需明确身份绑定策略。正文中的 user_id 只能作为普通数据。</p>
+    <p class="upgrade"><b>治理：</b>记录身份来源和版本，目录撤权事件使缓存失效；任何缺失或冲突身份 fail-closed，
+      并对伪造 owner/principal 参数写负向测试。</p>
+  </div></details>
+  <details class="q"><summary>SQL WHERE、DB CHECK、物理分区三层分别防什么？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>WHERE 是读取授权单入口；CHECK 防止非法 scope/owner/
+      acl_group 组合落库；物理分区防止未授权向量进入 ANN 候选和被打分。三者分别覆盖读取、写入、
+      检索结构，不能互相替代。</p>
+    <p class="mechanism"><b>纵深防御：</b>CHECK 拒绝结构非法记录；统一 Repository WHERE 计算可见行；
+      Partitioned HNSW 只构建/加载可见信任域，查询末尾再与 SQL id 交集。</p>
+    <p class="boundary"><b>失效方式：</b>CHECK 不能判断角色是否真实，WHERE 不能阻止绕过 Repository 的代码，
+      分区也可能因 ACL 变更暂时陈旧；所以安全真值仍是可信身份 + 在线授权。</p>
+    <p class="upgrade"><b>验证：</b>数据库迁移保留约束，代码扫描禁止裸查询；对每种 scope 做插入非法组合、
+      跨租户读取和 stale-index 测试。</p>
+  </div></details>
+  <details class="q"><summary>DM 门的准确谓词是什么？为什么 group 不能召回本人 user memory？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>DM 中可见同 tenant 的 org，加
+      <code>scope=user AND owner=current principal</code>；非 DM 只允许 org。因为模型回答最终会
+      发给群成员，提问者本人有权限不代表受众整体有权限。</p>
+    <p class="mechanism"><b>谓词：</b>DM 为
+      <code>tenant=? AND status='active' AND (scope='org' OR (scope='user' AND owner=?))</code>；
+      group 只保留同 tenant 的 org，RAG project scope 另按可信 roles 计算。</p>
+    <p class="boundary"><b>关键区别：</b>授权必须按输出 audience，而非只按提问 principal。
+      当前保守策略让群聊无法使用个人记忆，即使群中只有本人，也优先避免误暴露。</p>
+    <p class="upgrade"><b>测试：</b>同一 principal 在 DM/group 复用相似 query，断言 user memory 只在 DM 候选中；
+      转发、引用和话题消息也不能改变 audience。</p>
+  </div></details>
+  <details class="q"><summary>roles 放在 SecurityContext 里，来源可靠吗？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>设计上 roles 必须来自渠道/企业目录的可信授权信息，
+      不能来自用户文本。当前 <code>SecurityContext</code> 只是承载字段，生产上需要目录同步、版本号、
+      缓存 TTL 和撤权失效机制；否则“旧 roles 缓存”会形成撤权窗口。</p>
+    <p class="mechanism"><b>使用方式：</b>Channel/身份服务读取目录角色并注入 immutable context；
+      RAG 根据 roles 选择 project 分区，Tool 再按服务端策略校验，不信任模型声明。</p>
+    <p class="boundary"><b>一致性：</b>TTL 内的旧角色可能继续读已撤权数据；角色新增又可能暂时少读。
+      安全上撤权延迟比授权延迟更严重，应优先 fail-closed。</p>
+    <p class="upgrade"><b>方案：</b>目录事件携带 ACL version，缓存键和索引快照包含版本；
+      高敏请求在线复验，撤权时主动失效 session 与检索缓存。</p>
+  </div></details>
+  <details class="q"><summary>同一 workspace 多 tenant 为什么直接 fail-closed？这合理吗？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>MVP 用 workspace 作为信任域，检测第二 tenant 时拒绝，
+      防止共享全局记忆文件造成混租户。它是保守策略，不是最终多租户架构。当前 guard 是单进程内存态，
+      重启后不保留；生产应把 tenant-workspace 绑定持久化并设唯一约束。</p>
+    <p class="mechanism"><b>触发：</b>首次访问记录 workspace→tenant；后续不同 tenant 访问同 workspace 立即拒绝，
+      避免全局 SOUL/USER/MEMORY 文件成为隐式共享通道。</p>
+    <p class="boundary"><b>MVP 限制：</b>内存字典无法跨进程、重启丢失，也不能支持合法的多租户共享模板；
+      它是事故阻断器，不是完整租户控制平面。</p>
+    <p class="upgrade"><b>生产模型：</b>持久化 workspace ownership 唯一约束，存储路径和密钥按 tenant 隔离；
+      共享模板只读且显式标记，不复用用户记忆目录。</p>
+  </div></details>
+  <details class="q"><summary>为什么 SQLite 能用？它的并发和扩展边界是什么？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>单机 MVP 数据量小、需要事务和可审计本地文件，SQLite
+      交付成本低；WAL/索引可满足轻量读多写少。边界是单写者、跨实例共享困难、同步调用可能阻塞
+      event loop。生产迁 PostgreSQL，并把同步 DB 操作移到异步驱动或线程池。</p>
+    <p class="mechanism"><b>为什么足够：</b>当前 pending ledger 和本地 Memory 事务短、数据量有限，
+      SQLite 提供 UNIQUE、CHECK、<code>BEGIN IMMEDIATE</code> 和单文件可复现性，比内存 map 更可靠。</p>
+    <p class="boundary"><b>瓶颈：</b>写事务串行、长读可能影响 checkpoint，网络文件系统语义不可靠；
+      同步 sqlite3 在事件循环线程执行会拉高所有请求尾延迟。</p>
+    <p class="upgrade"><b>迁移：</b>先保持 schema/状态机 contract，迁 PostgreSQL 后用连接池和异步驱动；
+      claim 可改 <code>FOR UPDATE SKIP LOCKED</code>，并重跑并发与崩溃恢复测试。</p>
+  </div></details>
+  <details class="q"><summary>FTS 影子索引和主表不一致怎么办？会泄露吗？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>当前 add 在同一连接内插主表和 FTS 后 commit，降低
+      不一致；即使 FTS 混入他人 id，查询仍先通过主表 JOIN 与授权 WHERE，所以最多影响召回，不应扩大
+      权限。仍缺删除/更新同步与修复任务，这是数据一致性债务。</p>
+    <p class="mechanism"><b>安全原因：</b>FTS 只产生排序候选，主表 JOIN 后仍应用 tenant/scope/owner/status 谓词；
+      因此幽灵索引项无法单独绕过主表授权。</p>
+    <p class="boundary"><b>质量影响：</b>漏索引会少召回，残留索引增加无效候选；若未来为了性能改成先读 FTS 内容，
+      这项安全假设会失效。</p>
+    <p class="upgrade"><b>一致性：</b>用触发器或同事务维护 FTS，定期校验主表/影子表计数与 id 差集；
+      重建采用新表构建后原子切换。</p>
+  </div></details>
+  <details class="q"><summary>40→0 能证明没有越权吗？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>只能证明固定 8 类攻击在 Memory 和 Recent History
+      两通道上，关闭防护会暴露 40 次、开启后为 0，说明测试有区分度。不能证明所有输入、所有渠道和
+      未来代码都安全；需要持续扩攻击面、属性测试和生产审计。</p>
+    <p class="mechanism"><b>反事实含义：</b>同一固定攻击集只切换防护开关，baseline 能稳定泄露而 hardened 不泄露，
+      说明 scorer 不是永远返回零，也证明当前改动对这些样本有效。</p>
+    <p class="boundary"><b>不可外推：</b>40 是 exposure 次数，不是 40 个独立真实用户；
+      未覆盖新渠道、目录撤权、缓存错键和未知自然语言攻击。</p>
+    <p class="upgrade"><b>持续验证：</b>扩展攻击分面、随机身份矩阵和回归种子；生产记录脱敏 audit，
+      对任何 forbidden candidate touch 告警并回灌测试集。</p>
+  </div></details>
+</section>
+
+<section class="section" id="rag">
+  <h2>5. 权限感知 RAG</h2>
+  <details class="q" open><summary>为什么“先全库召回再过滤”不仅是安全问题，也是质量问题？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>安全上，未授权向量已进入候选和打分路径；质量上，
+      全局 top-k 可能被高度相似的越权项占满，过滤后没有足够可见结果，Recall 崩塌。增大 top-k 只能
+      缓解质量，不能消除候选触达。</p>
+    <p class="mechanism"><b>项目实现：</b>ChunkStore 用 SQL CHECK 保证 scope 组合合法；
+      PartitionedSearcher 按 tenant/scope/owner-or-group 建子图，查询只组合 org、当前角色 project 和 DM 下本人 user 分区；
+      返回前再与 SQL 可见 id 取交集，形成索引失效或 ACL 更新时的确定性兜底。</p>
+    <p class="boundary"><b>性能代价：</b>分区过细会增加小图数量、内存和查询 fanout；ACL 频繁变化会触发重建。
+      当前超过 256 个分区降级 Pre-filter，revision 变化后仍是全量重建，4.5 倍加速只适用于固定 benchmark 规模。</p>
+    <p class="upgrade"><b>生产化：</b>ACL 版本与索引快照绑定，后台增量构建并原子切换；
+      安全监控同时检查 forbidden exposure 和 candidate touch，不能只看最终答案是否泄露。</p>
+  </div></details>
+  <details class="q"><summary>Pre-filter、Post-filter、Partitioned 三种策略怎么选？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Post-filter 只作反例；Pre-filter 先 SQL 可见集再
+      暴力余弦，是安全与 recall 天花板；Partitioned 在建索引时按 tenant/scope/ACL 建子图，查询只搜
+      可见子图，兼顾隔离和 ANN。当前 ACL group 数量级较小，适合分区；分区超过 256 时退化 Pre-filter。</p>
+    <p class="mechanism"><b>复杂度：</b>Pre-filter 每次对可见向量精确计算，适合小集合和基线；
+      Partitioned 将成本前移到建图，查询 fanout 多个可见子图；Post-filter 仅用于展示候选污染。</p>
+    <p class="boundary"><b>选择条件：</b>ACL 高基数或用户组合爆炸时分区内存不可控；
+      可见集合很小时 ANN 也未必比暴力搜索快。不能固定宣称 Partitioned 永远最优。</p>
+    <p class="upgrade"><b>自适应：</b>按可见集合大小、分区数和更新频率选择 exact/partitioned，
+      用同一冻结集比较 Recall、candidate touch、P95 和内存。</p>
+  </div></details>
+  <details class="q"><summary>Partitioned HNSW 如何处理 org、project、user 三种 scope？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>key 分别是
+      <code>(tenant,org,None)</code>、<code>(tenant,project,group)</code>、
+      <code>(tenant,user,owner)</code>。查询合并同 tenant 的 org、roles 对应 project，以及 DM
+      场景下本人的 user 分区；群聊不加载个人子图。</p>
+    <p class="mechanism"><b>查询：</b>先从 SecurityContext 构造允许 partition keys，逐图 ANN 召回，
+      合并候选后精确余弦重打分和稳定 tie-break；未知 scope/key 不做宽松回退。</p>
+    <p class="boundary"><b>角色组合：</b>一个用户可能命中多个 project 图，fanout 与去重成本上升；
+      owner/group 变更时旧图在 revision 切换前可能陈旧，因此仍需 SQL 交集兜底。</p>
+    <p class="upgrade"><b>索引治理：</b>给每个分区记录 ACL/data revision、构建时间和 chunk 数；
+      空分区和异常大分区告警，撤权优先使旧快照不可服务。</p>
+  </div></details>
+  <details class="q"><summary>HNSW 是近似的，你如何保证结果可复现？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>建图设 <code>num_threads=1</code> 固定插入顺序；
+      ANN 只召回 fanout 候选，候选内再用精确余弦重打分，并以 chunk id 确定性 tie-break。能保证
+      “同候选集下排序确定”，不能保证不同平台浮点和 hnswlib 版本逐字节一致。</p>
+    <p class="mechanism"><b>确定性层次：</b>固定语料顺序、线程数和参数减少建图漂移；
+      精确重排消除 ANN 返回分数细微差异，id 作为最终全序保证同分结果稳定。</p>
+    <p class="boundary"><b>剩余非确定性：</b>ANN 候选集合本身、BLAS 浮点、模型/API 版本和硬件仍可能变化；
+      所以 manifest 必须记录依赖版本，不能只记录 query。</p>
+    <p class="upgrade"><b>回归：</b>保存候选 id 和精排分数；跨环境比较排名指标而非要求索引文件字节一致，
+      对关键发布固定容器和模型快照。</p>
+  </div></details>
+  <details class="q"><summary>为什么 ANN fanout 是 top_k 的 4 倍？有理论保证吗？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>这是工程启发式，用更多近似候选换 recall，再精排；
+      没有普适理论最优。应通过 ef_search、fanout、M 的参数扫描，在 recall/延迟/内存帕累托前沿选择，
+      并按数据规模重标定。</p>
+    <p class="mechanism"><b>作用：</b>fanout 越大，gold 进入精确重排的概率通常越高，但余弦计算和后续融合成本线性增加；
+      4 倍只是当前数据规模下的保守默认值。</p>
+    <p class="boundary"><b>交互参数：</b><code>ef_search</code>、图 M、分区大小和 top_k 共同影响结果；
+      单独扫描 fanout 可能把别的瓶颈误归因给它。</p>
+    <p class="upgrade"><b>实验：</b>固定 embedder/数据，网格扫描 fanout×ef_search，报告 Recall@5、
+      P95、CPU 与候选数，选择满足质量门槛的最小成本点。</p>
+  </div></details>
+  <details class="q"><summary>BM25、向量、RRF、Cross-Encoder 各解决什么问题？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>BM25 擅长精确词和数字；Embedding 提供语义召回；
+      RRF 用排名而非不可比的原始分数融合两路；Cross-Encoder 联合编码 query×chunk，提升前排精度，
+      但成本高，所以只重排融合后的 top-N。</p>
+    <p class="mechanism"><b>链路：</b>两路都只在授权集合内检索，各自产生排名；RRF 合并并去重，
+      BGE 对 query-chunk pair 批量打分，最后稳定排序返回 top_k。</p>
+    <p class="boundary"><b>不可互替：</b>Reranker 不能找回召回阶段完全遗漏的文档；
+      BM25 对同义改写弱，向量对精确编号可能弱，Cross-Encoder 又受 latency/cost 限制。</p>
+    <p class="upgrade"><b>观测：</b>分别记录 lexical-only、vector-only、fusion 和 rerank 的增益与耗时，
+      避免只看最终指标而不知道提升来自哪一阶段。</p>
+  </div></details>
+  <details class="q"><summary>RRF 为什么不用加权分数融合？它有什么缺点？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>BM25 与余弦分数尺度不同，直接相加需要校准；RRF
+      只依赖 rank，稳定且简单。缺点是丢失分数间距信息，k 常数和各路权重仍需调参，对只有一路强信号的
+      情况可能不如学习排序。</p>
+    <p class="mechanism"><b>公式直觉：</b>每路按 <code>1/(k+rank)</code> 累加，多个检索器共同靠前的文档得分高，
+      无需把 BM25 与 cosine 映射到同一尺度。</p>
+    <p class="boundary"><b>失败场景：</b>弱检索器也会贡献票数，长尾分数差异被抹平；
+      若一条结果以巨大置信度领先，RRF 无法利用这个间距。</p>
+    <p class="upgrade"><b>比较：</b>在冻结验证集调 k/路权重，并与归一化加权融合或学习排序比较；
+      test 集只做一次最终报告，避免过拟合。</p>
+  </div></details>
+  <details class="q"><summary>固定 GLM Embedding 下 nDCG 0.788→0.894，能归因给 BGE 吗？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>可以把该固定数据集、固定 embedding、固定 top_k 下的
+      差异归因于 Stub→BGE reranker；同时 Recall 0.922→0.984、MRR 0.754→0.878。不能把 Hashing
+      离线 0.705 与 GLM+BGE 0.894 直接说成“线上提升”，因为换了 embedder。</p>
+    <p class="mechanism"><b>A/B 控制：</b>L1/L2 使用同一 rag96.v2、GLM embedder、检索参数和 top_k，
+      唯一主要变量是 reranker，故可做受限归因。</p>
+    <p class="boundary"><b>注意：</b>BGE 可能改变进入 top_k 的结果，所以 Recall 也变化；
+      API 状态和单次运行仍有噪声，样本只有 96 条，不是生产因果实验。</p>
+    <p class="upgrade"><b>表达：</b>明确说“固定 GLM 链路下 Stub→BGE”；补充 P95 从约 835ms 到 1058ms，
+      同时陈述质量收益与延迟代价。</p>
+  </div></details>
+  <details class="q"><summary>为什么 MRR 曾经等于 1？你如何确认不是模型真强？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>旧 96 条实际只有 24 个语义，四条是固定前缀；gold
+      又把同主题多个 chunk 都算相关，第一条同主题内容很容易命中。重构为事实级 gold、独立改写和同主题
+      错误数字后，离线 MRR 降为 0.680，并出现 rank 1–5 和 miss，说明旧集区分度不足。</p>
+    <p class="mechanism"><b>诊断：</b>检查 query 去重、模板前缀、gold 集大小和 rank 分布；
+      如果几乎所有样本 rank=1 且主题重复，优先怀疑数据而非庆祝模型。</p>
+    <p class="boundary"><b>新结果含义：</b>指标下降不等于系统退化，而是测量尺更有区分度；
+      仍需人工检查事实 gold 和硬负例，防止为了“看起来合理”故意做难。</p>
+    <p class="upgrade"><b>防回归：</b>冻结 dataset version/SHA，检查语义簇重复率、每题 gold 数和难度分层；
+      新样本先盲标再进入 test。</p>
+  </div></details>
+  <details class="q"><summary>事实级 Gold、硬负例和 forbidden fact 为什么要分开？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Gold 是真正回答问题的 chunk；可见硬负例是同主题旧口径，
+      命中只算质量错误；forbidden fact 是 ACL 禁止事实，出现才算安全违规。混在一起会把“答错”误报为
+      “越权泄露”，污染 Security Board。</p>
+    <p class="mechanism"><b>scorer：</b>expected facts 用于 faithfulness/正确性；incorrect facts 触发质量失败；
+      forbidden facts 触发 security violation 和整体硬门禁，三者分别落 artifact。</p>
+    <p class="boundary"><b>语境：</b>答案可能以否定方式提及错误事实，简单 substring 会误判；
+      当前加入否定窗口，但复杂语义仍需人工抽检。</p>
+    <p class="upgrade"><b>标注：</b>事实带来源 chunk、scope 和 span，双人复核冲突；
+      安全 gold 与质量 gold 分开版本化。</p>
+  </div></details>
+  <details class="q"><summary>你的 chunking 为什么按字符，不按 token 或语义？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>字符窗口对中文简单、确定、无 tokenizer 依赖，适合
+      MVP 参数实验；overlap 防止事实跨边界。边界是无法理解标题树、表格、PDF 布局，structure 策略也
+      只是按空行。生产应做格式解析、语义边界、去重和事实 span 覆盖评测。</p>
+    <p class="mechanism"><b>当前取舍：</b>固定字符长度和 overlap 使摄取确定、便于复现，也避免不同 tokenizer
+      版本改变切分；对中文纯文本足以建立 baseline。</p>
+    <p class="boundary"><b>失败：</b>一个事实可能跨块，表头与单元格分离，标题层级丢失；
+      overlap 又会产生近重复候选，影响 RRF 和上下文预算。</p>
+    <p class="upgrade"><b>实验：</b>引入格式感知/父子/语义 chunk，固定 embedder 和 reranker，
+      比较事实覆盖、nDCG、生成 groundedness、token 与摄取成本。</p>
+  </div></details>
+  <details class="q"><summary>新增一个 chunk 后，PartitionedSearcher 如何更新？代价是什么？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>ChunkStore 每次 commit 增加 revision；Searcher 查询时
+      发现 stale，在 RLock 内读取全库、重新分桶、重新 embedding/建图，并用前后 revision 一致性循环
+      防并发摄取。正确但写放大严重，生产应增量 add/delete、后台构建新快照并原子切换。</p>
+    <p class="mechanism"><b>一致性循环：</b>构建前读 revision，完成后再次检查；若期间发生写入则重建，
+      只有快照覆盖稳定 revision 才发布，避免半新半旧索引。</p>
+    <p class="boundary"><b>代价：</b>高写入下可能重复构建甚至长期追不上；RLock 只管单进程，
+      embedding API 调用还会放大成本和查询冷启动。</p>
+    <p class="upgrade"><b>生产方案：</b>写入事件日志，增量 add/tombstone；后台构建版本化快照，
+      校验后原子切换，旧快照延迟回收并支持回滚。</p>
+  </div></details>
+</section>
+
+<section class="section" id="memory">
+  <h2>6. 长期记忆与上下文治理</h2>
+  <details class="q" open><summary>四级上下文治理分别在哪个时间尺度生效？哪些是你做的？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>每轮 ContextGovernor 修复/裁剪模型副本；Consolidator
+      按 token 合并历史；AutoCompact 在空闲 TTL 后压缩；Dream 做长期知识蒸馏。这四层主要是 Nanobot
+      原有能力，我是复用；我的增量是多用户记忆隔离、Recent History 可见性、写入清洗/读取包裹，以及
+      principal-aware Dream 蒸馏原型，不能说扩展了压缩算法。</p>
+    <p class="mechanism"><b>数据流：</b>原始 Session 保持不变，每轮只治理副本；近期历史达到阈值后合并，
+      空闲期压缩，长期候选再按 principal 提炼并写入带 owner 的 Repository。</p>
+    <p class="boundary"><b>贡献边界：</b>四级机制和 Dream 算法来自 Nanobot；我补的是多用户可见性和候选归属，
+      且 Dream 原型未接完整调度链。面试中必须主动区分。</p>
+    <p class="upgrade"><b>验证：</b>分别测 token、Context Fidelity、跨用户 exposure 和压缩延迟，
+      不能只用“节省上下文”一句带过。</p>
+  </div></details>
+  <details class="q"><summary>Dream 为什么在多用户模式下是后门？你怎么堵？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>原 Dream 会把多用户历史蒸馏进全局
+      SOUL/USER/MEMORY，随后所有用户共享读取。多用户模式先禁止写这三个全局文件；原型中在进入 LLM
+      前按 principal 分批，owner 由批次确定性继承，无 owner 历史丢弃，LLM 只生成候选文本。</p>
+    <p class="mechanism"><b>安全点：</b>分组发生在调用 LLM 前，提交时 owner 不采用模型输出；
+      candidate 只携带该 principal 可见历史，避免模型在一个批次中混合多人事实。</p>
+    <p class="boundary"><b>残余风险：</b>历史若上游已错误归属，分批无法修复；模型仍可能幻觉候选，
+      且当前模块未完整接入 AgentLoop，不能声称线上 Dream 已安全改造。</p>
+    <p class="upgrade"><b>接入条件：</b>补 provenance、候选审批/回滚、调度幂等和跨 principal E2E，
+      再迁移旧全局记忆并验证无回流。</p>
+    <p class="risk">必须说明：principal-aware candidate 当前有专项测试，但未完整接入正式 AgentLoop。</p>
+  </div></details>
+  <details class="q"><summary>写入清洗能防 Prompt Injection 吗？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>不能数学消除。写侧去角色前缀、特殊 token、控制/零宽字符
+      并限长；读侧转义并包进 untrusted data block，降低结构逃逸。自然语言指令仍可能影响模型，所以
+      高风险工具还必须靠权限和确认控制面，不能靠 Prompt。</p>
+    <p class="mechanism"><b>两侧防护：</b>写侧去零宽/控制字符、角色前缀和特殊 token；读侧明确标记来源、
+      转义边界并限长，降低内容伪装成 system/tool 消息的概率。</p>
+    <p class="boundary"><b>不能保证：</b>“忽略之前指令”这类普通自然语言无法可靠删除，过度清洗还会破坏合法内容；
+      因此 injection 成功也必须被 ACL 和 commit 门禁兜住。</p>
+    <p class="upgrade"><b>评测：</b>静态残留只算 sanitation probe，真实 ASR 必须让模型读取恶意记忆后观察行为；
+      两类指标分开报告。</p>
+  </div></details>
+  <details class="q"><summary>为什么不把所有历史都塞给模型？压缩会不会丢关键事实？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>上下文有 token、延迟和注意力预算；全部塞入会超窗并
+      降低有效信息密度。压缩不可避免有损，因此持久历史保留事实源，模型视图临时裁剪；关键事实应进入
+      结构化长期记忆并可追溯来源。当前 Context Fidelity 0.833 也说明仍会丢信息。</p>
+    <p class="mechanism"><b>预算：</b>优先保留 system、当前任务、未完成 Tool 协议和近期关键 turn；
+      旧历史摘要化，长期事实按需检索，减少无关 token 对注意力的稀释。</p>
+    <p class="boundary"><b>有损性：</b>摘要可能丢否定、时间和数字，错误摘要还会被后续反复引用；
+      所以不能覆盖原始历史，也不应把摘要当最高可信事实。</p>
+    <p class="upgrade"><b>治理：</b>摘要带 source span/version，可点击回溯；按任务族测 fidelity，
+      对数字、权限和未决操作采用结构化保留规则。</p>
+  </div></details>
+  <details class="q"><summary>技能渐进式披露具体节省什么？代价是什么？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>初始 Prompt 只暴露技能名称/摘要，命中意图后再加载完整
+      SKILL.md，减少每轮固定 token。代价是多一次选择或读取、技能路由可能漏召回，还需防技能内容注入和
+      权限过宽。</p>
+    <p class="mechanism"><b>收益：</b>把 O(全部 Skill 文本) 的固定上下文变成 O(目录摘要+命中 Skill)，
+      对技能多、单次只用少量能力的 Agent 更有效。</p>
+    <p class="boundary"><b>失败点：</b>摘要写差会路由漏召回，同名技能会冲突，动态 Skill 内容也可能污染 Prompt；
+      节省 token 不代表端到端延迟一定下降。</p>
+    <p class="upgrade"><b>评测：</b>单独测 routing P/R、加载成功率、token 和 strict TSR；
+      Skill 版本/SHA 进入 manifest，敏感 Tool 权限仍由 Runtime 决定。</p>
+  </div></details>
+  <details class="q"><summary>Session History 和长期 Memory 有什么不同？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Session History 是会话原始消息序列，服务短期连续性；
+      Recent History 是未 Dream 的近期归档；长期 Memory 是提炼后的结构化事实。它们生命周期、可信度、
+      权限谓词和压缩方式不同，不能用一个“记忆”概念带过。</p>
+    <p class="mechanism"><b>读取：</b>History 按 session 顺序进入临时模型视图；Memory 按 tenant/owner/scope
+      先授权再检索；Recent History 作为二者之间的待处理层，不能默认全局共享。</p>
+    <p class="boundary"><b>一致性：</b>用户删除原消息后，已蒸馏 Memory 可能仍存在；摘要和原文也可能冲突，
+      需要 provenance 和删除传播，而不是只删 Session 文件。</p>
+    <p class="upgrade"><b>生命周期：</b>定义 TTL、纠错、遗忘、敏感数据策略和重蒸馏版本，
+      每类存储使用不同 SLO 与授权测试。</p>
+  </div></details>
+</section>
+
+<section class="section" id="write">
+  <h2>7. 飞书可信写操作与一致性</h2>
+  <details class="q" open><summary>为什么 Tool description 写“先确认”不够？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Tool description 只影响模型概率行为，注入、幻觉或
+      重试都可能绕过。服务端必须让 prepare 无远端副作用，commit 只接受 token，并校验原始用户文本、
+      principal、audience、session、实例、TTL 和冻结 payload 后执行。</p>
+    <p class="mechanism"><b>完整状态：</b>prepare canonicalize payload、计算 digest、保存 pending 与预览；
+      commit 先精确确认，再用 <code>BEGIN IMMEDIATE</code> 条件更新为 executing；远端调用携带稳定
+      <code>client_token</code>；成功落 succeeded，明确可重试错误落 failed_retryable，参数/权限错误落 terminal。</p>
+    <p class="boundary"><b>无法原子提交：</b>远端成功、本地落库前崩溃会留下 executing unknown。
+      本地事务不能覆盖飞书，因此当前“双层幂等”主要防重复，不等于完整 exactly-once 或自动恢复。</p>
+    <p class="upgrade"><b>闭环：</b>为 executing 增加 lease 和 recovery worker，按 client_token 查询远端并回填；
+      引入业务 operation nonce 解决相同 payload 永久去重，并把每次状态迁移写入审计事件表。</p>
+  </div></details>
+  <details class="q"><summary>prepare 到底冻结了什么？为什么 commit 禁止重传 payload？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>prepare canonicalize title、description、assignee、
+      due_at 和 source ids，计算 digest 并持久化预览。commit 若允许重传，用户确认 A、模型可执行 B，
+      形成 TOCTOU；因此 commit 只允许 confirmation_token，任何业务字段都报 PAYLOAD_MISMATCH。</p>
+    <p class="mechanism"><b>冻结：</b>规范化后的业务字段、证据 id、上下文绑定和 digest 一起落 pending；
+      用户看到的预览与后续执行读取的是同一持久 payload。</p>
+    <p class="boundary"><b>变更：</b>若用户想改标题或截止时间，必须重新 prepare 并获得新 token；
+      不能在 commit 阶段“顺手修正”，否则确认失去意义。</p>
+    <p class="upgrade"><b>审计：</b>保存 canonical payload version 和 preview hash，
+      commit 日志记录 token hash、operation id 和最终远端资源 id。</p>
+  </div></details>
+  <details class="q"><summary>一次性 Token 安全性如何？为什么数据库只存 hash？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Token 使用 32 字符字母表的 8 位随机串，约 40 bit 熵，
+      TTL 默认 600 秒；只存 SHA-256，数据库泄露不能直接拿明文确认。它还绑定上下文，猜中 token 也需
+      principal/audience/session/instance 匹配。生产可加长 token、限速和失败审计。</p>
+    <p class="mechanism"><b>校验：</b>服务端 hash 用户提交 token 后查 pending，再逐项比对上下文和过期时间；
+      明文只在 prepare 响应中出现，不作为数据库可重放凭据。</p>
+    <p class="boundary"><b>威胁：</b>40 bit 对短 TTL 和限速尚可，但截图/群聊泄露仍可能被同上下文用户利用；
+      hash 不防在线猜测，也不替代一次性状态迁移。</p>
+    <p class="upgrade"><b>加固：</b>提升熵、按 principal 限速、失败告警、成功后立即失效；
+      高敏操作增加平台原生交互确认或签名 challenge。</p>
+  </div></details>
+  <details class="q"><summary>你说“7 维绑定”，具体是哪几维？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>可按身份与执行语义解释为 tenant、principal、audience、
+      session、channel instance、instance identity、payload digest/冻结操作；另有 TTL 与 token 本身。
+      回答时直接对照表字段，不要机械背“7”而说不出校验位置。</p>
+    <p class="mechanism"><b>目的：</b>tenant/principal 防跨身份，audience/session 防跨会话转发，
+      instance 防跨机器人环境，digest 防 payload 替换；每维覆盖不同重放面。</p>
+    <p class="boundary"><b>口径：</b>代码字段若调整，“7”也会变化；真正重要的是绑定不变量和校验顺序，
+      不是营销数字。TTL 是额外时效约束。</p>
+    <p class="upgrade"><b>表达：</b>现场画 pending 表字段与 commit 条件 UPDATE，
+      用“把 DM token 转发到群里”为反例逐项说明为何失败。</p>
+  </div></details>
+  <details class="q"><summary>两个并发 commit 同时到达，为什么不会创建两次？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>本地先 <code>BEGIN IMMEDIATE</code>，条件 UPDATE 只允许
+      pending/failed_retryable→executing，只有一个 rowcount=1；远端再传稳定 client_token。前者防本地
+      并发双 claim，后者防网络重试重复副作用，覆盖不同故障窗口。</p>
+    <p class="mechanism"><b>线性化点：</b>条件 UPDATE 成功是本地执行权的唯一线性化点；
+      败者看到 rowcount=0 后读取当前状态并返回冲突/已完成，而不是继续调用远端。</p>
+    <p class="boundary"><b>范围：</b><code>BEGIN IMMEDIATE</code> 只协调同 SQLite 文件；
+      远端调用不在事务内，进程崩溃仍会留下 executing unknown。</p>
+    <p class="upgrade"><b>验证：</b>并发 barrier 同时提交 N 次，断言一次远端调用和一个资源；
+      再在远端成功/本地落库之间故障注入，验证对账设计。</p>
+  </div></details>
+  <details class="q"><summary>远端创建成功，但本地 succeed 前进程崩溃，会怎样？</summary><div class="answer">
+    <p><span class="answer-title">必须承认：</span>本地会停在 executing，重新 prepare 相同操作会被拒，
+      当前没有自动对账恢复；远端 client_token 能防再次创建，但不能自动把 task_id 回填本地。生产需
+      recovery worker 按 client_token 查询远端、超时 executing 租约和 reconciliation 状态机。</p>
+    <p class="mechanism"><b>窗口：</b>本地已 claim，远端已持久化资源，但 mark_succeeded 尚未提交；
+      重启后仅凭本地无法区分远端成功和未收到请求。</p>
+    <p class="boundary"><b>当前行为：</b>阻止再次 prepare 可防重复，却可能永久卡住合法操作；
+      所以“E2E 重复提交为 0”不能等价成“故障恢复完整”。</p>
+    <p class="upgrade"><b>恢复：</b>executing 带 lease/attempt，worker 超时后按 client_token 查询；
+      找到资源则回填 succeeded，明确不存在才安全重试，否则进入人工 unknown 队列。</p>
+  </div></details>
+  <details class="q"><summary>远端超时，你不知道任务是否成功，为什么可以重试？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>超时标记 failed_retryable，再次 claim 使用同一个
+      idempotency_key/client_token；若首次已成功，远端应返回同一资源而非新建。若供应商不保证这个契约，
+      就不能声称 exactly-once，只能做查询确认或人工对账。</p>
+    <p class="mechanism"><b>分类：</b>连接前失败可安全重试；收到明确 4xx 通常终止；read timeout/5xx 可能 unknown，
+      复用同一 key 并先查询。错误分类决定状态迁移。</p>
+    <p class="boundary"><b>依赖契约：</b>client_token 的幂等窗口、响应语义和查询能力必须查供应商文档；
+      超过窗口后重试可能再次创建。</p>
+    <p class="upgrade"><b>策略：</b>记录 provider request id、attempt 和原始错误；
+      指数退避受总 deadline 限制，unknown 不自动无限重试。</p>
+  </div></details>
+  <details class="q"><summary>你的 idempotency key 包含哪些字段？有什么副作用？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>代码使用 tenant、principal、audience、channel instance
+      和 payload digest。它会把同一用户在同一受众中“有意创建两个完全相同任务”也永久视为同一操作，
+      属于过度去重风险。生产应引入用户意图 operation nonce/时间业务键，并明确幂等窗口。</p>
+    <p class="mechanism"><b>稳定性：</b>字段用 NUL 分隔后 SHA-256，确保重试得到同一 key；
+      canonical payload 避免空白或字段顺序导致伪差异。</p>
+    <p class="boundary"><b>语义冲突：</b>技术上相同 payload 不一定是同一业务意图；
+      永久 UNIQUE 会把第二次合法创建误判重复。</p>
+    <p class="upgrade"><b>设计：</b>prepare 生成 operation nonce，重试复用 nonce；
+      新用户意图生成新 nonce，并按供应商幂等窗口保留映射。</p>
+  </div></details>
+  <details class="q"><summary>为什么确认必须检查 original_user_text，而不是 content？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Channel 可能给 <code>content</code> 拼接引用消息和上下文，
+      模型也可能看到富文本；授权必须基于用户原始输入精确等于“确认创建 TOKEN”。因此 InboundMessage
+      单独保留 original_user_text，避免引用内容伪造确认。</p>
+    <p class="mechanism"><b>检查：</b>commit 读取 Runtime 注入的原始文本，strip 后与固定模板精确比较；
+      Tool arguments 中的 confirmation 字段不能替代用户输入。</p>
+    <p class="boundary"><b>渠道适配：</b>不同平台富文本、全角空格和按钮交互要规范化，但不能宽松到引用消息也算确认；
+      original_user_text 缺失时应拒绝。</p>
+    <p class="upgrade"><b>体验：</b>优先使用平台签名按钮/交互卡片携带 server nonce；
+      文本确认保留为兼容路径并记录 message_id。</p>
+  </div></details>
+  <details class="q"><summary>Thread 读取如何防跨话题？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>模型不能传 chat/root；目标来自可信 RequestContext。
+      API 拉取当前 chat 的时间窗消息后，本地只保留 message_id=root 或 root_id=root 的消息，再做条数/
+      字符上限并包装为 untrusted JSON。当前仍会在进程内短暂拉到其他话题消息，但不会送给模型。</p>
+    <p class="mechanism"><b>可信目标：</b>chat/root 来自当前飞书事件的 RequestContext；
+      模型只能请求“读取当前话题”，无法指定其他会话 id。过滤后才进入 evidence ledger。</p>
+    <p class="boundary"><b>最小化不足：</b>批量 API 响应在过滤前已进入进程内存，日志/异常若打印原响应仍可能泄露；
+      平台若支持 thread-scoped API 应优先使用。</p>
+    <p class="upgrade"><b>加固：</b>禁止原响应日志，流式过滤并限页；ledger 保存必要 message id/digest，
+      TTL 后删除，E2E 覆盖伪造 root 和跨群引用。</p>
+  </div></details>
+  <details class="q"><summary>source_message_ids 有什么意义？为空是不是绕过？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>非空时必须在当前 principal/audience/session 读过的
+      evidence ledger 中且未过期，防模型引用未读取或跨话题消息；为空表示任务可不依赖 Thread 证据，
+      是产品选择，不是强制 provenance。若业务要求“任务必须来自话题”，应将其改为 required。</p>
+    <p class="mechanism"><b>账本：</b>read Tool 成功后按 principal/audience/session 记录可用 message ids；
+      prepare 校验提交集合是账本子集，避免模型凭空构造证据 id。</p>
+    <p class="boundary"><b>空集合：</b>它允许纯手工创建任务，不是安全漏洞；但简历若声称“所有任务可追溯话题”，
+      当前实现并不满足。</p>
+    <p class="upgrade"><b>产品化：</b>区分 manual 与 thread-derived operation type；
+      后者要求非空 provenance，并把 source 摘要与任务永久关联。</p>
+  </div></details>
+  <details class="q"><summary>SQLite 的 threading.RLock 能解决多进程并发吗？会不会阻塞事件循环？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>RLock 只保护进程内同连接访问，多进程靠 SQLite 文件锁和
+      UNIQUE/事务；同步 SQLite 调用发生在 async 工具链中，短事务尚可但会阻塞 event loop。生产应使用
+      独立 DB 服务或把同步操作放线程池。</p>
+    <p class="mechanism"><b>锁层次：</b>RLock 防同进程线程同时操作连接；SQLite 文件锁保证事务；
+      UNIQUE/条件 UPDATE 才是业务幂等和状态合法性的最终约束。</p>
+    <p class="boundary"><b>性能：</b>把同步事务丢线程池只能避免堵 event loop，不会提升 SQLite 单写能力；
+      长远端调用绝不能持有数据库事务或 RLock。</p>
+    <p class="upgrade"><b>观测：</b>测 event-loop lag、DB lock wait 和事务时长；
+      迁 PostgreSQL 后仍保留条件状态迁移，而不是只依赖分布式锁。</p>
+  </div></details>
+</section>
+
+<section class="section" id="eval">
+  <h2>8. 确定性评测：最容易被质疑“自己出题自己判”</h2>
+  <details class="q" open><summary>为什么拒绝 LLM-as-judge？确定性判分也有偏差吧？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>安全、工具序列、参数、引用和事实可转成可验证结构，
+      无需再引入一个随机、昂贵、可能偏置的模型。确定性 scorer 也可能漏同义表达或误判否定语境，所以
+      通过事实级标注、否定窗口、单测和人工抽检治理；开放式回答仍保留人工复核，而不是假装全自动。</p>
+    <p class="mechanism"><b>适用范围：</b>Tool 名称/参数、引用 id、rank 和 forbidden exposure 都有结构化真值，
+      scorer 逐样本输出判定与证据，结果不依赖另一个模型的随机偏好。</p>
+    <p class="boundary"><b>偏差：</b>同义表达、否定和开放质量难完全规则化；规则也可能被针对性优化，
+      因此 Agent Open 人审 pending 时 Unified 必须保持 false。</p>
+    <p class="upgrade"><b>治理：</b>scorer 单测、盲审分歧、错误 taxonomy 和版本化 rubric 一起维护；
+      规则适合硬事实，人审处理不可结构化维度。</p>
+  </div></details>
+  <details class="q"><summary>三张 Board 为什么叫正交？总分为什么不加权？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Agent Board 测任务与工具行为，RAG Board 测召回/排序/
+      生成，Security Board 测红线事件。加权均值会让高 Recall 掩盖一次越权，因此统一门禁只做布尔合取；
+      质量指标用于优化，安全 violation 任一非零直接 FAIL。</p>
+    <p class="mechanism"><b>聚合：</b>各 Board 保留自己的分母和 artifact，Unified 只读取 gate；
+      任何 Security/完整性/必需人审失败都不能被其他高分抵消。</p>
+    <p class="boundary"><b>正交是目标：</b>现实中 RAG 召回会影响 Agent 成功，指标并非统计独立；
+      这里的“正交”指职责和门禁语义分离。</p>
+    <p class="upgrade"><b>发布：</b>按风险定义 must-pass gate，质量项再看帕累托改进；
+      不输出一个容易掩盖问题的综合百分制。</p>
+  </div></details>
+  <details class="q"><summary>Agent Live 87.5% 的严格成功到底怎么判？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>24 条任务中 21 条同时满足答案事实、必需工具次数、参数、
+      无禁用/冗余工具、无未处理错误、无安全违规且 stop_reason=completed。Partial TSR 0.979 不能替代
+      strict；Tool Recall=1 但 Precision=0.367、冗余率=0.633，暴露模型过度调用。</p>
+    <p class="mechanism"><b>为什么严格：</b>只看最终文本会掩盖模型碰巧答对、工具参数错、先调用危险工具再补救等问题。
+      scorer 因此同时读取答案和完整 trace，对每个必需/禁用 Tool、参数字段、异常与停止原因做确定性判断。</p>
+    <p class="boundary"><b>统计解释：</b>21/24 的点估计不能外推生产流量；任务族是否均衡、模型采样随机性、
+      Provider 版本变化都会影响结果。0.8 gate 是项目发布阈值，不是行业标准。</p>
+    <p class="upgrade"><b>下一步：</b>优先针对冗余调用增加“无需 Tool”负样本和路由评测；
+      扩真实任务分层集、多次采样并给 bootstrap CI，同时保持独立冻结 test，避免针对 24 题调 Prompt。</p>
+  </div></details>
+  <details class="q"><summary>87.5% 有统计意义吗？为什么 gate 是 0.8？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>24 条样本只适合回归和缺陷诊断，置信区间很宽，不应
+      外推生产成功率；0.8 是项目验收阈值，不是行业标准。要做发布决策，应扩真实流量分层集、多 seed/
+      多次采样、bootstrap CI，并按任务风险设置不同门槛。</p>
+    <p class="mechanism"><b>统计：</b>21/24 是二项点估计，少错一题就变化 4.17 个百分点；
+      小样本 CI 很宽，主要用途是回归报警和定位三个失败样本。</p>
+    <p class="boundary"><b>阈值：</b>0.8 应来自业务最低可接受水平和历史 baseline，而非为了让当前 0.875 通过；
+      高风险写任务应比只读问答更严格。</p>
+    <p class="upgrade"><b>扩展：</b>按任务族分层采样、多次运行，报告 Wilson/bootstrap CI 和版本差值；
+      门槛在看到 test 结果前冻结。</p>
+  </div></details>
+  <details class="q"><summary>RAG 的 Recall、MRR、nDCG 分别回答什么？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Recall@5 看 gold 覆盖率；MRR 只看第一个相关结果有多靠前；
+      nDCG@5 评价前五整体排序位置。多 gold 场景只看 MRR 会忽略其余证据，只看 Recall 又忽略排序，
+      因此三者并列。</p>
+    <p class="mechanism"><b>公式直觉：</b>Recall 是命中 gold 比例；MRR 是首个相关 rank 的倒数；
+      nDCG 对每个相关位置折损并用理想排序归一化。</p>
+    <p class="boundary"><b>局限：</b>三者都依赖 gold 完整性，也不直接衡量生成是否引用正确或是否越权；
+      所以还需 Faithfulness、Citation 和 Security 指标。</p>
+    <p class="upgrade"><b>使用：</b>召回调参先看 Recall，前排体验看 MRR/nDCG；
+      分主题和难度报告，避免均值掩盖某类完全失败。</p>
+  </div></details>
+  <details class="q"><summary>为什么 gold 为空时 Recall/nDCG 返回 1？会不会抬高均值？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>纯函数约定空 gold 视为无需召回，但 Board 聚合检索质量时
+      只选 answerable 且有 gold 的 recall/rerank/generation 场景，所以 abstain/isolation 不进入这三个
+      均值。拒答另用 TSR/Refusal Matrix 评价。</p>
+    <p class="mechanism"><b>防抬高：</b>聚合器显式过滤空 gold 样本；函数返回 1 只是数学/接口约定，
+      不是让无答案题贡献满分。</p>
+    <p class="boundary"><b>风险：</b>若后续代码直接对所有样本求平均，就会产生虚高；
+      因而分母和 eligible 数必须写入 Board。</p>
+    <p class="upgrade"><b>测试：</b>构造混合 answerable/abstain 数据，断言检索指标分母不变，
+      拒答成功单独进入对应矩阵。</p>
+  </div></details>
+  <details class="q"><summary>如何防测试集悄悄变化和 checkpoint 污染？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>记录 dataset version、源文件 SHA256、git commit、
+      dirty 状态、metric schema、模型/provider 和随机种子；JSONL 原子写临时文件、fsync、replace。
+      scorer/query 语义变化升级 checkpoint schema 到 p0v4，baseline 入口强校验 rag96.v2+p0v4+三档完成。</p>
+    <p class="mechanism"><b>恢复键：</b>checkpoint 由 dataset/version、runner/scorer schema 和配置共同约束；
+      不匹配则拒绝复用，而不是只按样本 id 跳过。</p>
+    <p class="boundary"><b>仍需注意：</b>外部模型别名可能漂移，dirty git 也难精确复现；
+      manifest 必须记录 provider/model 响应信息与源码状态。</p>
+    <p class="upgrade"><b>CI：</b>发布 artifact 前验证 SHA、样本数、三档完整性和无 skipped；
+      scorer 改动强制 schema bump 并全量重跑。</p>
+  </div></details>
+  <details class="q"><summary>原子 replace 就等于完整持久化吗？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>当前 artifact writer 对文件 flush+fsync 后 replace，
+      能避免读到半文件；但没有显式 fsync 父目录，极端断电下目录项持久性仍有窗口。Nanobot MemoryStore
+      的更强实现包含 directory fsync，评测 writer 可继续补齐。</p>
+    <p class="mechanism"><b>保证：</b>同文件系统 rename/replace 提供名称切换原子性，文件 fsync 保证内容先落盘；
+      读者看到旧完整文件或新完整文件，而非半截 JSON。</p>
+    <p class="boundary"><b>不保证：</b>跨文件系统 rename、父目录未 fsync、磁盘/文件系统异常仍有风险；
+      原子性也不验证 JSON 语义和来源可信。</p>
+    <p class="upgrade"><b>加固：</b>临时文件同目录，fsync file 后 replace 再 fsync directory；
+      读取端校验 schema、hash 和完整记录数。</p>
+  </div></details>
+  <details class="q"><summary>Security 8/8、violations=0 能证明什么？不能证明什么？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>证明 memory isolation、RAG ACL、behavioral injection、
+      workspace、SSRF、shell、credential、resource exhaustion 八个 facet 的固定探针均执行且当前无
+      violation；不能证明全攻击空间安全，因为每 facet 样本有限，部分还是 mock/DNS patch。</p>
+    <p class="mechanism"><b>门禁：</b>每个 facet 都必须执行且无 error/skipped，violations 总和为零；
+      完整性和安全性分别判定后再合取。</p>
+    <p class="boundary"><b>证据范围：</b>8/8 是 facet 覆盖，不是 8 个样本，更不是形式化安全证明；
+      mock 只能验证代码路径，不能替代真实网络/容器红队。</p>
+    <p class="upgrade"><b>扩面：</b>属性测试、模糊输入、依赖漏洞扫描、真实 sandbox/egress 演练和生产审计，
+      新 incident 必须转成回归探针。</p>
+  </div></details>
+  <details class="q"><summary>为什么静态 injection probe 不能算 ASR？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>字符串是否残留只测 sanitation，不代表模型是否执行恶意
+      指令。旧实现把 attack_succeeded 写死会制造虚假 0；现在无真实行为 artifact 就标 skipped 并让
+      completeness FAIL，只有真实模型攻击结果才进入 ASR。</p>
+    <p class="mechanism"><b>区分：</b>sanitation probe 检查特殊 token/结构是否被移除；
+      behavioral probe 把内容交给模型并观察是否泄密、越权 Tool 或违背策略。</p>
+    <p class="boundary"><b>ASR 依赖：</b>模型、Prompt、采样和攻击集都会改变结果；
+      固定 12/12→0/12 只属于该反事实配置。</p>
+    <p class="upgrade"><b>报告：</b>同时保存原始 trace、comparison_valid、模型版本和每分面 ASR；
+      无行为运行就明确 incomplete。</p>
+  </div></details>
+  <details class="q"><summary>Unified overall 为什么现在仍是 false？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>RAG、Security、Agent Live 都通过，但 Agent Open 的
+      人工复核仍 pending，所以统一总门禁保持 false。不能为了简历绕过人审；这也是评测体系可信度的一部分。</p>
+    <p class="mechanism"><b>当前 gate：</b>Agent、Agent Live、RAG、Security 已通过；
+      Agent Open 的 automatic gate 和 human gate 未通过，布尔合取结果自然为 false。</p>
+    <p class="boundary"><b>简历口径：</b>可以报告已经完成且有 artifact 的 Agent Live 87.5%，
+      不能说“统一评测全部通过”或暗示 Open 已审核。</p>
+    <p class="upgrade"><b>收口：</b>完成 90 份冻结 rubric 盲审、处理分歧并重生成 Unified；
+      保留旧 manifest 以便比较。</p>
+  </div></details>
+</section>
+
+<section class="section" id="security">
+  <h2>9. 安全与威胁模型</h2>
+  <details class="q"><summary>你的信任边界画在哪里？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>可信：渠道验签结果、服务端配置、数据库约束、控制面状态；
+      不可信：用户文本、模型输出、Memory/RAG/Web/Tool 内容、外部 API 返回。所有不可信数据只能影响
+      规划和排序，不能直接决定 principal、ACL、写权限或确认结果。</p>
+    <p class="mechanism"><b>跨边界校验：</b>Channel 产生身份；Repository/索引执行授权；
+      Tool schema+业务规则校验模型参数；外部内容限长、转义并作为 data 回灌。</p>
+    <p class="boundary"><b>供应链：</b>服务端配置和依赖也可能被攻破，所谓可信是系统假设而非绝对；
+      密钥、插件和 MCP Server 仍需最小权限与版本治理。</p>
+    <p class="upgrade"><b>方法：</b>画数据流图标注每次 trust transition、验证点和审计点；
+      新 Tool 上线必须完成同一威胁建模。</p>
+  </div></details>
+  <details class="q"><summary>Prompt Injection 与越权有什么区别？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Injection 是不可信内容试图改变模型指令；越权是控制面
+      向无权限受众暴露数据或执行操作。Prompt 防护只能降低前者，ACL/Tool 授权/确认门禁才约束后者。
+      即使模型完全被注入，也不应拿到不可见候选或绕过 commit。</p>
+    <p class="mechanism"><b>项目分层：</b>Memory 包裹降低 injection；SQL/分区阻止越权读取；
+      prepare/commit 阻止未确认副作用。三层处理不同失败模式。</p>
+    <p class="boundary"><b>组合攻击：</b>注入可诱导模型调用合法 Tool，若 Tool 授权过宽仍会越权；
+      所以不能因 Prompt 防护通过就省略服务端授权。</p>
+    <p class="upgrade"><b>测试：</b>分别统计指令服从、candidate touch、exposure 和写副作用，
+      找出失败发生在模型层还是控制面。</p>
+  </div></details>
+  <details class="q"><summary>Workspace 限制是不是沙箱？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>不是。路径 resolver 和命令文本检查是应用层防护，
+      不能阻止所有 shell 间接逃逸；真正进程级隔离依赖 bwrap/container、只读挂载、seccomp、低权限用户
+      和网络策略。</p>
+    <p class="mechanism"><b>当前能力：</b>resolver 做规范化并限制 workspace，命令规则拦明显危险形式；
+      它们减少误操作，但与内核强制边界不同。</p>
+    <p class="boundary"><b>绕过面：</b>符号链接、解释器、子进程、环境变量和网络可形成间接逃逸；
+      文本黑名单无法枚举 shell 语义。</p>
+    <p class="upgrade"><b>生产：</b>容器/沙箱内以低权限运行，workspace 只读或最小写挂载，
+      禁默认网络、限制 CPU/内存/进程，并在宿主机外做 egress policy。</p>
+  </div></details>
+  <details class="q"><summary>SSRF 为什么不能只检查 URL 字符串？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>域名可能解析到私网/metadata，且可能 DNS rebinding；
+      需要解析 IP、拦 loopback/RFC1918/link-local/metadata，禁自动重定向或逐跳重验。生产还应在网络层
+      egress allowlist，避免只靠应用检查。</p>
+    <p class="mechanism"><b>检查链：</b>解析 scheme/host，DNS 得到全部地址并逐个分类；
+      连接目标与校验地址绑定，redirect 每跳重验，禁用户信息和异常端口。</p>
+    <p class="boundary"><b>竞态：</b>校验后重新 DNS 可能 rebinding，代理和 IPv6 映射地址也会绕过朴素规则；
+      应用检查仍可能遗漏协议实现差异。</p>
+    <p class="upgrade"><b>纵深：</b>网络层只允许批准域名/出口代理，metadata 在基础设施层阻断；
+      记录最终连接 IP 而非只记录 URL。</p>
+  </div></details>
+  <details class="q"><summary>如果攻击者拿到了合法用户账号，你的身份墙还能防什么？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>它防身份伪造和跨租户/跨受众，不防合法账号权限内滥用。
+      还需要最小权限、异常访问检测、审计、速率限制、敏感操作二次确认和账号生命周期治理。</p>
+    <p class="mechanism"><b>仍有效：</b>被盗 A 账号也只能获得 A 当前 scope，不能凭文本冒充 B 或读取其他 tenant；
+      写操作仍要求当前会话确认和幂等控制。</p>
+    <p class="boundary"><b>无法防：</b>A 权限内数据会被盗，攻击者也可做低速合法查询；
+      身份墙不等于账号安全或数据防泄漏系统。</p>
+    <p class="upgrade"><b>补充：</b>短期 token、设备/风险校验、异常检索告警、批量导出限制、
+      及时撤权与审计追踪。</p>
+  </div></details>
+</section>
+
+<section class="section" id="production">
+  <h2>10. 生产化与系统设计追问</h2>
+  <details class="q" open><summary>现在给你 10 万企业用户、多副本部署，第一步改什么？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>先拆单机状态：SQLite→PostgreSQL，Session/幂等账本持久化；
+      inbound→Kafka/Redis Stream；网关做 tenant/principal 限流和 session 粘滞；HNSW 索引服务化并按
+      tenant/ACL 快照版本管理；对象存储保存原文与 artifact。最后补 tracing、SLO、审计和灾备。</p>
+    <p class="mechanism"><b>数据平面：</b>Gateway 验签并产生不可伪造 RequestContext；MQ 按 session 分区；
+      stateless Agent Worker 读取 Session/PostgreSQL，调用 Provider 和 Tool；RAG Service 只接受授权后的 scope token/ACL version；
+      长任务与摄取使用独立 worker pool，避免互相拖垮。</p>
+    <p class="boundary"><b>一致性：</b>MQ、数据库、模型和飞书无法形成全局事务，采用 outbox/inbox、业务幂等键、
+      checkpoint 和 reconciliation。ACL 不确定或版本落后时 fail-closed；模型降级不能绕过权限和确认。</p>
+    <p class="upgrade"><b>上线顺序：</b>先定义 SLO/容量和 tenant 隔离，再做有状态组件迁移与可观测性，
+      然后压测、故障注入、灰度和灾备演练。直接“把服务拆微服务、上 Kubernetes”不是扩容方案。</p>
+  </div></details>
+  <details class="q"><summary>如何定义这个系统的 SLO？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>安全 SLO 是零容忍事件单列；可用性看成功 turn 比例、
+      Tool 错误恢复率；性能看 admission wait、模型/工具分段 P50/P95/P99；质量看按任务族的 strict TSR
+      和 RAG nDCG；成本看 token/success。拒绝请求要单独计，不可藏进成功延迟。</p>
+    <p class="mechanism"><b>分层 SLI：</b>入口 acceptance、turn completion、只读/写 Tool 成功、
+      各阶段 latency、security event 和单位成功成本分别计量，并按 tenant/任务族切片。</p>
+    <p class="boundary"><b>质量不是传统 SLO：</b>离线 nDCG 不能直接代表线上满意度；
+      安全红线也不适合用“99.9%”容忍一次严重泄露。</p>
+    <p class="upgrade"><b>落地：</b>先定用户可感知目标和 error budget，再反推告警；
+      rejected、cancelled、provider 失败和业务拒绝使用不同状态码。</p>
+  </div></details>
+  <details class="q"><summary>模型 API 变慢或 429，系统如何降级？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>Provider 侧有超时、重试和 fallback；入口 admission
+      防堆积并回 retry-after；只读查询可降级缓存/关键词检索，写操作绝不能绕过确认。需要按 provider
+      熔断、隔离连接池，并将模型错误与业务拒绝区分观测。</p>
+    <p class="mechanism"><b>策略：</b>429 按 Retry-After+jitter 重试，超总 deadline 停止；
+      provider circuit breaker 限制雪崩，备用模型仅在兼容 Tool/schema 且通过回归后启用。</p>
+    <p class="boundary"><b>副作用：</b>模型 fallback 可能改变 Tool 选择和参数质量；
+      不能为了可用性放宽 ACL、跳过确认或从头重放已执行 Tool。</p>
+    <p class="upgrade"><b>降级序：</b>降低非关键 rerank/上下文成本→只读缓存/BM25→异步受理；
+      明确告知用户，不伪造完整答案。</p>
+  </div></details>
+  <details class="q"><summary>如何做灰度发布，确保新 Reranker 不导致安全回归？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>安全 WHERE/分区结构保持不变，Reranker 只接收可见候选；
+      影子流量同时跑旧新排序，对比 nDCG、P95、成本和 candidate touch；先离线硬门禁，再小流量灰度，
+      任一 exposure/touch 非零立即回滚。模型版本和数据 SHA 必须进入 manifest。</p>
+    <p class="mechanism"><b>影子：</b>复制授权后的候选给新旧 reranker，结果不直接返回用户；
+      用同 query/candidate digest 比较排序，排除召回变化。</p>
+    <p class="boundary"><b>隐私与成本：</b>影子流量仍处理真实数据并产生 API 成本；
+      需脱敏、采样和同等数据处理协议。离线通过也不能保证线上分布。</p>
+    <p class="upgrade"><b>发布：</b>1%→5%→25% 分阶段，预设质量/latency/cost rollback 条件；
+      安全 gate 为零容忍且自动停止。</p>
+  </div></details>
+  <details class="q"><summary>如何处理 ACL 撤权与索引缓存不一致？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>授权真值必须在线校验，索引只作候选加速；当前
+      <code>doc_search_visible</code> 还用 SQL 可见 id 与向量结果取交集作为兜底。生产给 ACL 和索引
+      快照加版本，撤权事件优先使缓存失效；拿不准时返回空，不能用旧权限继续服务。</p>
+    <p class="mechanism"><b>时序：</b>目录产生 acl_version，在线 SQL 使用新权限；
+      旧索引即便返回 chunk，也因不在新 visible ids 中被丢弃，直到新快照构建完成。</p>
+    <p class="boundary"><b>泄露窗口：</b>若缓存了最终结果且 key 未含 ACL version，SQL 兜底会被绕过；
+      所有层都必须传播版本或在返回前复验。</p>
+    <p class="upgrade"><b>撤权优先：</b>事件先封禁旧 version，再异步重建；
+      监控 stale drop 数和索引 lag，超阈值降级 exact pre-filter。</p>
+  </div></details>
+  <details class="q"><summary>备份恢复后如何避免任务重复创建？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>幂等键必须跨恢复保留；恢复后先对 executing/unknown
+      操作按 client_token 与远端对账，再开放重试。数据库备份点与远端副作用不可能原子一致，因此要靠
+      reconciliation，而不是声称本地事务能覆盖外部系统。</p>
+    <p class="mechanism"><b>恢复顺序：</b>恢复数据库和幂等映射后暂停写流量，扫描非终态；
+      按 client_token 查询飞书，回填 succeeded/failed/unknown，再恢复消费者。</p>
+    <p class="boundary"><b>PITR：</b>数据库回到远端创建之前会遗失本地记录，但远端资源仍存在；
+      若幂等 key 也丢失，重复风险无法仅靠数据库解决。</p>
+    <p class="upgrade"><b>灾备：</b>幂等 ledger 做跨区持久备份/事件日志，定期做恢复演练，
+      核对远端资源与本地 operation，而非只验证数据库能启动。</p>
+  </div></details>
+</section>
+
+<section class="section" id="cross">
+  <h2>11. Java 秒杀项目与数学背景的迁移追问</h2>
+  <details class="q"><summary>秒杀里的库存扣减与飞书任务创建，有什么共同点和不同点？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>共同点是并发下要防重复副作用，均需要业务幂等键、条件
+      状态迁移和失败恢复；不同点是库存通常在可控数据库内用原子扣减/事务，飞书创建是跨系统副作用，
+      无法本地原子提交，只能用远端 client_token 和对账实现 effectively-once。</p>
+    <p class="mechanism"><b>对应关系：</b>库存条件扣减类似 pending 的条件 claim；订单号类似 operation id；
+      MQ 重投和飞书网络重试都要求业务幂等，而不是只靠锁。</p>
+    <p class="boundary"><b>差异：</b>库存可在同数据库事务内保证不超卖，外部 API 没有参与本地事务；
+      补偿删除任务也不一定等价于从未创建。</p>
+    <p class="upgrade"><b>迁移能力：</b>把秒杀中的状态机、outbox、幂等和对账思想用于 Agent Tool，
+      同时承认外部副作用的一致性更弱。</p>
+  </div></details>
+  <details class="q"><summary>Java 线程池和 asyncio admission 有什么本质区别？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>线程池限制 OS 线程和阻塞任务并发，队列通常在线程池
+      内；asyncio Task 很轻但可无限创建，真正瓶颈是外部 I/O 和下游配额，所以仍需 admission。
+      asyncio 中同步 SQLite/CPU embedding 会阻塞事件循环，需线程池或进程池。</p>
+    <p class="mechanism"><b>调度差异：</b>Java 线程可被 OS 抢占，asyncio 协作式在 await 处切换；
+      Task 轻量使“先创建再排队”更隐蔽，但内存和上下文仍会增长。</p>
+    <p class="boundary"><b>常见误区：</b>async 不让 CPU 工作自动并行，也不让同步库非阻塞；
+      把 CPU embedding 放普通线程还受 GIL/原生实现影响。</p>
+    <p class="upgrade"><b>选型：</b>I/O 用 async，短同步 DB 用线程池隔离，CPU 重任务用进程/独立服务；
+      外层 admission 统一控制预算。</p>
+  </div></details>
+  <details class="q"><summary>你的数学背景真正用在哪里？不要说“逻辑能力”。</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>可落在三点：授权集合不变量 <code>R⊆V</code>；
+      Recall/MRR/nDCG、置信区间和负结果解释；多目标 recall/延迟的帕累托前沿。也要承认当前 24/96
+      样本统计功效有限，不能滥用显著性。</p>
+    <p class="mechanism"><b>具体应用：</b>用集合包含证明授权不变量；用 rank metric 分解召回与排序；
+      用反事实单变量 A/B 避免把换 embedder 的差异归因给 reranker。</p>
+    <p class="boundary"><b>别包装：</b>项目没有复杂原创算法或严格形式化证明；
+      数学背景价值在于定义可检验问题和诚实解释统计边界。</p>
+    <p class="upgrade"><b>深化：</b>为关键率报告 CI，做参数帕累托扫描和属性测试；
+      面试时可现场推导 MRR/nDCG 小例子。</p>
+  </div></details>
+  <details class="q"><summary>Little's Law 在你的压测里是不是独立验证？</summary><div class="answer">
+    <p><span class="answer-title">合格回答：</span>不是。当前 λW 与 sweep-line 都来自同一批生命周期事件，
+      完整观测窗内接近代数一致性重算，只能校验计算自洽。独立验证应另采 queue/inflight gauge 做固定
+      时间窗积分；有界性的直接证据仍是 peak queue 117→32。</p>
+    <p class="mechanism"><b>关系：</b>稳定系统中平均在途量 <code>L=λW</code>；
+      当前 λ、W 和事件积分源自同一 trace，因此相符主要说明统计实现没有明显错位。</p>
+    <p class="boundary"><b>前提：</b>需要稳定窗口、完整到达/离开和一致时间单位；
+      burst、截尾请求和主动拒绝都会让朴素计算偏离。</p>
+    <p class="upgrade"><b>独立测量：</b>定时采集 queue/inflight gauge 做面积积分，
+      与请求日志单独计算的 λW 比较，并明确 warm-up/cool-down 窗口。</p>
+  </div></details>
+</section>
+
+<section class="section" id="weakness">
+  <h2>12. 面试前必须补齐或主动承认的薄弱点</h2>
+  <table>
+    <tr><th>风险</th><th>面试时怎么说</th><th>工程改进</th></tr>
+    <tr><td>MessageBus 无界</td><td>准入有界不等于 Channel→Bus 全链路有界</td><td>Bus maxsize、渠道背压或持久 MQ</td></tr>
+    <tr><td>would_reject TOCTOU</td><td>预检不预留 ticket，burst 下仍可能短暂多建 Task</td><td>建 Task 前 try_acquire 并传 ticket</td></tr>
+    <tr><td>单进程公平</td><td>不是分布式全局配额，也没有严格无饥饿证明</td><td>网关限流、Redis 租约、session 粘滞</td></tr>
+    <tr><td>SQLite 同步 I/O</td><td>适合单机 MVP，不适合高写并发</td><td>PostgreSQL/异步驱动/线程池</td></tr>
+    <tr><td>HNSW 全量重建</td><td>revision 保正确性，但每次写后重建成本高</td><td>增量更新、后台快照、原子切换</td></tr>
+    <tr><td>角色撤权窗口</td><td>SecurityContext 承载 roles，但目录同步机制未完备</td><td>ACL version、TTL、撤权事件失效</td></tr>
+    <tr><td>Dream 原型</td><td>principal-aware 蒸馏有模块和测试，未完整接主链</td><td>接入调度、迁移、回滚与 E2E</td></tr>
+    <tr><td>外部写未知结果</td><td>client_token 防重复，但 executing 崩溃后缺自动对账</td><td>租约、远端查询、reconciliation worker</td></tr>
+    <tr><td>过度幂等</td><td>相同 payload 可能永远被视为同一任务</td><td>业务 nonce 与明确幂等窗口</td></tr>
+    <tr><td>评测规模</td><td>24/96 是冻结回归集，不是生产统计结论</td><td>真实流量分层、多轮 CI、人工盲审</td></tr>
+    <tr><td>Agent Open</td><td>人工复核 pending，所以 Unified overall=false</td><td>完成 90 份盲审并冻结 rubric</td></tr>
+    <tr><td>安全覆盖</td><td>8 facets 各有限探针，0 violation 不等于绝对安全</td><td>模糊测试、红队、生产审计与告警</td></tr>
+  </table>
+  <div class="box green"><b>主动暴露边界不是减分：</b>先说当前不变量和证据，再指出未覆盖的失败窗口，
+    最后给迁移路径。资深面试官更担心不知道边界的人，而不是做了合理 MVP 取舍的人。</div>
+</section>
+
+<section class="section" id="mock">
+  <h2>13. 三轮高压模拟面试</h2>
+  <h3>第一轮：15 分钟项目真实性核验</h3>
+  <ol class="check">
+    <li>60 秒架构介绍；面试官随时打断追问 Loop/Runner/Tool 的边界。</li>
+    <li>画出 Principal、Audience、Scope；现场写 DM 与 group 的 SQL 可见谓词。</li>
+    <li>解释 117→32，并立即追问 Bus 是否有界、预检是否原子。</li>
+    <li>解释 nDCG 0.788→0.894 的单变量对照，禁止把 Hashing 与 GLM 混比。</li>
+  </ol>
+  <h3>第二轮：30 分钟源码与故障注入</h3>
+  <ol class="check">
+    <li>远端 create 成功、本地崩溃；要求画 pending→executing→unknown→succeeded 状态机。</li>
+    <li>ACL 撤权但 HNSW 还是旧图；要求说明为什么 SQL 交集兜底及其延迟代价。</li>
+    <li>同一用户 100 个 session 洪峰；要求分析 per-principal 配额、session lock 和 pending queue。</li>
+    <li>恶意 RAG chunk 诱导调用写工具；要求证明 Prompt 被攻破后 commit 仍不可执行。</li>
+  </ol>
+  <h3>第三轮：45 分钟生产系统设计</h3>
+  <ol class="check">
+    <li>把单机 MVP 扩成多租户多副本：画 Gateway、MQ、Agent Worker、ACL Service、RAG Index、
+      PostgreSQL、Object Storage、Observability。</li>
+    <li>定义 SLO、容量模型、降级顺序、灰度门禁和灾难恢复。</li>
+    <li>设计一次 ACL 变更从企业目录到索引生效的事件链，并分析一致性模型。</li>
+    <li>最后复盘：如果再做一次，你会先修哪三个技术债，为什么。</li>
+  </ol>
+</section>
+
+<section class="section" id="sources">
+  <h2>14. 公开面经来源与高频矩阵</h2>
+  <div class="box blue"><b>统计口径：</b>这里的“高频”表示同一主题在多个可访问的真实面经中重复出现，
+    不是严格抽样后的行业概率。牛客原帖和小红书面经为一手候选人记录；CSDN 只用于交叉验证知识主题，
+    不把题库营销文当作真实面试次数。</div>
+  <table>
+    <tr><th>来源</th><th>公开样本</th><th>提炼出的重复主题</th><th>可信度</th></tr>
+    <tr><td>牛客</td><td>
+      <a href="https://www.nowcoder.com/feed/main/detail/8ef62dcdde1340f987507d2d1e1433a8">快手 AI Agent 开发一面</a>；
+      <a href="https://www.nowcoder.com/discuss/911218249889480704">阿里淘天 Agent 校招</a>；
+      <a href="https://www.nowcoder.com/feed/main/detail/c591854483f64b269d471ef7da1a7130">字节 Agent 测评</a>；
+      <a href="https://www.nowcoder.com/feed/main/detail/4f3b80037f7e42778eabe9358b84deba">百度后端 + Agent</a>；
+      <a href="https://www.nowcoder.com/feed/main/detail/8b2fdbdf61184235bc4210760250663e">字节 AI Agent</a>
+    </td><td>RAG、Memory、MCP、ReAct、Tool 协议、QPS、缓存、DB、MQ、超时恢复、评测</td><td>高：公开原帖正文</td></tr>
+    <tr><td>小红书</td><td>
+      <a href="https://www.xiaohongshu.com/search_result?keyword=AI%20Agent%20%E9%9D%A2%E7%BB%8F">AI Agent 面经搜索</a>；
+      “AI 应用开发一天四面面经”“美团 Agent 一面”“虾皮 Agent 一面”“腾讯 AI 应用开发”
+    </td><td>execCtx、事件流、Checkpoint/Resume、长时 Tool、多 Agent 通信、Session 隔离、Skill 压缩</td>
+      <td>高：登录后读取正文/图片；图片题目经 OCR 后人工归并</td></tr>
+    <tr><td>CSDN</td><td>
+      <a href="https://blog.csdn.net/youngyangyang04/article/details/160379391">Agent 面试主题整理</a>；
+      <a href="https://blog.csdn.net/universsky2015/article/details/156595955">Agent 系统设计</a>；
+      <a href="https://blog.csdn.net/Rocky6688/article/details/163302091">RAG/Agent 面试整理</a>
+    </td><td>Agent vs Workflow、Planning、Function Calling、MCP、Memory、Agentic RAG、可观测性</td>
+      <td>中：二手整理，只作交叉验证</td></tr>
+  </table>
+  <h3>针对本项目的频次排序</h3>
+  <table>
+    <tr><th>频次</th><th>主题</th><th>本手册落点</th></tr>
+    <tr><td>极高</td><td>项目链路、技术选型、量化指标、QPS 扩容、线上故障</td><td>1、2、10、17 章</td></tr>
+    <tr><td>极高</td><td>RAG 全链路、Chunk、混合检索、Rerank、评测</td><td>5、8 章</td></tr>
+    <tr><td>高</td><td>Memory、Context、ReAct、Function Calling、MCP、Skill</td><td>2、6、15 章</td></tr>
+    <tr><td>高</td><td>Tool 超时、失败恢复、Checkpoint、Resume、幂等</td><td>7、16 章</td></tr>
+    <tr><td>高</td><td>缓存、MySQL、MQ、HTTP/RPC、限流</td><td>3、10、17 章</td></tr>
+    <tr><td>中高</td><td>Attention、SFT、DPO/GRPO、长上下文</td><td>18 章</td></tr>
+  </table>
+</section>
+
+<section class="section" id="agent-foundations">
+  <h2>15. Agent / MCP / Skill 高频基础题</h2>
+  <details class="q"><summary><span class="freq">极高频</span>Agent、LLM 和 Workflow 到底有什么区别？不要只说“Agent 会调用工具”。</summary><div class="answer">
+    <p class="pressure">追问：有工具调用就一定是 Agent 吗？你的项目哪些步骤是确定 Workflow，哪些是 Agent？</p>
+    <p><span class="answer-title">直接回答：</span>LLM 是给定上下文生成输出的概率模型；Workflow 是开发者预先固定控制流；
+      Agent 则由模型根据观察动态选择下一步动作，并形成“观察—决策—执行—再观察”的闭环。是否叫 Agent 的关键不是有没有 API，
+      而是下一步控制权是否部分交给模型、是否维护状态、是否能根据 Tool observation 改变后续计划。</p>
+    <p class="mechanism"><b>项目映射：</b>Aegis-Agent 的 Runner 是 Agent 部分，模型决定检索、读取话题或准备任务；
+      admission、SQL ACL、prepare/commit、幂等状态迁移是确定性 Workflow/控制面。这样既保留自然语言规划能力，
+      又不让模型决定身份、权限和副作用是否获批。</p>
+    <p class="boundary"><b>边界：</b>单轮 Function Calling 可能只是带结构化输出的 LLM；固定 DAG 即便包含 LLM 也仍是 Workflow。
+      面试时不要把“Agent 更智能”当定义，也不要把所有控制都交给模型。</p>
+    <p class="upgrade"><b>技术选型：</b>高风险稳定流程优先 Workflow；开放目标、步骤未知且可验证时用 Agent；
+      实际生产常采用 Agent 规划 + Workflow 执行的混合架构。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">极高频</span>ReAct 的工程实现是什么？消息序列为什么必须区分 assistant、tool 和 user？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>ReAct 把 reasoning/action/observation 交替执行：模型输出 Tool Call，
+      Runtime 校验并执行工具，把结果以 <code>role=tool</code> 和对应 <code>tool_call_id</code> 回灌，
+      模型基于新观察继续决策，直到产生最终回答或触发停止条件。</p>
+    <p class="mechanism"><b>Aegis-Agent 链路：</b><code>AgentRunner</code> 维护 messages 和迭代上限，Provider 返回文本或工具调用；
+      Tool Registry 按名称解析并执行；结果追加后进入下一轮。<code>tool_call_id</code> 保证并行或多次调用时 observation 不串位。
+      ContextGovernor 只修模型副本中的孤儿 Tool Result，不改持久历史。</p>
+    <p class="boundary"><b>异常：</b>模型可能返回不存在的工具、非法 JSON、重复调用、空响应或一直循环。
+      因此要有 schema 校验、错误 observation、<code>max_iterations</code>、冗余检测、超时和可取消性。
+      “让 Prompt 要求别循环”不是工程答案。</p>
+    <p class="upgrade"><b>可观测性：</b>每轮记录 run_id、iteration、model latency、tool name、arguments digest、
+      tool latency、error class、token usage 和 stop_reason，才能复盘一次失败到底发生在规划还是执行。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>Function Calling 是怎么工作的？它能保证参数正确和工具安全吗？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>Runtime 把工具名、说明和 JSON Schema 发送给模型，模型生成结构化的工具名与参数；
+      Provider/Runtime 解析后再由本地代码执行。Schema 只约束形状和部分类型，不保证业务语义正确，更不等于授权。</p>
+    <p class="mechanism"><b>三层校验：</b>第一层是 JSON/schema 校验；第二层是业务校验，如日期、枚举、资源存在性；
+      第三层是服务端安全校验，如 principal、ACL、确认 token、幂等键。这三层中只有第一层可以主要依赖模型协议。</p>
+    <p class="boundary"><b>项目例子：</b>模型可以生成任务标题和截止时间，但不能提供 owner、chat_id 或覆盖 frozen payload；
+      <code>commit</code> 即使 schema 合法，只要原始用户文本不是精确确认或上下文绑定不匹配，仍必须拒绝。</p>
+    <p class="upgrade"><b>并行调用：</b>只读、互不依赖的 Tool 可并行；写操作、共享状态或有因果依赖的调用要串行或显式建 DAG，
+      并为每个调用保留独立 id、deadline 和取消语义。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">极高频</span>为什么需要 MCP？它和普通 HTTP API、Function Calling 是什么关系？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>Function Calling 是模型产生结构化调用意图的机制；HTTP/RPC 是服务通信协议；
+      MCP 是 Agent Host 与工具/资源/Prompt Server 之间的标准化能力发现和调用协议。三者不在同一层，MCP Server 内部仍可调用 HTTP。</p>
+    <p class="mechanism"><b>MCP 价值：</b>统一列举 tools/resources/prompts、schema、调用和生命周期，使不同 Host 复用同一能力，
+      降低每接一个系统都写私有适配器的成本。一个 Agent 可连接多个 MCP Server，再把能力合并进本地 Registry。</p>
+    <p class="boundary"><b>安全边界：</b>MCP 不自动解决认证、授权、租户隔离和 Prompt Injection。远端 Server 返回的描述和资源同样不可信；
+      Host 必须做 allowlist、名称冲突处理、超时、结果限长、凭据隔离和调用审计。</p>
+    <p class="upgrade"><b>本项目回答：</b>Aegis-Agent 技术栈包含 MCP，但核心飞书可信写控制是本地确定性 Tool；
+      即便未来经 MCP 暴露，也必须把 RequestContext 和授权留在可信 Host，不把 principal 作为模型参数下放。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>Skill 和 Tool 有什么区别？为什么拆 Skill 能省 Token，却可能降低成功率？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>Tool 是可执行能力及其 schema；Skill 是面向某类任务的说明、流程和最佳实践，
+      可能编排多个 Tool。Tool 更像 API，Skill 更像按需加载的操作手册。</p>
+    <p class="mechanism"><b>渐进式披露：</b>初始上下文只放 Skill 名称和摘要，路由命中后才读取完整内容，减少每轮固定 Prompt。
+      但系统多了“路由是否命中”和“完整 Skill 是否正确加载”两个失败点。</p>
+    <p class="boundary"><b>评测：</b>要分别测 routing recall、routing precision、加载成功率和端到端 strict TSR。
+      只看最终答案无法区分是路由错、Tool 错还是模型规划错；只测路由又不能证明任务完成。</p>
+    <p class="upgrade"><b>安全：</b>Skill 文本也可能被污染，应版本化、签名/哈希、最小权限、来源 allowlist；
+      Skill 只能建议调用，不能扩大当前 RequestContext 的权限。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>Plan-and-Execute、ReAct、Reflection 怎么选？你的项目为什么没有上复杂 Planner？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>ReAct 适合步骤短、每步观察会改变决策的任务；Plan-and-Execute 先生成高层计划，
+      适合长任务和可并行 DAG；Reflection 用额外轮次检查或修订结果，适合结果可验证但首次成功率不足的场景。</p>
+    <p class="mechanism"><b>取舍：</b>复杂 Planner 增加模型调用、状态持久化、计划漂移和恢复成本。Aegis-Agent 的核心任务是检索、
+      话题读取和任务创建，步骤短且写操作有确定性门禁，ReAct Runner 已够用；先把 Tool 精度和冗余率做好比引入多层 Planner 更重要。</p>
+    <p class="boundary"><b>证据：</b>Agent Live Tool Recall 已为 1，但 Precision 仅 0.367、冗余率 0.633；
+      这说明现阶段主要问题不是“不会规划到工具”，而是过度调用。增加 Planner 可能让 token、延迟和冗余进一步上升。</p>
+    <p class="upgrade"><b>何时升级：</b>跨系统、十步以上、可暂停恢复且每步可验证时，引入显式 plan state；
+      每个 step 要有输入摘要、依赖、状态、重试策略和补偿，而不是只保存一段自然语言计划。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>Memory 和普通数据库有什么区别？为什么不能让模型自由写长期记忆？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>数据库是持久化机制；Agent Memory 是“存什么、何时写、如何检索、以何种可信度进入上下文”的完整策略。
+      同一 SQLite 表可以承载 Memory，但 Memory 设计还包含作用域、衰减、去重、来源、召回和遗忘。</p>
+    <p class="mechanism"><b>写路径：</b>原始会话先作为不可变事实源，候选事实经提取、清洗、owner 确定性绑定和去重后再提交；
+      模型可以提出 candidate，不能决定 tenant/owner/scope。读路径先做 SQL ACL，再检索，并把内容包装成 untrusted data。</p>
+    <p class="boundary"><b>风险：</b>自由写会把幻觉、临时指令和恶意 Prompt 变成长期状态；共享 Memory 还会跨用户传播。
+      Dream 多用户原型因此按 principal 分批，无 owner 历史 fail-closed，且当前未完整接主链必须主动说明。</p>
+    <p class="upgrade"><b>治理：</b>生产需要 provenance、confidence、TTL、用户纠错/删除、敏感信息分类、撤权和重蒸馏版本，
+      不能只做一个向量库就称“长期记忆系统”。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">中高频</span>设计一个企业 Agent 的 System Prompt，你会写什么，不会写什么？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>Prompt 应声明角色、目标、可用能力、输出格式、数据边界和失败时行为；
+      但身份、ACL、金额/写操作批准、幂等和速率限制不能只写在 Prompt 中。</p>
+    <p class="mechanism"><b>结构：</b>稳定规则放 system；本轮任务放 user；检索/Memory 用明确分隔的 untrusted data block；
+      Tool schema 保持短且可验证；要求引用证据、信息不足时拒答，并避免把整个 Skill 库常驻上下文。</p>
+    <p class="boundary"><b>反例：</b>“永远不要泄露秘密”“创建任务前必须确认”只是软约束。
+      模型一旦被注入仍可能违反，因此项目把可见性放 SQL/分区，把确认放 prepare/commit 状态机。</p>
+    <p class="upgrade"><b>验证：</b>Prompt 变更要版本化并跑冻结集、行为注入集和 token/延迟回归；
+      线上灰度观察 Tool Precision、拒答率和异常路径，而不是凭主观觉得新 Prompt 更好。</p>
+  </div></details>
+</section>
+
+<section class="section" id="runtime-recovery">
+  <h2>16. Checkpoint、恢复、多 Agent 与长时工具</h2>
+  <details class="q"><summary><span class="freq">小红书高频</span>什么是 Agent Checkpoint？应该保存消息列表还是执行状态？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>Checkpoint 是可恢复执行的持久快照，至少要同时保存对话状态和控制状态。
+      只存 messages 不知道执行到哪一步，只存 step index 又无法重建模型上下文。</p>
+    <p class="mechanism"><b>建议结构：</b><code>run_id</code>、checkpoint_version、session/principal 绑定、
+      messages digest/引用、plan/step state、已完成 Tool Call 及 result、pending action、重试计数、模型/Skill 版本。
+      快照写入必须原子，最好采用事件日志 + 周期快照。</p>
+    <p class="boundary"><b>项目现状：</b>Aegis-Agent 有 Session 持久化、评测 checkpoint 和飞书 pending ledger，
+      但没有通用 Agent Run 的完整 Checkpoint/Resume 协议，面试时不能把三者混为一谈。</p>
+    <p class="upgrade"><b>安全：</b>恢复前重新校验 tenant/principal/audience 和 ACL；不能因为旧 checkpoint 曾有权限，
+      就在撤权后继续使用旧候选或旧写授权。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">小红书高频</span>Resume 如何保证一致性？模型已经调用过工具，但保存 checkpoint 前崩溃怎么办？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>跨模型、数据库和外部 Tool 不可能靠一个本地事务实现 exactly-once；
+      Resume 的核心是“可判定状态 + 幂等副作用 + 对账”。</p>
+    <p class="mechanism"><b>恢复流程：</b>以 <code>run_id + step_id</code> 作为稳定调用键；执行前持久化 intent/started，
+      Tool 成功后保存 result/committed。重启扫描 started 但未 committed 的步骤：只读 Tool 可重试；
+      写 Tool 先按 idempotency key 查询远端，确认结果后再推进 CAS 状态。</p>
+    <p class="boundary"><b>项目映射：</b>飞书 commit 已有 pending→executing 的条件迁移和 client_token，
+      但 executing 崩溃后缺 reconciliation worker，因此只能说具备恢复基础，不是完整恢复闭环。</p>
+    <p class="upgrade"><b>并发：</b>Resume 要用 lease/owner_epoch 防两个 worker 同时接管；
+      状态推进使用版本号或 compare-and-set，旧 worker 恢复后不得覆盖新 owner 的结果。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">小红书高频</span>一个 Tool 运行半小时，Agent 怎么处理？HTTP 请求一直挂着吗？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>不能把半小时任务绑定在同步 HTTP/WebSocket 请求和单个 event-loop Task 上。
+      应把 Tool 调用转为持久化 Job，立即返回 job_id，由 worker 异步执行，Agent 通过事件或轮询获得进度。</p>
+    <p class="mechanism"><b>状态机：</b>queued→running→succeeded/failed/cancelled/unknown；保存 deadline、heartbeat、
+      progress、attempt、idempotency key 和 result URI。Channel 可以先回复“已受理”，完成后再主动推送。</p>
+    <p class="boundary"><b>失败处理：</b>超时不等于远端失败；取消也可能只取消本地等待。
+      必须区分 deadline exceeded、worker lost、provider unknown result，并为写任务做查询/补偿。</p>
+    <p class="upgrade"><b>资源治理：</b>长任务使用独立队列和并发池，不能占满普通对话 admission；
+      按 tenant 设配额，结果限长并存对象存储，回灌模型时只给摘要和可按需读取的引用。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">小红书高频</span>多个 Session 调用一个有状态 Tool，会发生什么？Tool 应不应该知道 session_id？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>无状态 Tool 最安全；有状态 Tool 若共享可变对象，会出现串请求、竞态和权限污染。
+      Tool 是否接触 session_id 取决于业务，但 session_id 必须由 Runtime 注入，不能由模型生成。</p>
+    <p class="mechanism"><b>隔离方式：</b>状态按 tenant/principal/session 命名空间存储；数据库更新用事务/CAS；
+      进程内缓存键包含作用域并设 TTL；不可变客户端可共享，游标、事务和临时结果不能跨调用共享。</p>
+    <p class="boundary"><b>项目例子：</b>飞书 evidence ledger 绑定 principal/audience/session；
+      如果只按 token 或全局 map 存，会让另一个会话复用读过的 source_message_ids。</p>
+    <p class="upgrade"><b>测试：</b>构造两个 principal、两个 session 交错执行同一 Tool，
+      断言状态、日志、结果和取消信号不串位；单线程顺序单测无法暴露此类问题。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>多 Agent 比单 Agent 强在哪里？主 Agent 如何拿到子 Agent 结果？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>多 Agent 的价值是上下文隔离、专业化、并行和独立故障域，
+      不是“多几个模型角色就更聪明”。主 Agent 应通过显式任务协议获得结构化结果，而不是共享一块可变消息列表。</p>
+    <p class="mechanism"><b>协议：</b>父任务生成 child_run_id，传递最小输入、权限快照引用、deadline 和预算；
+      子 Agent 返回 status、result、evidence、usage、error。父 Agent 汇总时保留 provenance，并可取消未完成子任务。</p>
+    <p class="boundary"><b>风险：</b>并行会增加 token、尾延迟、重复 Tool 调用和权限传播复杂度；
+      子 Agent 不能继承父 Agent 的全部凭据，只能拿任务所需 capability。共享 Memory 还可能造成跨任务污染。</p>
+    <p class="upgrade"><b>项目选择：</b>Aegis-Agent 当前任务短，主收益来自确定性控制面而非多 Agent；
+      没有必要为简历强行引入。只有复杂研究、跨域规划或长时并行任务才值得承担协调成本。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>子 Agent 之间用 Redis Pub/Sub、Stream 还是 MQ？怎么选？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>Pub/Sub 适合在线瞬时通知，订阅者离线会丢；Redis Stream 有持久记录、
+      consumer group 和 pending entries，适合轻量可恢复任务；Kafka/RabbitMQ 更适合高吞吐、长期保留或复杂路由。</p>
+    <p class="mechanism"><b>Agent 场景：</b>任务分发需要至少一次投递、ack、重试和 dead-letter，因此不能只用 Pub/Sub；
+      进度提示可用 Pub/Sub/WebSocket。消息包含 run_id、step_id、attempt、schema_version，消费者按幂等键去重。</p>
+    <p class="boundary"><b>顺序：</b>全局顺序代价高且通常不需要；按 session/run 做 partition key 保局部顺序。
+      重平衡、超时重投会产生重复，业务仍必须幂等。</p>
+    <p class="upgrade"><b>断线重连：</b>客户端从 last delivered/event id 继续读；处理完成后 ack；
+      定期 claim 超时 pending。只说“Redis 会自动重连”没有回答消息是否丢失和重复。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>模型返回一个很大的 Tool JSON，可能卡在哪里？如何治理？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>可能卡在模型输出 token、Provider 传输、JSON 解析、schema 校验、
+      内存复制、日志序列化和下一轮上下文回灌。大 JSON 不只是延迟问题，也可能是资源耗尽攻击。</p>
+    <p class="mechanism"><b>治理：</b>限制模型 max_output_tokens、HTTP body、参数字段长度/数组数量和递归深度；
+      解析后立即按 schema 拒绝未知字段；日志只记 digest/摘要；大结果存对象存储，消息里传引用。</p>
+    <p class="boundary"><b>流式：</b>标准 JSON 往往要完整结束才能可靠解析，边生成边执行有截断和参数变更风险；
+      写操作绝不能在参数未闭合时开始。可使用增量 parser 做早期大小拒绝，但最终执行仍等完整校验。</p>
+    <p class="upgrade"><b>项目映射：</b>Thread 读取已有条数和字符上限；同样的限额应覆盖 Tool arguments、
+      Tool response、Memory 和 RAG chunk，形成统一资源预算。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">中高频</span>Agent 中间件链怎么设计？顺序错了会有什么安全问题？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>中间件应围绕一次 run/tool call 提供可组合的横切能力，
+      典型顺序是可信上下文绑定→认证授权→预算/准入→schema/业务校验→超时重试→执行→结果清洗→审计指标。</p>
+    <p class="mechanism"><b>顺序原因：</b>先鉴权再缓存，避免跨用户缓存命中；先幂等 claim 再远端写；
+      tracing 最外层覆盖所有拒绝；重试只包可重试执行，不应重新消耗用户确认或重复 admission。</p>
+    <p class="boundary"><b>上下文传播：</b><code>ContextVar</code> 随 asyncio Task 传播，但新线程需要显式复制；
+      后台 Job 不能依赖进程内 ContextVar，必须把最小可信上下文持久化并在 worker 端重新验证。</p>
+    <p class="upgrade"><b>测试：</b>为中间件顺序写 contract test：未授权请求不能触达缓存/Tool；
+      重试保持同一 idempotency key；取消后 finally 释放 ticket；日志不泄露凭据和完整敏感 payload。</p>
+  </div></details>
+</section>
+
+<section class="section" id="backend-foundations">
+  <h2>17. 后端基础与线上故障高频题</h2>
+  <details class="q"><summary><span class="freq">极高频</span>请求量涨 10 倍，你先优化哪里？不要一句“加机器”。</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>先用容量模型和 trace 找瓶颈，而不是平均撒资源。
+      将端到端拆为 admission wait、LLM、embedding、rerank、DB、Tool API 和序列化，比较各段利用率与尾延迟。</p>
+    <p class="mechanism"><b>项目优先级：</b>入口限流/排队防崩；Provider 连接池与按租户配额；Embedding 批处理和缓存；
+      HNSW 索引常驻/增量构建；SQLite 迁 PostgreSQL；长任务独立 worker。对话 worker 与摄取/重排 worker 分池隔离。</p>
+    <p class="boundary"><b>容量：</b>Little's Law 用 <code>L=λW</code> 估算在途量，但必须用稳定窗口和独立 gauge 校验；
+      LLM 外部配额可能先于 CPU 成为瓶颈。拒绝率、P99 和 token/success 要和 QPS 一起报告。</p>
+    <p class="upgrade"><b>降级：</b>先关闭昂贵非关键能力或降低 rerank fanout，再降级只读缓存/关键词检索；
+      写控制面、ACL 和幂等不可为了吞吐关闭。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">极高频</span>接口从 200ms 变成 5s、CPU 飙升，你怎么排查？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>先止损再定位：确认影响范围与变更时间，限流/回滚/熔断，
+      然后从 RED 指标和分布式 trace 判断是流量、错误还是单请求服务时间增长。</p>
+    <p class="mechanism"><b>排查树：</b>看事件循环 lag、CPU profile、GC、线程/Task 数、连接池等待、慢 SQL、
+      Redis/下游 P99、模型 429/超时、日志量和 payload 大小。Agent 特有问题还包括 Tool 循环、上下文膨胀、
+      HNSW 因 revision 频繁全量重建。</p>
+    <p class="boundary"><b>不要做：</b>只看平均值、直接重启、同时改多个参数。CPU 高可能是业务增长、死循环、
+      JSON/Tokenizer、embedding 或日志序列化，需要 profile 证明。</p>
+    <p class="upgrade"><b>复盘：</b>固定故障时间线、检测/缓解/恢复时长、根因和触发条件；
+      加针对性的 dashboard、告警、负载回归和容量阈值，而不是写“加强监控”。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>Agent 和 LLM 超时怎么分层处理？重试几次？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>要分 connection timeout、单次 Provider deadline、单 Tool deadline、
+      单迭代 deadline 和整个 turn deadline。内层超时不能突破外层剩余预算。</p>
+    <p class="mechanism"><b>重试：</b>只对明确瞬时错误如 429、部分 5xx、连接重置做带 jitter 的指数退避；
+      每次重试复用 request/idempotency key，并受总 deadline 限制。非法参数、权限拒绝、上下文超长不能盲重试。</p>
+    <p class="boundary"><b>写 Tool：</b>超时可能是 unknown result，不能直接重放；先查询或依赖远端幂等。
+      LLM 重试也可能产生不同计划，所以已完成 Tool 结果要保留，避免从头执行整个 Agent。</p>
+    <p class="upgrade"><b>用户体验：</b>短请求可同步等待；超过阈值转异步 job，返回进度和取消能力；
+      观测 timeout stage、attempt 和最终 outcome，不能把所有超时记成一个 500。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">极高频</span>消息队列如何保证顺序、避免重复、减少丢失？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>MQ 通常只能在特定边界提供至少一次或至多一次，
+      “绝对不重复且不丢”需要端到端业务协议。顺序一般只保证同 partition/session key 内。</p>
+    <p class="mechanism"><b>方案：</b>producer 使用确认/事务 outbox；消息带 event_id、aggregate_id、sequence；
+      consumer 事务内记录 inbox/idempotency key 后更新业务；成功后 ack；失败重试并进入 DLQ。
+      session_id 作为 partition key 可维持同会话顺序。</p>
+    <p class="boundary"><b>Agent 场景：</b>模型调用成本高，重复消息不仅重复回复，还可能重复写操作；
+      因此 Channel message_id、run_id、step_id 和 Tool idempotency key 要贯通。DLQ 中可能含敏感上下文，需要加密和访问控制。</p>
+    <p class="upgrade"><b>恢复：</b>消费者处理成功但 ack 前崩溃会重复；先 ack 又可能丢。
+      选择至少一次 + 幂等通常比追求 MQ 层 exactly-once 更现实。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>缓存穿透、击穿、雪崩和一致性，放到这个 Agent 项目怎么答？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>穿透是查询不存在键反复打 DB；击穿是热点键失效瞬间并发回源；
+      雪崩是大量键同时失效或缓存整体不可用。一致性问题是 DB 更新后缓存仍旧。</p>
+    <p class="mechanism"><b>方案：</b>不存在值短 TTL/Bloom Filter；热点 singleflight/互斥重建和逻辑过期；
+      TTL 加随机抖动、多级缓存；更新采用 DB commit 后删缓存，必要时 outbox/CDC 二次失效。
+      对 Prompt/Skill 配置可用 version key，灰度切换而非原地覆盖。</p>
+    <p class="boundary"><b>安全：</b>ACL、Memory、RAG 可见结果的缓存键必须包含 tenant、principal/audience、
+      roles/ACL version 和数据 revision。宁可 miss 也不能让旧授权缓存继续命中；撤权事件优先失效。</p>
+    <p class="upgrade"><b>项目选择：</b>Embedding 可按规范化文本+模型版本缓存；Rerank 结果需包含 query、
+      candidate digest 和模型版本；不要缓存包含用户私密内容的完整 Prompt。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>MySQL 联合索引何时失效？你会怎样为 pending operation 表建索引？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>B+Tree 联合索引遵循最左前缀；前导列缺失、对索引列做函数/隐式类型转换、
+      <code>LIKE '%x'</code>、低选择性或范围列后的后续排序利用都可能让优化器不走预期索引。</p>
+    <p class="mechanism"><b>状态机表：</b>常见查询是按 token_hash 查单条、按 idempotency_key 去重、
+      按 status+updated_at 扫描超时 executing。因此分别需要 UNIQUE(token_hash)、UNIQUE(idempotency_key)
+      和 <code>(status, updated_at)</code>；tenant 隔离时把 tenant 放在业务唯一键和扫描索引前部。</p>
+    <p class="boundary"><b>验证：</b>用 <code>EXPLAIN ANALYZE</code> 看实际 rows、回表和排序，不背“索引一定生效”。
+      索引增加写放大和存储；状态低基数字段单列索引通常收益有限，要和时间范围组合。</p>
+    <p class="upgrade"><b>并发：</b>claim 使用条件 UPDATE/CAS，而不是先 SELECT 再 UPDATE；
+      PostgreSQL 多 worker 可用 <code>FOR UPDATE SKIP LOCKED</code> 批量领取待恢复任务。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>HTTP 请求从发起到返回经历什么？HTTP 与 RPC 有什么区别？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>客户端先做 URL/代理解析、DNS、建立 TCP；HTTPS 再做 TLS；
+      发送请求后经网关/负载均衡到服务，服务访问下游并返回，连接可复用。HTTP/2 多路复用减少连接竞争，
+      HTTP/3 基于 QUIC 改善队头阻塞。</p>
+    <p class="mechanism"><b>HTTP vs RPC：</b>HTTP 是传输/应用协议族；RPC 是把远端调用抽象成本地函数的通信范式，
+      可基于 HTTP/2（gRPC）或其他协议。RPC 常有 IDL、代码生成、二进制序列化和 deadline 传播；
+      REST 更资源化、调试和生态简单。</p>
+    <p class="boundary"><b>Agent 场景：</b>流式 token 常用 SSE/WebSocket；Tool 调用适合带 deadline 和 trace 的 RPC/HTTP；
+      长任务不要靠无限延长请求超时，应转 job。连接复用、DNS、TLS 和代理都可能解释模型 API 尾延迟。</p>
+    <p class="upgrade"><b>可靠性：</b>明确 connect/read/write/pool timeout，传播 request_id 和 deadline；
+      不要在没有幂等语义时由网关自动重试 POST 写操作。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>令牌桶、漏桶、固定窗口、滑动窗口怎么选？你的 admission 属于哪类？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>固定窗口简单但边界突刺；滑动日志精确但存储高，滑动计数折中；
+      令牌桶限制平均速率并允许 burst；漏桶把流量整形成稳定输出。它们主要管速率，Semaphore/admission 主要管并发和排队。</p>
+    <p class="mechanism"><b>项目定位：</b><code>FairAdmissionController</code> 是 global/per-principal 在飞上限 +
+      有界等待队列 + least-in-flight 调度，不是 token bucket。它控制同时占用昂贵 Agent 资源的请求数，
+      但不直接限制每分钟调用次数或 token 消耗。</p>
+    <p class="boundary"><b>组合：</b>网关用 token bucket 管 tenant/user 速率，Worker admission 管并发，
+      Provider 再按模型 RPM/TPM 做配额。分布式令牌桶需处理 Redis 原子脚本、时钟和故障降级。</p>
+    <p class="upgrade"><b>响应：</b>过载返回明确 retry-after 或排队位置；安全关键写操作可设更小独立池，
+      避免长 RAG/LLM 请求把确认提交饿死。</p>
+  </div></details>
+</section>
+
+<section class="section" id="model-foundations">
+  <h2>18. Transformer、训练与数学基础</h2>
+  <details class="q"><summary><span class="freq">中高频</span>从数学上解释 Attention，它在 Agent 长上下文里有什么局限？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>Scaled dot-product attention 为
+      <code>softmax(QKᵀ/√dₖ)V</code>：Q 与 K 的点积给相关性，除以根号维度控制方差，
+      softmax 得到权重后对 V 加权。Multi-head 在不同投影子空间捕获不同关系。</p>
+    <p class="mechanism"><b>局限：</b>标准全注意力时间和显存近似随序列长度平方增长；位置越长不代表模型能稳定利用全部事实，
+      还存在 lost-in-the-middle、噪声稀释和冲突信息。长上下文容量不等于有效记忆。</p>
+    <p class="boundary"><b>项目映射：</b>Aegis-Agent 不把全部 History、Skill 和 RAG 文档常驻 Prompt，
+      而是用临时模型视图、压缩、渐进式 Skill 和权限内检索提高信息密度。压缩有损，所以原始持久历史仍保留。</p>
+    <p class="upgrade"><b>优化：</b>Prompt 结构化、把关键约束放稳定位置、检索选证据、去重、摘要分层和 KV cache；
+      任何优化都要用 Context Fidelity 与任务成功率验证，而不只看 token 下降。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">中高频</span>SFT 数据怎么构造？为什么训练一个模型不一定能解决你的 Tool 冗余？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>SFT 用高质量 instruction-input-output/trajectory 做 next-token learning，
+      让模型学习目标格式和行为。数据需去重、覆盖任务族和失败边界，训练/验证集按来源或模板隔离，避免泄漏。</p>
+    <p class="mechanism"><b>Tool 数据：</b>应包含“该调用/不该调用”、正确参数、多步 observation、工具错误恢复和最终停止；
+      只收集成功轨迹会教模型在所有场景积极调用工具，反而提高 Recall、降低 Precision。</p>
+    <p class="boundary"><b>项目取舍：</b>当前 Agent Live 只有 24 条回归任务，远不足以支撑可靠 SFT；
+      先通过 Prompt/schema、Tool 说明、负样本和路由规则诊断冗余更经济。不能把小测试集同时当训练集和证明集。</p>
+    <p class="upgrade"><b>评测：</b>冻结独立 test，报告 strict TSR、Tool P/R、参数准确率、冗余率、延迟和成本；
+      新模型若成功率上升但安全门禁失败，仍不可发布。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">中高频</span>PPO、DPO、GRPO 的核心区别是什么？Agent 项目需要哪个？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>PPO 是在线 RL，基于 reward/advantage 对策略做裁剪更新，通常需 value model；
+      DPO 直接用偏好对优化相对参考模型的分类式目标，不显式训练 reward model；
+      GRPO 对同一问题采样一组回答，用组内相对 reward 估计 advantage，减少对独立 critic 的依赖。</p>
+    <p class="mechanism"><b>Agent 奖励：</b>可以由任务成功、Tool 参数、步数、成本、安全 violation 组成，
+      但简单加权会让模型钻空子。例如过度拒答可降低安全违规，却损害有用性；必须保留硬约束和分项 Board。</p>
+    <p class="boundary"><b>项目选择：</b>Aegis-Agent 是工程控制面项目，没有进行模型后训练；
+      当前数据规模和算力不支持严谨 PPO/DPO/GRPO。面试时应说明理解方法，但不声称使用过。</p>
+    <p class="upgrade"><b>若开展：</b>先积累可复算轨迹、构造偏好/验证集、做 reward hacking 审计；
+      安全授权仍由代码硬门禁，不能期望 RL 让模型“学会永不越权”。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>Embedding、Bi-Encoder 和 Cross-Encoder 的区别？为什么不能全库用 Cross-Encoder？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>Bi-Encoder 分别编码 query 和 document，可离线预计算文档向量并用 ANN 搜索，
+      适合大规模召回；Cross-Encoder 联合编码 query-document，交互充分、排序更准，但每个 pair 都要一次前向计算。</p>
+    <p class="mechanism"><b>两阶段：</b>BM25/Embedding 从权限内语料召回 top-N，RRF 融合后 Cross-Encoder 只重排少量候选。
+      这样把复杂度从全库 pair 计算降为 N 次，同时保留前排质量。</p>
+    <p class="boundary"><b>项目归因：</b>固定 GLM Embedding 和数据集，Stub→BGE reranker 的 nDCG@5
+      0.788→0.894 才是可解释 A/B；Hashing 与 GLM 的结果不能直接归因给 reranker。</p>
+    <p class="upgrade"><b>延迟：</b>批量 pair、缓存 query/candidate digest、控制 N、量化/小模型和超时降级；
+      但 Cross-Encoder 只能看到已召回候选，召回阶段漏掉的 gold 无法救回。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>父子索引是什么？它和普通 overlap chunking 的区别？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>父子索引用小 child chunk 做精确检索，命中后返回更大的 parent chunk 给模型，
+      兼顾 embedding 粒度和回答上下文完整性；overlap 只是相邻 chunk 重叠，仍在同一粒度返回。</p>
+    <p class="mechanism"><b>数据模型：</b>child 保存 parent_id、span、embedding 和 ACL；检索/重排 child 后按 parent 聚合、
+      去重并控制总 token。ACL 必须在 parent 和 child 上一致，不能命中可见 child 后带出不可见 parent 内容。</p>
+    <p class="boundary"><b>代价：</b>parent 太大会引入噪声和 token 成本；多个 child 命中同一 parent 会造成重复；
+      parent 更新要使所有 child revision 失效。它不是所有数据都优于语义 chunking。</p>
+    <p class="upgrade"><b>项目现状：</b>Aegis-Agent 当前主要是字符/结构 chunk + overlap，没有实现父子索引；
+      可作为下一步实验，用事实覆盖率、nDCG、Faithfulness、token 和 P95 做单变量比较。</p>
+  </div></details>
+
+  <details class="q"><summary><span class="freq">高频</span>如何评估 Planning 和 Hallucination？为什么一个总准确率不够？</summary><div class="answer">
+    <p><span class="answer-title">直接回答：</span>Planning 要拆成计划可执行性、Tool 选择、参数、依赖顺序、恢复和停止；
+      Hallucination 要区分答案事实错误、无证据断言、伪造引用、伪造 Tool 结果和越权事实。它们失败机制不同。</p>
+    <p class="mechanism"><b>项目 Board：</b>Agent Live 用 strict TSR、Tool P/R、Argument Accuracy、Redundant Tool Rate；
+      RAG 用 Recall/MRR/nDCG、Faithfulness、Groundedness、Citation P/R；Security 用 violations 硬门禁。
+      结构化 observation 和 JSON artifact 支持逐样本复算。</p>
+    <p class="boundary"><b>统计：</b>24/96 条冻结集适合回归，不足以声称生产错误率；
+      模板重复、宽 gold、把标签喂给策略都会制造虚高。开放回答仍需要冻结 rubric 的盲审。</p>
+    <p class="upgrade"><b>线上：</b>采样真实任务并按风险分层，记录失败 taxonomy、用户纠正和 Tool trace；
+      用置信区间和版本对照报告变化，安全指标不与质量做加权平均。</p>
+  </div></details>
+</section>
+
+<section class="section" id="checklist">
+  <h2>19. 面试前最终检查清单</h2>
+  <ul class="check">
+    <li>能在白板上画出 MessageBus → AgentLoop → AgentRunner → Tool → Session 的完整链路。</li>
+    <li>能不看稿写出 DM/group/project 的授权谓词和 prepare/commit 状态机。</li>
+    <li>能解释 Recall、MRR、nDCG、strict TSR、Tool P/R 的分母和互补关系。</li>
+    <li>能明确区分：Nanobot 原有能力、本人复用、本人改造、仅原型未接主链。</li>
+    <li>能主动说出 5 个失败窗口：Bus 无界、预检 TOCTOU、SQLite 阻塞、索引重建、远端未知结果。</li>
+    <li>所有数字都带口径：固定数据集、模型版本、对照变量、样本数和不可外推边界。</li>
+    <li>不要声称 exactly-once、绝对防注入、严格公平、企业级 SLA 或生产 ASR=0。</li>
+  </ul>
+  <div class="box amber"><b>最后一句建议：</b>真正有竞争力的不是“项目没有缺点”，而是你能从源码、
+    数据和故障窗口出发，准确说明它现在保证了什么、为什么成立、下一步如何演进。</div>
+  <p class="source">核心证据入口：<code>NANO_AGENT_GUIDE.html</code>、
+    <code>NANOSCOPE_LEARNING_GUIDE.html</code>、<code>reports/baselines/UNIFIED_V1.json</code>、
+    <code>reports/baselines/RAG_V1.json</code>、<code>reports/baselines/AGENT_LIVE_V1.json</code>。</p>
+</section>
+</main>
+</div>
+</body>
+</html>

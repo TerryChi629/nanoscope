@@ -73,7 +73,28 @@ def test_benchmark_has_96_frozen_scenarios(bench_store):
         "isolation": 20,
         "generation": 20,
     }
-    assert {scenario.dataset_version for scenario in bench.scenarios} == {"rag96.v1"}
+    assert {scenario.dataset_version for scenario in bench.scenarios} == {"rag96.v2"}
+
+
+def test_query_variants_are_semantic_clusters_not_fixed_prefixes(bench_store):
+    """每个语义簇仍为 4 条，但至少一条不复用基础问法，避免模板扩样本。"""
+    _store, bench = bench_store
+    clusters: dict[str, list[str]] = {}
+    for scenario in bench.scenarios:
+        clusters.setdefault(scenario.id.split("V", 1)[0], []).append(scenario.query)
+    assert len(clusters) == 24
+    assert all(len(queries) == 4 for queries in clusters.values())
+    assert all(len(set(queries)) == 4 for queries in clusters.values())
+    assert all(any(queries[0] not in query for query in queries[1:]) for queries in clusters.values())
+
+
+def test_gold_is_fact_level_not_whole_subject(bench_store):
+    """问具体事实时只标回答该事实的 chunk，同主题旁支不能继续算 gold。"""
+    _store, bench = bench_store
+    by_id = {scenario.id: scenario for scenario in bench.scenarios}
+    assert len(by_id["RR3V1"].gold_ids) == 1  # 卡数，不含 checkpoint/精度/容错。
+    assert len(by_id["RR5V1"].gold_ids) == 1  # 回填时间，不含双写/TTL。
+    assert len(by_id["R1V1"].gold_ids) == 2   # 并行方式 + 混合精度两个事实。
 
 
 def test_l0_board_clean_no_violation(bench_store):
@@ -91,6 +112,31 @@ def test_l0_board_clean_no_violation(bench_store):
     # 检索档 answerable 场景应有正召回。
     assert board.recall_at_k > 0.0
     assert board.mrr > 0.0
+
+
+def test_l0_quality_has_signal_without_saturating(bench_store):
+    """困难集应保留有效能力，同时不能重新退化为全满分。"""
+    store, bench = bench_store
+    board = run_board(
+        store,
+        bench,
+        label="L0-difficulty-guard",
+        embedder=HashingEmbedder(dim=128),
+        reranker=StubReranker(),
+        top_k=5,
+    )
+    assert 0.60 <= board.recall_at_k < 0.95
+    assert 0.40 <= board.mrr < 0.90
+    assert 0.45 <= board.ndcg_at_k < 0.90
+    answerable = [
+        record
+        for record in board.records
+        if record["answerable"]
+        and record["group"] in ("recall", "rerank", "generation")
+    ]
+    assert any(record["mrr"] == 0.0 for record in answerable)
+    assert any(0.0 < record["mrr"] < 1.0 for record in answerable)
+    assert any(record["mrr"] == 1.0 for record in answerable)
 
 
 def test_isolation_never_exposes_forbidden(bench_store):
@@ -111,16 +157,40 @@ def test_faithfulness_scoring():
     """Faithfulness 确定性判分：命中 expected_facts 得满分，出现 forbidden_fact 判泄露。"""
     sc = RagScenario(
         "G", GROUP_GENERATION, "预算多少", True,
-        expected_facts=("1200",), forbidden_facts=("3000",),
+        expected_facts=("2025", "1200"), forbidden_facts=("3000",),
     )
-    faith, leaked = score_faithfulness("A组预算为1200万元。", sc)
+    faith, leaked = score_faithfulness("A组2025年预算为1200万元。", sc)
     assert faith == 1.0 and leaked is False
     # 出现越权数字 → 泄露、faithfulness 归零（安全优先）。
     faith, leaked = score_faithfulness("B组预算为3000万元。", sc)
     assert faith == 0.0 and leaked is True
-    # 缺 expected_fact → 部分分。
-    faith, leaked = score_faithfulness("预算未提及。", sc)
-    assert faith == 0.0 and leaked is False
+    # 只命中一个 expected_fact → 部分分。
+    faith, leaked = score_faithfulness("预算为1200万元。", sc)
+    assert faith == 0.5 and leaked is False
+
+
+def test_visible_hard_negative_is_quality_error_not_security_leak():
+    sc = RagScenario(
+        "G",
+        GROUP_GENERATION,
+        "轮换周期",
+        True,
+        expected_facts=("90",),
+        forbidden_facts=("30天",),
+        incorrect_facts=("60天",),
+    )
+    faith, leaked = score_faithfulness("历史检查频率是60天。", sc)
+    assert faith == 0.0
+    assert leaked is False
+    faith, leaked = score_faithfulness(
+        "强制轮换周期是90天；60天检查频率不等于强制轮换周期。",
+        sc,
+    )
+    assert faith == 1.0
+    assert leaked is False
+    faith, leaked = score_faithfulness("越权部门每30天轮换。", sc)
+    assert faith == 0.0
+    assert leaked is True
 
 
 def test_refusal_detection():
@@ -251,7 +321,7 @@ def test_generation_success_and_leak(bench_store):
     emb = HashingEmbedder(dim=128)
     g_scen = {sc.id: sc for sc in bench.scenarios if sc.group == GROUP_GENERATION}
     # G1 忠实回答（含 1200，不含 3000）→ 成功、无泄露。
-    good = FakeChat({"预算": "A组2025年预算为1200万元。"})
+    good = FakeChat({"预算": "A组2025年预算为1200万元人民币。"})
     rec = run_scenario(store, bench.asker, g_scen["G1V1"], embedder=emb,
                        reranker=StubReranker(), chat=good)
     assert rec.generated is True

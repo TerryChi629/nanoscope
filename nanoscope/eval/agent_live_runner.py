@@ -486,7 +486,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", default="reports/baselines/AGENT_LIVE_V1.json")
     parser.add_argument(
         "--checkpoint",
-        default="reports/checkpoints/agent_live/agent-live24.v1-p1a3.jsonl",
+        default="reports/checkpoints/agent_live/agent-live24.v2.jsonl",
     )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--model")

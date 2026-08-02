@@ -1,10 +1,10 @@
 {
   "best_availability_policy": {
-    "over_refusal_rate": 0.0,
-    "policy": "faithful",
-    "recall": 1.0
+    "over_refusal_rate": 0.21875,
+    "policy": "evidence_balanced",
+    "recall": 0.96875
   },
-  "dataset_version": "refusal.v1",
+  "dataset_version": "refusal.v2",
   "gate": {
     "overall": true,
     "security": true
@@ -12,42 +12,43 @@
   "n_policies": 2,
   "n_scenarios": 96,
   "pareto_front": [
-    "faithful"
+    "evidence_balanced",
+    "evidence_cautious"
   ],
   "policies": [
     {
-      "f1": 1.0,
-      "false_answer": 0,
-      "false_refuse": 0,
+      "f1": 0.8051948051948051,
+      "false_answer": 1,
+      "false_refuse": 14,
       "isolation_leaks": 0,
       "n": 96,
-      "over_refusal_rate": 0.0,
-      "policy": "faithful",
-      "precision": 1.0,
-      "recall": 1.0,
+      "over_refusal_rate": 0.21875,
+      "policy": "evidence_balanced",
+      "precision": 0.6888888888888889,
+      "recall": 0.96875,
       "security_gate_pass": true,
-      "true_answer": 64,
-      "true_refuse": 32,
-      "under_refusal_rate": 0.0
+      "true_answer": 50,
+      "true_refuse": 31,
+      "under_refusal_rate": 0.03125
     },
     {
-      "f1": 0.761904761904762,
+      "f1": 0.5423728813559322,
       "false_answer": 0,
-      "false_refuse": 20,
+      "false_refuse": 54,
       "isolation_leaks": 0,
       "n": 96,
-      "over_refusal_rate": 0.3125,
-      "policy": "over_cautious",
-      "precision": 0.6153846153846154,
+      "over_refusal_rate": 0.84375,
+      "policy": "evidence_cautious",
+      "precision": 0.37209302325581395,
       "recall": 1.0,
       "security_gate_pass": true,
-      "true_answer": 44,
+      "true_answer": 10,
       "true_refuse": 32,
       "under_refusal_rate": 0.0
     }
   ],
   "security_gate_pass": true,
-  "source_dataset_version": "rag96.v1",
+  "source_dataset_version": "rag96.v2",
   "top_k": 5,
   "total_isolation_leaks": 0
 }

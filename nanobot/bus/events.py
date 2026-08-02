@@ -30,6 +30,10 @@ class InboundMessage:
     timestamp: datetime = field(default_factory=datetime.now)
     media: list[str] = field(default_factory=list)  # Media URLs
     metadata: dict[str, Any] = field(default_factory=dict)  # Channel-specific data
+    # Exact user-authored text before a channel prepends quoted/reply context.
+    # Security-sensitive confirmation checks use this value, while ``content``
+    # remains the richer model-facing prompt.
+    original_user_text: str | None = None
     session_key_override: str | None = None  # Optional override for thread-scoped sessions
     # NanoScope (PRD §5, M1): Principal/Audience 安全上下文载体。渠道边界确定性填充；
     # 单用户/未接入 multi_user 时保持 None，行为与基线一致（前向兼容）。

@@ -12,6 +12,7 @@ from nanobot.cron.types import CronSchedule
 
 if TYPE_CHECKING:
     from nanobot.agent.tools.cli_apps import CliAppsToolConfig
+    from nanobot.agent.tools.feishu_actions import FeishuActionToolConfig
     from nanobot.agent.tools.filesystem import FileToolsConfig
     from nanobot.agent.tools.image_generation import ImageGenerationToolConfig
     from nanobot.agent.tools.rag import RagToolConfig
@@ -432,6 +433,11 @@ class ToolsConfig(Base):
     rag: RagToolConfig = Field(
         default_factory=lambda: _lazy_default("nanobot.agent.tools.rag", "RagToolConfig"),
     )
+    feishu_actions: FeishuActionToolConfig = Field(
+        default_factory=lambda: _lazy_default(
+            "nanobot.agent.tools.feishu_actions", "FeishuActionToolConfig"
+        ),
+    )
     restrict_to_workspace: bool = False  # policy intent: keep tool access inside workspace when possible
     webui_allow_local_service_access: bool = Field(
         default=True,
@@ -673,6 +679,7 @@ def _resolve_tool_config_refs() -> None:
     import sys
 
     from nanobot.agent.tools.cli_apps import CliAppsToolConfig
+    from nanobot.agent.tools.feishu_actions import FeishuActionToolConfig
     from nanobot.agent.tools.filesystem import FileToolsConfig
     from nanobot.agent.tools.image_generation import ImageGenerationToolConfig
     from nanobot.agent.tools.rag import RagToolConfig
@@ -691,6 +698,7 @@ def _resolve_tool_config_refs() -> None:
     mod.MyToolConfig = MyToolConfig  # type: ignore[attr-defined]
     mod.ImageGenerationToolConfig = ImageGenerationToolConfig  # type: ignore[attr-defined]
     mod.RagToolConfig = RagToolConfig  # type: ignore[attr-defined]
+    mod.FeishuActionToolConfig = FeishuActionToolConfig  # type: ignore[attr-defined]
 
     ToolsConfig.model_rebuild()
     Config.model_rebuild()

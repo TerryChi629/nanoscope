@@ -6,9 +6,9 @@
       "version": "agent60.v1"
     },
     "agent_live": {
-      "sha256": "5f7eb1d1718e791e5d3770dd883e509d3680eead4e52890393ccc8fddf8f7779",
+      "sha256": "b5bac44cfd37ed33e36e25071699e297fc2187eda03374a622cfdbbd10de6979",
       "source": "nanoscope/eval/agent_live_dataset.py",
-      "version": "agent-live24.v1"
+      "version": "agent-live24.v2"
     },
     "agent_open": {
       "sha256": "683dbf1b3bea15cd47de3d225f9d86400a483ad4014c9d33b7c626fc40ab0d27",
@@ -16,27 +16,27 @@
       "version": "agent-open30.v1"
     },
     "ingest": {
-      "sha256": "a23704e80d18481ae9070139434b7579e3dc0daa9c7e8ffdd60d5242bfeac41c",
+      "sha256": "8835c49a48fa822e44a7ab180b61fa7c27d3c6c1458a5b35912604c2c55a14bd",
       "source": "nanoscope/eval/ingest_dataset.py",
-      "version": "ingest.v1"
+      "version": "ingest.v2"
     },
     "injection_asr": {
-      "sha256": "36f4121bdacb7ae2d04c1c6a65d465b77bea14979dca218a781ba2f5e250d66b",
+      "sha256": "a6bee7e30e4bdd4c7e0dec2c7b943206dd69e31101c984877b1bdf31d0e6e617",
       "source": "nanoscope/eval/injection_asr_bench.py",
-      "version": "injection_asr.v1"
+      "version": "injection_asr.v2"
     },
     "rag": {
-      "sha256": "92135c47b749b8c8a383b3459bae979f45e32a385c6ab599dee09ad60833dab5",
+      "sha256": "22d1d0db2ed9266199ec6c0ddb6fff67c44b30c50abbd5d10d4a3d3eaf7b61ab",
       "source": "nanoscope/eval/rag_frozen.py",
-      "version": "rag96.v1"
+      "version": "rag96.v2"
     },
     "refusal": {
-      "sha256": "e96cfcf424d7e621fc4839f6166a2b38de57ca39ebe558fe6d6d2445ad2a3276",
+      "sha256": "abb7cd695caf94b14aec34bfed28f0da23c6ff55e2ec29fa76cabed55a202f3a",
       "source": "nanoscope/eval/refusal_bench.py",
-      "version": "refusal.v1"
+      "version": "refusal.v2"
     },
     "security": {
-      "sha256": "c8052f90467fd3355c44b493ebf011baf2247995d86a51c21f838020ff03c382",
+      "sha256": "f5e5923952a0f18a5308fe8b2e266267f99a92cf565e441a12d4e7cbfe0a6594",
       "source": "nanoscope/eval/security_cases.py",
       "version": "security8.v1"
     }

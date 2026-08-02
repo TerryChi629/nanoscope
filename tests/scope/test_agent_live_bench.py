@@ -45,7 +45,7 @@ def test_agent_live_v1_has_24_frozen_tasks_and_real_recovery_cases():
     for task in tasks:
         groups[task.suite] = groups.get(task.suite, 0) + 1
 
-    assert AGENT_LIVE_DATASET_VERSION == "agent-live24.v1"
+    assert AGENT_LIVE_DATASET_VERSION == "agent-live24.v2"
     assert len(tasks) == 24
     assert len({task.id for task in tasks}) == 24
     assert groups == {
@@ -59,6 +59,10 @@ def test_agent_live_v1_has_24_frozen_tasks_and_real_recovery_cases():
     recovery = [task for task in tasks if task.suite == "failure_recovery"]
     assert all(task.recovery_expected for task in recovery)
     assert all(task.expected_tools == ("unstable_lookup", "unstable_lookup") for task in recovery)
+    prompts = [task.prompt for task in tasks]
+    assert all("请用计算工具" not in prompt for prompt in prompts)
+    assert all("不要调用工具" not in prompt for prompt in prompts)
+    assert all("重试一次" not in prompt for prompt in prompts)
 
 
 def test_agent_board_reports_partial_sequence_recovery_and_iteration_rates():
@@ -140,7 +144,7 @@ def test_live_artifact_records_model_but_never_credential_values(tmp_path: Path)
         ),
         model="deepseek-v4-flash",
         provider="deepseek",
-        dataset_version="agent-live24.v1",
+        dataset_version="agent-live24.v2",
         credential_env_names=("DEEPSEEK_API_KEY",),
         secret_values=("must-not-appear",),
     )

@@ -1,4 +1,4 @@
-"""摄取质量基准 ingest.v1：chunking 策略/参数网格 × 召回质量 × 隔离安全。
+"""摄取质量基准 ingest.v2：chunking 策略/参数网格 × 召回质量 × 隔离安全。
 
 设计要点：
 - 对每种 (strategy, size, overlap) 配置，用 `ingest_document` 真正切分并落库，再用

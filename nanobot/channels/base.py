@@ -225,6 +225,7 @@ class BaseChannel(ABC):
         session_key: str | None = None,
         is_dm: bool = False,
         authorization_id: str | None = None,
+        original_user_text: str | None = None,
     ) -> None:
         """Handle a message after checking its authorization subject.
 
@@ -271,6 +272,9 @@ class BaseChannel(ABC):
             content=content,
             media=media or [],
             metadata=meta,
+            original_user_text=(
+                content if original_user_text is None else original_user_text
+            ),
             session_key_override=session_key,
             audience_type="dm" if is_dm else "group",
             audience_id=str(sender_id) if is_dm else str(chat_id),

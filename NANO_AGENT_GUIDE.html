@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NanoScope · Agent 框架学习文档 · nanobot 沿用的基础能力全景</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(180deg, #f4f8ff 0%, #eef3fb 100%);
+    color: #1e293b; line-height: 1.75; padding: 0 0 80px;
+  }
+  header {
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 55%, #3b82f6 100%);
+    color: #fff; padding: 52px 40px 44px; box-shadow: 0 6px 28px rgba(37,99,235,.28);
+  }
+  header .wrap { max-width: 1080px; margin: 0 auto; }
+  header .kicker { font-size: 13px; letter-spacing: 3px; opacity: .82; text-transform: uppercase; }
+  header h1 { font-size: 30px; margin: 12px 0 10px; font-weight: 800; letter-spacing: .5px; }
+  header p { font-size: 15px; opacity: .92; max-width: 820px; }
+  header .meta { margin-top: 18px; font-size: 13px; opacity: .8; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 40px; }
+  nav.toc {
+    background: #fff; border: 1px solid #dbe6f5; border-radius: 16px;
+    padding: 26px 30px; margin: -28px auto 42px; max-width: 1000px;
+    box-shadow: 0 8px 30px rgba(30,64,175,.10); position: relative;
+  }
+  nav.toc h2 { font-size: 15px; color: #1e40af; margin-bottom: 14px; letter-spacing: 1px; }
+  nav.toc ol { list-style: none; counter-reset: q; }
+  nav.toc li { counter-increment: q; margin: 9px 0; padding-left: 46px; position: relative; font-size: 14.5px; }
+  nav.toc li::before {
+    content: "M" counter(q, decimal); position: absolute; left: 0; top: 1px;
+    background: #dbeafe; color: #1e40af; font-weight: 700; font-size: 12px;
+    padding: 2px 9px; border-radius: 20px; min-width: 34px; text-align: center;
+  }
+  nav.toc li.m0::before { content: "M0"; background: #fde68a; color: #92400e; }
+  nav.toc a { color: #334155; text-decoration: none; border-bottom: 1px dashed transparent; transition: .18s; }
+  nav.toc a:hover { color: #1d4ed8; border-bottom-color: #93c5fd; }
+  section.qa { margin: 0 auto 34px; max-width: 1000px; }
+  .card { background: #fff; border: 1px solid #e2e9f4; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 18px rgba(30,64,175,.07); }
+  .q-head { display: flex; align-items: flex-start; gap: 14px; padding: 22px 28px; background: linear-gradient(90deg,#eff5ff,#f7faff); border-bottom: 1px solid #e5edf9; }
+  .q-badge { flex: none; background: #2563eb; color: #fff; font-weight: 800; font-size: 14px; padding: 5px 13px; border-radius: 9px; box-shadow: 0 2px 8px rgba(37,99,235,.3); }
+  .q-text { font-size: 17px; font-weight: 700; color: #16203a; padding-top: 3px; }
+  .q-body { padding: 26px 30px 30px; }
+  .q-body p { margin: 12px 0; font-size: 15px; }
+  h3.blk { font-size: 16px; color: #1a56db; margin: 26px 0 12px; padding-left: 12px; border-left: 4px solid #1a56db; }
+  h3.blk:first-child { margin-top: 4px; }
+  h4.sub { margin: 18px 0 8px; color: #1e3a8a; font-size: 15px; }
+  ul.dot, ol.num { margin: 12px 0 12px 6px; padding-left: 22px; }
+  ul.dot li, ol.num li { margin: 8px 0; font-size: 15px; }
+  code.inl { background: #eef2f8; color: #b91c1c; padding: 2px 7px; border-radius: 5px; font-family: "SF Mono", Consolas, monospace; font-size: 13.5px; }
+  a.src { color: #1d4ed8; text-decoration: none; border-bottom: 1px dashed #93c5fd; font-family: "SF Mono", Consolas, monospace; font-size: 13px; }
+  a.src:hover { background: #eff6ff; }
+  pre { background: #0f1e38; color: #dbe7fb; border-radius: 12px; padding: 18px 20px; overflow-x: auto; margin: 16px 0; font-family: "SF Mono", Consolas, monospace; font-size: 13px; line-height: 1.7; }
+  pre .cmt { color: #7f95b3; }
+  pre .kw { color: #7dd3fc; }
+  pre .str { color: #86efac; }
+  pre .fn { color: #fcd34d; }
+  .tldr { background: #eff6ff; border: 1px solid #bfdbfe; border-left: 5px solid #2563eb; border-radius: 10px; padding: 16px 20px; margin: 8px 0 20px; font-size: 15px; }
+  .tldr b { color: #1a56db; }
+  .warn { background: #fff7ed; border: 1px solid #fed7aa; border-left: 5px solid #ea580c; border-radius: 10px; padding: 16px 20px; margin: 16px 0; font-size: 14.5px; }
+  .warn b { color: #c2410c; }
+  .analogy { background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 10px; padding: 16px 20px; margin: 16px 0; font-size: 14.5px; }
+  .analogy b { color: #15803d; }
+  .formula { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 22px; margin: 16px 0; text-align: center; font-size: 16px; color: #0f172a; letter-spacing: .3px; }
+  table.grid { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+  table.grid th, table.grid td { border: 1px solid #dbe3ef; padding: 10px 12px; text-align: left; vertical-align: top; }
+  table.grid th { background: #eef4ff; color: #1e3a8a; font-weight: 700; }
+  table.grid tr:nth-child(even) td { background: #f8fafc; }
+  .diagram { background: #f8fafc; border: 1px dashed #b6c6e3; border-radius: 12px; padding: 22px; margin: 20px 0; }
+  .diagram .title { text-align: center; font-size: 13px; color: #64748b; margin-bottom: 16px; letter-spacing: 1px; }
+  .flow { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .flow.horiz { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  .box { border-radius: 10px; padding: 12px 18px; font-size: 13.5px; text-align: center; min-width: 200px; }
+  .box.blue { background: #dbeafe; border: 1.5px solid #60a5fa; color: #1e40af; }
+  .box.green { background: #dcfce7; border: 1.5px solid #4ade80; color: #166534; }
+  .box.gray { background: #f1f5f9; border: 1.5px solid #cbd5e1; color: #475569; }
+  .box.amber { background: #fef3c7; border: 1.5px solid #fbbf24; color: #92400e; }
+  .box.red { background: #fee2e2; border: 1.5px solid #f87171; color: #991b1b; }
+  .box.purple { background: #ede9fe; border: 1.5px solid #a78bfa; color: #5b21b6; }
+  .arrow { color: #94a3b8; font-size: 18px; }
+  footer { max-width: 1000px; margin: 50px auto 0; padding: 24px 30px; text-align: center; color: #64748b; font-size: 13px; border-top: 1px solid #dbe6f5; }
+  .legend { font-size: 12.5px; color: #64748b; margin-top: 10px; text-align: center; }
+  html { scroll-behavior: smooth; }
+  /* ---- 左侧固定目录（宽屏 ≥1200px 显示；窄屏回退到顶部 nav.toc） ---- */
+  .side-toc { display: none; }
+  @media (min-width: 1200px) {
+    body { padding-left: 248px; }
+    nav.toc { display: none; }              /* 宽屏由左侧栏承担导航，隐藏顶部目录避免重复 */
+    .side-toc {
+      display: block; position: fixed; top: 0; left: 0;
+      width: 248px; height: 100vh; overflow-y: auto;
+      background: #fff; border-right: 1px solid #dbe6f5;
+      box-shadow: 2px 0 16px rgba(30,64,175,.06);
+      padding: 24px 14px 40px; z-index: 50;
+    }
+    .side-toc .st-title {
+      font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+      color: #1e40af; font-weight: 800; padding: 2px 10px 13px;
+      border-bottom: 1px solid #eef2f8; margin-bottom: 10px;
+    }
+    .side-toc ul { list-style: none; }
+    .side-toc li { margin: 2px 0; }
+    .side-toc a {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 10px; border-radius: 9px; text-decoration: none;
+      color: #475569; font-size: 13.5px; line-height: 1.35;
+      border-left: 3px solid transparent; transition: .16s;
+    }
+    .side-toc a:hover { background: #f1f6ff; color: #1d4ed8; }
+    .side-toc a .st-badge {
+      flex: none; background: #dbeafe; color: #1e40af; font-weight: 700;
+      font-size: 11px; padding: 2px 7px; border-radius: 20px;
+      min-width: 30px; text-align: center;
+    }
+    .side-toc a.m0 .st-badge { background: #fde68a; color: #92400e; }
+    .side-toc a.active {
+      background: #eff5ff; color: #1d4ed8; font-weight: 700; border-left-color: #2563eb;
+    }
+    .side-toc a.active .st-badge { background: #2563eb; color: #fff; }
+  }
+</style>
+</head>
+<body>
+<nav class="side-toc" aria-label="模块目录">
+  <div class="st-title">模块目录</div>
+  <ul>
+    <li><a class="m0" href="#m0"><span class="st-badge">M0</span>模块全景图</a></li>
+    <li><a href="#m1"><span class="st-badge">M1</span>Agent Loop</a></li>
+    <li><a href="#m2"><span class="st-badge">M2</span>Agent Runner</a></li>
+    <li><a href="#m3"><span class="st-badge">M3</span>Tools 子系统</a></li>
+    <li><a href="#m4"><span class="st-badge">M4</span>Providers 层</a></li>
+    <li><a href="#m5"><span class="st-badge">M5</span>Memory 记忆</a></li>
+    <li><a href="#m6"><span class="st-badge">M6</span>上下文压缩四层</a></li>
+    <li><a href="#m7"><span class="st-badge">M7</span>Prompt 模板</a></li>
+    <li><a href="#m8"><span class="st-badge">M8</span>Session / Context</a></li>
+    <li><a href="#m9"><span class="st-badge">M9</span>Bus 与 Channels</a></li>
+    <li><a href="#m10"><span class="st-badge">M10</span>Skills/Subagent/Command</a></li>
+    <li><a href="#m11"><span class="st-badge">M11</span>全链路串讲</a></li>
+  </ul>
+</nav>
+<header>
+  <div class="wrap">
+    <div class="kicker">NanoScope · Agent Framework Study</div>
+    <h1>Agent 框架学习文档 · nanobot 沿用的基础能力全景</h1>
+    <p>把一个「能收消息、能想、能调工具、能记忆、能自我压缩」的 Agent 项目拆成 11 个模块，逐个讲清楚职责、数据流、关键类/函数与设计要点。所有论断都锚定 NanoScope 仓库里 nanobot 的真实源码（标注文件路径 + 行号），不编造。<b>范围只覆盖 nanobot 沿用的 Agent 基础能力</b>（loop / runner / tools / providers / memory / 上下文压缩 / prompt / session / bus / channels / skills 等），NanoScope 新增的评测体系、RAG 隔离墙、多用户身份墙已在 <code class="inl">NANOSCOPE_LEARNING_GUIDE.html</code> 讲过，本篇不重复。</p>
+    <div class="meta">日期：2026-07-30 ｜ 代码根：nanobot/ ｜ 主线文件：agent/loop.py · agent/runner.py · agent/context_governance.py · agent/memory.py · providers/ · session/ · bus/ · channels/</div>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>模块目录（点击跳转 · 编号即模块号）</h2>
+  <ol>
+    <li class="m0"><a href="#m0">模块全景图 —— 一个 Agent 项目由哪些模块组成、怎么协作</a></li>
+    <li><a href="#m1">Agent Loop（agent/loop.py）—— 核心处理引擎与回合状态机</a></li>
+    <li><a href="#m2">Agent Runner（agent/runner.py）—— 通用「工具调用循环」执行器</a></li>
+    <li><a href="#m3">Tools 子系统（agent/tools/）—— 工具协议、注册表、加载器、作用域</a></li>
+    <li><a href="#m4">Providers 层（providers/）—— LLM 抽象、多后端路由与熔断降级</a></li>
+    <li><a href="#m5">Memory（agent/memory.py）—— 文件式长期记忆与 Dream 反思</a></li>
+    <li><a href="#m6">上下文压缩四层 —— Governor / Consolidator / AutoCompact / Dream</a></li>
+    <li><a href="#m7">Prompt 模板（templates/agent/ + ContextBuilder）—— 系统提示词怎么拼</a></li>
+    <li><a href="#m8">Session / Context（session/）—— 会话持久化、历史裁剪与 key 隔离</a></li>
+    <li><a href="#m9">Bus 与 Channels（bus/ + channels/）—— 消息总线与平台适配</a></li>
+    <li><a href="#m10">Skills / Subagent / Command —— 技能加载、子智能体与斜杠命令</a></li>
+    <li><a href="#m11">全链路串讲 —— 一条消息从平台进来到回复出去的完整旅程</a></li>
+  </ol>
+</nav>
+
+<div class="container">
+
+<!-- ==================== M0 模块全景 ==================== -->
+<section class="qa" id="m0">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge" style="background:#d97706">M0</span>
+      <span class="q-text">模块全景图 —— 一个 Agent 项目由哪些模块组成、怎么协作</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>一句话地图：</b>nanobot 的 Agent 运行时可以拆成两个「圈层」——<b>产品圈层</b>（Loop 管一整个回合的生命周期：收消息→建上下文→跑→存→回）和<b>执行圈层</b>（Runner 只管「LLM 想一步→调工具→再想」的纯循环）。外面包着 <b>I/O 圈</b>（Channels 适配各平台、Bus 做消息队列）；下面垫着 <b>能力圈</b>（Providers 供 LLM、Tools 供动作、Memory/Session 供状态、上下文压缩防溢出、Prompt 拼提示词）。</div>
+
+      <h3 class="blk">1 · 十一个模块的职责清单</h3>
+      <p>先给一张「谁负责什么、代码在哪」的总表。行号在后续各章会展开，这里只给入口文件与一句话职责：</p>
+      <table class="grid">
+        <tr><th>模块</th><th>入口文件（nanobot/ 下）</th><th>一句话职责</th><th>本篇章节</th></tr>
+        <tr><td><b>Agent Loop</b></td><td><code class="inl">agent/loop.py</code>（约 2290 行）</td><td>核心处理引擎：从 Bus 取消息，走「回合状态机」编排整个对话回合</td><td><a href="#m1">M1</a></td></tr>
+        <tr><td><b>Agent Runner</b></td><td><code class="inl">agent/runner.py</code>（约 1397 行）</td><td>与产品无关的「工具调用循环」：调 LLM→执行工具→回灌结果→再调，直到收敛</td><td><a href="#m2">M2</a></td></tr>
+        <tr><td><b>Tools</b></td><td><code class="inl">agent/tools/</code></td><td>工具协议（Tool ABC）、注册表、自动发现加载器、作用域（core/subagent）</td><td><a href="#m3">M3</a></td></tr>
+        <tr><td><b>Providers</b></td><td><code class="inl">providers/</code></td><td>LLM 供应商抽象：统一 chat 接口 + 多后端路由 + 重试 + 熔断降级</td><td><a href="#m4">M4</a></td></tr>
+        <tr><td><b>Memory</b></td><td><code class="inl">agent/memory.py</code>（约 1285 行）</td><td>文件式长期记忆（MEMORY/SOUL/USER + history.jsonl）+ Dream 反思重写</td><td><a href="#m5">M5</a></td></tr>
+        <tr><td><b>上下文压缩</b></td><td><code class="inl">agent/context_governance.py</code> · <code class="inl">autocompact.py</code> · <code class="inl">memory.py:Consolidator</code></td><td>四层防溢出：请求内治理 / 按 token 归并 / 空闲压缩 / 长期反思</td><td><a href="#m6">M6</a></td></tr>
+        <tr><td><b>Prompt 模板</b></td><td><code class="inl">templates/agent/*.md</code> + <code class="inl">agent/context.py</code></td><td>Jinja2 模板 + ContextBuilder，把身份/工具契约/记忆/技能拼成 system prompt</td><td><a href="#m7">M7</a></td></tr>
+        <tr><td><b>Session</b></td><td><code class="inl">session/manager.py</code>（约 968 行）</td><td>会话对象与持久化（每 key 一个 .jsonl）、历史裁剪、容量上限</td><td><a href="#m8">M8</a></td></tr>
+        <tr><td><b>Bus</b></td><td><code class="inl">bus/queue.py</code> + <code class="inl">bus/events.py</code></td><td>消息总线：inbound/outbound 两条异步队列 + 运行时事件总线</td><td><a href="#m9">M9</a></td></tr>
+        <tr><td><b>Channels</b></td><td><code class="inl">channels/manager.py</code> + <code class="inl">channels/base.py</code></td><td>平台适配层：把各 IM/CLI 的原始消息翻译成统一 InboundMessage</td><td><a href="#m9">M9</a></td></tr>
+        <tr><td><b>Skills/Subagent/Command</b></td><td><code class="inl">agent/skills.py</code> · <code class="inl">agent/subagent.py</code> · <code class="inl">command/</code></td><td>技能包加载、子智能体派生、斜杠命令路由</td><td><a href="#m10">M10</a></td></tr>
+      </table>
+
+      <h3 class="blk">2 · 两个圈层的分工——Loop vs Runner 是理解全局的钥匙</h3>
+      <p>初学者最容易混淆的就是 Loop 和 Runner 的边界。看它们各自源码文件头一行的 docstring，分工写得非常清楚：</p>
+      <table class="grid">
+        <tr><th>维度</th><th>Agent Loop</th><th>Agent Runner</th></tr>
+        <tr><td>源码 docstring</td><td><code class="inl">"Agent loop: the core processing engine."</code>（<code class="inl">loop.py:1</code>）</td><td><code class="inl">"Shared execution loop for tool-using agents."</code>（<code class="inl">runner.py:1</code>）</td></tr>
+        <tr><td>关心的东西</td><td>会话、历史、记忆、压缩、命令、多平台回复——<b>整个回合的产品语义</b></td><td>只关心「模型想一步、要不要调工具、调完接着想」——<b>纯执行语义</b></td></tr>
+        <tr><td>产物</td><td>把回复 publish 到 Bus，落库 session</td><td>返回 <code class="inl">AgentRunResult</code>（final_content / messages / usage）</td></tr>
+        <tr><td>类比</td><td>项目经理：拉需求、开会、归档、对外汇报</td><td>干活的工程师：埋头「写代码→跑测试→改」直到通过</td></tr>
+      </table>
+      <p>Loop 在 <code class="inl">_state_run</code> 里调用 <code class="inl">_run_agent_loop</code>，后者内部构造 <code class="inl">AgentRunSpec</code> 交给 Runner 执行（<code class="inl">loop.py:1917-1939</code>）。所以数据流是单向下钻的：<b>Bus → Loop（回合编排）→ Runner（工具循环）→ Providers（LLM）/ Tools（动作）</b>。</p>
+
+      <h3 class="blk">3 · 全景数据流图</h3>
+      <div class="diagram">
+        <div class="title">一条消息的完整流转（模块协作全景）</div>
+        <div class="flow">
+          <div class="box gray">平台（飞书/CLI/…）→ Channel 适配（channels/base.py）</div>
+          <div class="arrow">↓ publish_inbound</div>
+          <div class="box purple">MessageBus.inbound 队列（bus/queue.py）</div>
+          <div class="arrow">↓ consume_inbound</div>
+          <div class="box blue">AgentLoop.run —— 回合状态机 RESTORE→COMPACT→COMMAND→BUILD→RUN→SAVE→RESPOND</div>
+          <div class="arrow">↓ BUILD：ContextBuilder 拼 system prompt（含 Memory/Skills）</div>
+          <div class="box amber">AgentRunner.run —— 工具循环（prepare_for_model→LLM→执行工具→回灌）</div>
+          <div class="arrow">↓ 每一步</div>
+          <div class="flow horiz">
+            <div class="box green">Providers：调 LLM（chat）</div>
+            <div class="box green">Tools：执行动作（execute）</div>
+          </div>
+          <div class="arrow">↓ SAVE：落库 + 触发压缩</div>
+          <div class="box blue">Session 持久化（session/manager.py）+ Consolidator/AutoCompact</div>
+          <div class="arrow">↓ RESPOND → publish_outbound</div>
+          <div class="box purple">MessageBus.outbound → ChannelManager._dispatch_outbound → 平台</div>
+        </div>
+        <div class="legend">紫=总线　蓝=Loop 编排　橙=Runner 执行　绿=底层能力　灰=I/O 适配</div>
+      </div>
+
+      <div class="analogy"><b>🏭 类比：一座工厂。</b>Channels 是<b>收发货口</b>（把外面五花八门的包裹拆成标准托盘）；Bus 是<b>传送带</b>；Loop 是<b>车间主任</b>（决定这批料先做什么、做完存哪、要不要归档）；Runner 是<b>流水线机械臂</b>（重复「取件→加工→放回」直到成品）；Providers 是<b>大脑外包（LLM）</b>；Tools 是<b>各种机床</b>；Memory/Session 是<b>仓库与台账</b>；压缩四层是<b>定期清库存的班组</b>。理解了这座工厂的物流方向，后面每一章就是走进某个车间看细节。</div>
+
+      <div class="tldr"><b>收口：</b>记住三层依赖——<b>I/O 层</b>（Channels+Bus）把世界标准化；<b>编排层</b>（Loop）管回合生命周期；<b>执行层</b>（Runner）管工具循环，并向下依赖 <b>能力层</b>（Providers/Tools/Memory/Session/压缩/Prompt）。后面 M1–M11 就是沿这条链逐个拆开。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M1 Agent Loop ==================== -->
+<section class="qa" id="m1">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M1</span>
+      <span class="q-text">Agent Loop（agent/loop.py）—— 核心处理引擎与回合状态机</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>职责：</b>Loop 是整个 Agent 的<b>常驻主循环</b>——从 Bus 无限取消息，为每条消息编排一个「回合（turn）」。它自己的 docstring 列了五件事：①从 Bus 收消息 ②用历史/记忆/技能建上下文 ③调 LLM ④执行工具 ⑤把回复发回去（<code class="inl">loop.py:173-182</code>）。它把一个回合拆成 <b>7 个状态</b>用状态机跑，天生支持「同会话串行、跨会话并发」。</div>
+
+      <h3 class="blk">1 · 常驻主循环：run() 的取消息节奏</h3>
+      <p>主循环在 <code class="inl">AgentLoop.run</code>（<code class="inl">loop.py:1118</code>）。它的骨架是一个 <code class="inl">while self._running</code>，每次用 <b>1 秒超时</b>去 Bus 取一条消息——取到就分发，取不到（超时）就顺手做一次「空闲会话压缩」的检查：</p>
+<pre><span class="cmt"># loop.py:1125-1134 —— 主循环的心跳：取消息 or 借空档做空闲压缩</span>
+<span class="kw">while</span> self._running:
+    <span class="kw">try</span>:
+        msg = <span class="kw">await</span> asyncio.wait_for(self.bus.<span class="fn">consume_inbound</span>(), timeout=<span class="str">1.0</span>)
+    <span class="kw">except</span> asyncio.TimeoutError:
+        self.auto_compact.<span class="fn">check_expired</span>(          <span class="cmt"># ← 没消息时才跑空闲压缩（M6 详述）</span>
+            self._schedule_background,
+            self.llm_runtime,
+            active_session_keys=self._pending_queues.keys(),
+        )
+        <span class="kw">continue</span></pre>
+      <p>这个「1 秒超时 + 超时即做后台维护」的设计很关键：它让 Loop <b>既能实时响应新消息，又能在空闲间隙推进定时任务</b>（空闲压缩、cron），不需要额外线程。<code class="inl">consume_inbound</code> 本身是 <code class="inl">bus/queue.py:24</code> 的 <code class="inl">await self.inbound.get()</code>。</p>
+
+      <h3 class="blk">2 · 同会话串行、跨会话并发——并发模型</h3>
+      <p>取到消息后，Loop 不在主循环里同步处理（那样会阻塞后续消息），而是走 <code class="inl">_dispatch</code>（<code class="inl">loop.py:1261</code>），其 docstring 直接点题：<code class="inl">"Process a message: per-session serial, cross-session concurrent."</code>。机制是每个会话 key 维护一个 <b>pending 队列</b>：</p>
+      <ul class="dot">
+        <li><b>会话已有在跑的任务</b>：新消息不另起任务，而是 <code class="inl">put_nowait</code> 塞进该会话的 pending 队列，做「回合中注入」（<code class="inl">loop.py:1177-1204</code>，队列表 <code class="inl">self._pending_queues</code> 定义在 <code class="inl">loop.py:401</code>）。</li>
+        <li><b>会话空闲</b>：为它新建 pending 队列并起一个 asyncio task 跑 <code class="inl">_process_message</code>（<code class="inl">loop.py:1292</code> 建队列、<code class="inl">loop.py:1331</code> 调用）。</li>
+      </ul>
+      <div class="analogy"><b>🍽️ 类比：</b>一个会话就像餐厅的一桌客人。同一桌的追加点单必须<b>排到这桌的服务流程里</b>（串行，避免上错菜）；但不同桌可以<b>同时服务</b>（并发）。pending 队列就是每桌的「加菜小票夹」。</div>
+
+      <h3 class="blk">3 · 回合状态机：一个 turn 的 7 个状态</h3>
+      <p>Loop 把「处理一条消息」抽象成显式状态机，状态枚举在 <code class="inl">TurnState</code>（<code class="inl">loop.py:103-111</code>）：<code class="inl">RESTORE → COMPACT → COMMAND → BUILD → RUN → SAVE → RESPOND → DONE</code>。状态转移写成一张查表（<code class="inl">_TRANSITIONS</code>，<code class="inl">loop.py:241-250</code>）——每个状态处理函数返回一个事件字符串，驱动器查表得到下一个状态。逐个状态看：</p>
+      <table class="grid">
+        <tr><th>状态</th><th>处理函数（loop.py）</th><th>干什么</th></tr>
+        <tr><td><b>RESTORE</b></td><td><code class="inl">_state_restore</code> :1780</td><td>取/建 session；恢复上次未完成的 checkpoint 与 pending user turn；抽取消息里的文档/图片（:1799-1802）</td></tr>
+        <tr><td><b>COMPACT</b></td><td><code class="inl">_state_compact</code> :1816</td><td>调 <code class="inl">auto_compact.prepare_session</code> 拿到「上一段对话的摘要」注入本回合（:1817）</td></tr>
+        <tr><td><b>COMMAND</b></td><td><code class="inl">_state_command</code> :1821</td><td>斜杠命令派发；命中即走「shortcut」直接 DONE，不进 LLM（:1840-1857）</td></tr>
+        <tr><td><b>BUILD</b></td><td><code class="inl">_state_build</code> :1860</td><td>按 token 预算取历史、拼 initial_messages（system+历史+本轮）、必要时先做一次归并压缩（:1865-1894）</td></tr>
+        <tr><td><b>RUN</b></td><td><code class="inl">_state_run</code> :1908</td><td>调 <code class="inl">_run_agent_loop</code> 把活交给 Runner（:1917-1939），拿回 final_content/tools_used/stop_reason</td></tr>
+        <tr><td><b>SAVE</b></td><td><code class="inl">_state_save</code> :1949</td><td>落库本回合、算延迟、触发容量上限归档与按 token 归并（:1965-1988）</td></tr>
+        <tr><td><b>RESPOND</b></td><td><code class="inl">_state_respond</code> :1991</td><td>组装 OutboundMessage（:1995-2003），随后 publish 到 Bus</td></tr>
+      </table>
+
+      <h3 class="blk">4 · BUILD → RUN → SAVE 的核心数据流</h3>
+      <p>这三步是回合的「心脏」。BUILD 在 <code class="inl">_state_build</code> 里先按上下文窗口算出可回放的历史条数与 token 预算，再取历史、拼消息：</p>
+<pre><span class="cmt"># loop.py:1874-1894 —— BUILD：按预算取历史 → 拼 initial_messages</span>
+_hist_kwargs = {
+    <span class="str">"max_messages"</span>: replay_max_messages,
+    <span class="str">"max_tokens"</span>: self.<span class="fn">_replay_token_budget</span>(ctx.runtime),   <span class="cmt"># 窗口 − 输出预留 − 1024</span>
+    <span class="str">"extend_to_user"</span>: <span class="kw">False</span>,
+}
+ctx.history = ctx.session.<span class="fn">get_history</span>(**_hist_kwargs)          <span class="cmt"># 从 Session 取裁剪后的历史（M8）</span>
+ctx.initial_messages = self.<span class="fn">_build_initial_messages</span>(       <span class="cmt"># system prompt + 历史 + 本轮</span>
+    ctx.msg, ctx.session, ctx.history, ctx.pending_summary, ...)</pre>
+      <p>RUN 把 <code class="inl">initial_messages</code> 交给 <code class="inl">_run_agent_loop</code>（它内部再构造 <code class="inl">AgentRunSpec</code> 调 Runner，<code class="inl">loop.py:1917-1939</code>）；SAVE 则负责把新回合写回 session，并在<b>非临时回合</b>时触发两类压缩收尾（容量上限归档 + 按 token 归并）：</p>
+<pre><span class="cmt"># loop.py:1973-1988 —— SAVE：落库 + 触发压缩收尾</span>
+self.<span class="fn">_save_turn</span>(ctx.session, ctx.all_messages, ctx.save_skip, turn_latency_ms=ctx.turn_latency_ms)
+<span class="kw">if</span> <span class="kw">not</span> ctx.ephemeral:
+    ctx.session.<span class="fn">enforce_file_cap</span>(...)                 <span class="cmt"># 文件条数上限归档（M8）</span>
+    self.<span class="fn">_schedule_background</span>(
+        self.consolidator.<span class="fn">maybe_consolidate_by_tokens</span>(...))  <span class="cmt"># 按 token 归并（M6）</span>
+self.sessions.<span class="fn">save</span>(ctx.session)                          <span class="cmt"># 原子落盘</span></pre>
+      <p>真正把新增消息写进 <code class="inl">session.messages</code> 的是 <code class="inl">_save_turn</code>（<code class="inl">loop.py:2039</code>），它还负责截断过大的工具结果、对齐 tool_call_id，保证持久化的历史是「结构合法」的。</p>
+
+      <h3 class="blk">5 · 输出：publish_outbound 把回复送回 Bus</h3>
+      <p>RESPOND 组装好 <code class="inl">OutboundMessage</code> 后，Loop 通过 <code class="inl">self.bus.publish_outbound(...)</code> 送回总线（如 <code class="inl">loop.py:1338</code>）。至此 Loop 的职责结束——后续由 <code class="inl">ChannelManager</code> 消费 outbound 队列并发到平台（见 <a href="#m9">M9</a>）。整个回合里 Loop 从不直接碰平台 SDK，只跟 Bus 打交道，这就是「编排层与 I/O 层解耦」。</p>
+
+      <div class="warn"><b>⚠️ NanoScope 在此处的一处魔改（仅点到，不展开）：</b><code class="inl">resolve_security_context</code>（<code class="inl">loop.py:863-885</code>）用 IdentityResolver 把入站消息解析成 SecurityContext，实现多用户身份墙——但这属于 NanoScope 新增能力，已在 <code class="inl">NANOSCOPE_LEARNING_GUIDE.html</code> 讲过。<code class="inl">multi_user</code> 关闭时它返回 None，行为与 nanobot 基线完全一致，所以不影响你按 nanobot 基础能力理解 Loop。</div>
+
+      <div class="tldr"><b>收口：</b>Loop = 常驻 <code class="inl">while</code> 主循环（1s 心跳，<code class="inl">loop.py:1118</code>）+ 同会话串行/跨会话并发的 <code class="inl">_dispatch</code>（<code class="inl">loop.py:1261</code>）+ 7 态回合状态机（<code class="inl">TurnState</code> :103 / <code class="inl">_TRANSITIONS</code> :241）。它只做「编排」，把「工具循环」下放给 Runner，把「发消息」上抛给 Bus。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M2 Agent Runner ==================== -->
+<section class="qa" id="m2">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M2</span>
+      <span class="q-text">Agent Runner（agent/runner.py）—— 通用「工具调用循环」执行器</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>职责：</b>Runner 是<b>与产品无关的工具循环</b>（docstring：<code class="inl">"Run a tool-capable LLM loop without product-layer concerns."</code> <code class="inl">runner.py:103</code>）。给它一份「初始消息 + 一套工具 + 上限」的 <code class="inl">AgentRunSpec</code>，它就反复做「调 LLM → 若模型要调工具则执行 → 把结果回灌 → 再调 LLM」，直到模型给出最终答复或触达上限，返回 <code class="inl">AgentRunResult</code>。Loop、Subagent、Cron 都复用它——这就是「shared execution loop」的含义。</div>
+
+      <h3 class="blk">1 · 输入契约 AgentRunSpec 与输出 AgentRunResult</h3>
+      <p>Runner 的输入是一个 <code class="inl">@dataclass(slots=True)</code> 的 <code class="inl">AgentRunSpec</code>（<code class="inl">runner.py:60-85</code>），把「跑一次工具循环」需要的一切参数化。几个关键字段：</p>
+      <table class="grid">
+        <tr><th>字段</th><th>含义</th></tr>
+        <tr><td><code class="inl">initial_messages</code></td><td>起始消息列表（system + 历史 + 本轮 user）——由 Loop 的 BUILD 阶段准备</td></tr>
+        <tr><td><code class="inl">tools: ToolRegistry</code></td><td>本次可用的工具集（M3）——决定模型能调什么</td></tr>
+        <tr><td><code class="inl">runtime: LLMRuntime</code></td><td>provider + model + 上下文窗口 + 生成参数的快照</td></tr>
+        <tr><td><code class="inl">max_iterations</code></td><td>工具循环最大轮数（防止无限调工具）</td></tr>
+        <tr><td><code class="inl">max_tool_result_chars</code></td><td>单条工具结果的字符上限（防止一条结果撑爆上下文）</td></tr>
+        <tr><td><code class="inl">concurrent_tools</code></td><td>一轮里多个工具调用是否并发执行</td></tr>
+        <tr><td><code class="inl">session_key / workspace</code></td><td>透传给上下文治理器，用于工具结果落盘与定位</td></tr>
+      </table>
+      <p>输出是 <code class="inl">AgentRunResult</code>（<code class="inl">runner.py:89-99</code>）：<code class="inl">final_content</code>（最终文本）、<code class="inl">messages</code>（完整消息轨迹）、<code class="inl">tools_used</code>、<code class="inl">usage</code>（token 统计）、<code class="inl">stop_reason</code>。<code class="inl">AgentRunner.__init__</code> 只做一件事：持有一个 <code class="inl">ContextGovernor</code>（<code class="inl">runner.py:106</code>）——这是它和「上下文压缩」模块的连接点。</p>
+
+      <h3 class="blk">2 · 核心循环：for iteration in range(max_iterations)</h3>
+      <p>循环主体在 <code class="inl">_run_core</code>（<code class="inl">runner.py:322</code>），每一轮 <b>第一件事就是「治理上下文」再喂给模型</b>——注意它治理的是<b>发给模型的副本</b>，绝不改动要落库的原始消息（这是「持久化与模型视图分离」的关键设计）：</p>
+<pre><span class="cmt"># runner.py:355-365 —— 每轮先治理上下文副本，再请求模型</span>
+<span class="kw">for</span> iteration <span class="kw">in</span> range(spec.max_iterations):
+    <span class="cmt"># 治理只作用于「发给模型的副本」，不移动 caller 落库用的 append 边界</span>
+    messages_for_model = self.context_governor.<span class="fn">prepare_for_model</span>(   <span class="cmt"># ← M6 的入口</span>
+        governance_config, messages, compacted_tool_call_ids,
+    )
+    ...
+    response = <span class="kw">await</span> self.<span class="fn">_request_model</span>(spec, messages_for_model, hook, context)</pre>
+      <p>拿到模型响应后分两种情况：<b>模型要调工具</b>（<code class="inl">response.should_execute_tools</code>，<code class="inl">runner.py:411</code>）就先把 assistant 消息（含 tool_calls）append 进轨迹，执行工具，再把每个工具结果作为一条 <code class="inl">role="tool"</code> 消息回灌；<b>模型给出纯文本</b>则收敛为 final_content。工具结果回灌的代码：</p>
+<pre><span class="cmt"># runner.py:454-467 —— 工具结果作为 role=tool 消息回灌到轨迹</span>
+<span class="kw">for</span> tool_call, result <span class="kw">in</span> zip(response.tool_calls, results):
+    tool_message = {
+        <span class="str">"role"</span>: <span class="str">"tool"</span>,
+        <span class="str">"tool_call_id"</span>: tool_call.id,
+        <span class="str">"name"</span>: tool_call.name,
+        <span class="str">"content"</span>: self.context_governor.<span class="fn">normalize_tool_result</span>(  <span class="cmt"># 截断/落盘超长结果（M6）</span>
+            governance_config, tool_call.id, tool_call.name, result),
+    }
+    messages.append(tool_message)</pre>
+
+      <div class="diagram">
+        <div class="title">Runner 一轮迭代的分支（runner.py:355-483）</div>
+        <div class="flow">
+          <div class="box amber">prepare_for_model 治理副本（runner.py:361）</div>
+          <div class="arrow">↓</div>
+          <div class="box green">_request_model 调 LLM（runner.py:393）</div>
+          <div class="arrow">↓ 判断 should_execute_tools</div>
+          <div class="flow horiz">
+            <div class="box blue">要调工具 → append assistant → _execute_tools → 回灌 role=tool → 下一轮</div>
+            <div class="box gray">纯文本 → final_content → 收敛退出</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="blk">3 · 工具执行：串行 or 并发</h3>
+      <p>一轮里模型可能一次要求调多个工具。执行入口是 <code class="inl">_execute_tools</code>（<code class="inl">runner.py:1090</code>）：当 <code class="inl">spec.concurrent_tools=True</code> 时用 <code class="inl">asyncio.gather</code> 并发跑，否则顺序跑；单个工具的实际调用在 <code class="inl">_run_tool</code>（<code class="inl">runner.py:1141</code>），它内部走 <code class="inl">ToolRegistry.execute</code>（见 <a href="#m3">M3</a>）并把异常收敛成「工具错误结果」而不是让整个循环崩掉。</p>
+
+      <h3 class="blk">4 · 三道「防失控」阀门</h3>
+      <p>纯工具循环最怕「模型抽风」——空回复、超长截断、无限被注入。Runner 用三个模块级常量兜底（<code class="inl">runner.py:54-57</code>）：</p>
+      <table class="grid">
+        <tr><th>常量</th><th>值</th><th>防的是什么</th></tr>
+        <tr><td><code class="inl">_MAX_EMPTY_RETRIES</code></td><td>2</td><td>模型连续返回空内容时的最大重试</td></tr>
+        <tr><td><code class="inl">_MAX_LENGTH_RECOVERIES</code></td><td>3</td><td>因输出被 length 截断而触发的「续写恢复」最大次数</td></tr>
+        <tr><td><code class="inl">_MAX_INJECTIONS_PER_TURN</code></td><td>3</td><td>一个回合内允许「回合中注入」用户新消息的最大条数</td></tr>
+        <tr><td><code class="inl">_MAX_INJECTION_CYCLES</code></td><td>5</td><td>注入-再跑的最大循环数（防注入把回合无限拉长）</td></tr>
+      </table>
+      <p>「回合中注入」是 nanobot 的一个巧妙能力：回合还在跑时用户又发了消息，Loop 会把它塞进 pending 队列（M1），Runner 在合适的收敛点通过 <code class="inl">injection_callback</code> 把这些消息「注入」进当前循环（<code class="inl">_drain_injections</code>，<code class="inl">runner.py:214-262</code>），并保证角色交替合法（<code class="inl">_append_injected_messages</code>，<code class="inl">runner.py:125-147</code>）。注入受上面两个常量硬性封顶。</p>
+
+      <div class="analogy"><b>🔁 类比：</b>Runner 像一个「做题—对答案」的自动循环：模型写一步（调工具就是「查资料」），把资料贴回题面，再让模型接着写；直到模型说「我写完了」（纯文本）或者达到「最多写 N 步」。三道阀门就是监考老师：空着交卷最多让你重写 2 次、写超篇最多续 3 次、中途递小纸条最多收 3 张。</div>
+
+      <div class="tldr"><b>收口：</b>Runner = 输入 <code class="inl">AgentRunSpec</code>（:60）→ <code class="inl">for iteration</code> 循环（:355）：每轮先 <code class="inl">prepare_for_model</code> 治理副本（:361）→ 调 LLM（:393）→ 要调工具就 <code class="inl">_execute_tools</code>（:1090）并把结果作为 <code class="inl">role=tool</code> 回灌（:454）→ 直到收敛，返回 <code class="inl">AgentRunResult</code>（:89）。四个常量（:54-57）兜住失控。它是 Loop / Subagent / Cron 共享的执行内核。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M3 Tools ==================== -->
+<section class="qa" id="m3">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M3</span>
+      <span class="q-text">Tools 子系统（agent/tools/）—— 工具协议、注册表、加载器、作用域</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>职责：</b>把「Agent 能做的动作」标准化成可被 LLM function-calling 调用的工具。四个角色：<b>Tool</b>（工具协议，一个抽象基类）、<b>ToolRegistry</b>（本次会话可用工具的注册表 + 调用调度）、<b>ToolLoader</b>（自动发现并按作用域加载工具类）、<b>ToolContext/RequestContext</b>（工具运行时依赖注入与请求级上下文）。设计精髓是「工具类静态声明能力，运行时按作用域装配成注册表」。</div>
+
+      <h3 class="blk">1 · Tool 协议：一个工具长什么样</h3>
+      <p>所有工具都继承 <code class="inl">Tool(ABC)</code>（<code class="inl">tools/base.py:147</code>）。一个工具要提供三样东西——名字、描述、参数 schema——外加一个异步 <code class="inl">execute</code>：</p>
+<pre><span class="cmt"># tools/base.py:147-217（节选）—— 工具协议</span>
+<span class="kw">class</span> <span class="fn">Tool</span>(ABC):
+    _scopes: set[str] = {<span class="str">"core"</span>}                <span class="cmt"># :196 属于哪些作用域（core/subagent）</span>
+
+    <span class="kw">async def</span> <span class="fn">execute</span>(self, **kwargs) -> Any:      <span class="cmt"># :215 真正干活，子类实现</span>
+        ...
+    <span class="kw">def</span> <span class="fn">to_schema</span>(self) -> dict:                 <span class="cmt"># :292 转成 OpenAI function-calling schema</span>
+        ...</pre>
+      <p>工具的执行结果统一用 <code class="inl">ToolResult</code>（<code class="inl">tools/base.py:132</code>，它继承 <code class="inl">str</code>，所以既是字符串又能带元信息）。类方法 <code class="inl">enabled(ctx)</code>（<code class="inl">tools/base.py:203</code>）和 <code class="inl">create(ctx)</code>（<code class="inl">tools/base.py:207</code>）让工具能「根据运行时上下文决定是否可用、如何实例化」——比如某工具需要某个配置才启用。</p>
+
+      <h3 class="blk">2 · ToolRegistry：从「模型看到的定义」到「实际调用」</h3>
+      <p>注册表 <code class="inl">ToolRegistry</code>（<code class="inl">tools/registry.py:19</code>）是 Runner 和工具之间的桥。三个关键方法构成一次工具调用的生命周期：</p>
+      <table class="grid">
+        <tr><th>方法</th><th>行号</th><th>作用</th></tr>
+        <tr><td><code class="inl">get_definitions()</code></td><td>registry.py:86</td><td>把所有已注册工具转成 function-calling 定义列表，塞进请求发给 LLM——即「模型能看到哪些工具」</td></tr>
+        <tr><td><code class="inl">prepare_call(...)</code></td><td>registry.py:111</td><td>模型返回 tool_call 后，校验/规整参数，找到对应工具实例</td></tr>
+        <tr><td><code class="inl">execute(name, params)</code></td><td>registry.py:186</td><td>实际 await 工具的 <code class="inl">execute</code>，返回结果（Runner 的 <code class="inl">_run_tool</code> 就是调它）</td></tr>
+      </table>
+      <p>还有个辅助：<code class="inl">is_tool_error_result</code>（Runner 在 <code class="inl">runner.py:21</code> import 它）用于判断某条工具结果是不是「错误」，从而决定要不要 fail-on-tool-error。</p>
+
+      <h3 class="blk">3 · ToolLoader：自动发现 + 按作用域装配</h3>
+      <p>工具不是手动一个个 new 的，而是 <code class="inl">ToolLoader</code>（<code class="inl">tools/loader.py:20</code>）自动发现。<code class="inl">discover()</code>（<code class="inl">tools/loader.py:30</code>）扫描出所有 <code class="inl">Tool</code> 子类，<code class="inl">load(ctx, registry, scope="core")</code>（<code class="inl">tools/loader.py:86</code>）按作用域把「该 scope 下且 enabled」的工具实例化后注册进 registry：</p>
+<pre><span class="cmt"># tools/loader.py:86 —— 按 scope 装配工具到 registry</span>
+<span class="kw">def</span> <span class="fn">load</span>(self, ctx, registry: ToolRegistry, *, scope: str = <span class="str">"core"</span>) -> list[str]:
+    <span class="cmt"># 只加载 scope 命中且 enabled(ctx) 为真的工具类</span>
+    ...</pre>
+
+      <h3 class="blk">4 · 作用域隔离：core vs subagent</h3>
+      <p>这是安全设计的重点。每个工具用 <code class="inl">_scopes</code> 声明自己属于哪些作用域（<code class="inl">tools/base.py:196</code>，默认 <code class="inl">{"core"}</code>）。主 Agent 用 <code class="inl">scope="core"</code> 加载完整工具集；<b>子智能体（M10）用 <code class="inl">scope="subagent"</code> 加载一套更窄的工具集</b>，并且拿的是独立的 ToolRegistry。这样即使子智能体被恶意 prompt 带偏，它能碰的工具面也天然更小。</p>
+      <div class="analogy"><b>🔑 类比：</b>作用域就像门禁卡等级。主 Agent 是「全楼通行卡」，子 Agent 是「只能进资料室的访客卡」——同一套门（工具类），发不同权限的卡（scope），是最省事的最小权限实现。</div>
+
+      <h3 class="blk">5 · 运行时上下文注入：ToolContext / RequestContext</h3>
+      <p>工具执行时常需要「当前工作区、当前会话、当前请求身份」等运行时信息，这些通过两个载体传入：<code class="inl">ToolContext</code>（<code class="inl">tools/context.py:75</code>，构造/装配期依赖）与 <code class="inl">RequestContext</code>（<code class="inl">tools/context.py:20</code>，请求级）。后者用 Python 的 <code class="inl">ContextVar</code> 存放（<code class="inl">tools/context.py:5、13</code>），使得「当前请求上下文」能在异步调用链里安全传递而不用层层显式传参——这也是 Loop 在跑一个回合前 <code class="inl">bind_request_context</code>、跑完 <code class="inl">reset_request_context</code> 的原因（<code class="inl">loop.py:30</code> import）。</p>
+
+      <h3 class="blk">6 · 工具结果的大小治理（与 M6 的接缝）</h3>
+      <p>工具可能返回巨量文本（比如读一个大文件）。Runner 在回灌前会经 <code class="inl">ContextGovernor.normalize_tool_result</code>（<code class="inl">context_governance.py:110-136</code>）处理：超过 <code class="inl">max_tool_result_chars</code> 就落盘到工作区并在上下文里放一个引用 + 截断文本（<code class="inl">truncate_text</code>）。这样「工具能产出大结果，但上下文不被撑爆」，是 Tools 与压缩层的协作点。</p>
+
+      <div class="tldr"><b>收口：</b>Tools = <code class="inl">Tool</code> 协议（base.py:147，声明 name/desc/params/execute/scopes）+ <code class="inl">ToolRegistry</code>（registry.py:19，get_definitions:86 / prepare_call:111 / execute:186）+ <code class="inl">ToolLoader</code>（loader.py:86，按 scope 自动装配）+ <code class="inl">ToolContext/RequestContext</code>（context.py，ContextVar 注入运行时）。core/subagent 作用域实现最小权限；超大结果由 M6 治理。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M4 Providers ==================== -->
+<section class="qa" id="m4">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M4</span>
+      <span class="q-text">Providers 层（providers/）—— LLM 抽象、多后端路由与熔断降级</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>职责：</b>把「调 LLM」这件事抽象成一个统一接口，让上层（Runner）无论用 OpenAI、Anthropic、Azure、Copilot、Bedrock 还是自建 OpenAI 兼容端点，都只调同一个 <code class="inl">chat()</code>。四个核心构件：<b>LLMProvider</b>（抽象基类）、<b>PROVIDERS 注册表 + ProviderSpec</b>（声明式登记每家供应商）、<b>factory</b>（按 backend 字段路由实例化）、<b>FallbackProvider</b>（多家之间熔断降级）。</div>
+
+      <h3 class="blk">1 · LLMProvider：统一的 LLM 接口</h3>
+      <p>抽象基类 <code class="inl">LLMProvider(ABC)</code>（<code class="inl">providers/base.py:193</code>）定义了所有供应商必须实现的契约。最核心的是抽象方法 <code class="inl">chat</code>（<code class="inl">providers/base.py:370</code>）——同步式一问一答（含 tool_calls）；还有流式的 <code class="inl">chat_stream</code>（<code class="inl">providers/base.py:622</code>）和 <code class="inl">get_default_model</code>（<code class="inl">providers/base.py:977</code>）。上下行的数据结构也在这里统一：</p>
+      <table class="grid">
+        <tr><th>数据结构</th><th>行号</th><th>含义</th></tr>
+        <tr><td><code class="inl">LLMResponse</code></td><td>base.py:150</td><td>模型响应的统一封装：content / tool_calls / reasoning / usage / stop_reason 等</td></tr>
+        <tr><td><code class="inl">ToolCallRequest</code></td><td>base.py:48</td><td>模型请求调用某工具的统一表示（id/name/arguments），Runner 据此执行</td></tr>
+        <tr><td><code class="inl">GenerationSettings</code></td><td>base.py:182</td><td>生成参数（temperature / max_tokens 等）</td></tr>
+      </table>
+      <p>关键设计：<b>重试内建在基类</b>。<code class="inl">_run_with_retry</code>（<code class="inl">providers/base.py:861</code>）统一处理超时/限流/瞬时错误的重试，子类只需实现「一次请求」的逻辑，不用各自写重试——避免重复代码，也让重试策略一致。</p>
+
+      <h3 class="blk">2 · 声明式注册表：PROVIDERS + ProviderSpec</h3>
+      <p>加一家新供应商不需要改工厂代码，只要往一张表里加一行。<code class="inl">ProviderSpec</code>（<code class="inl">providers/registry.py:32</code>）是一家供应商的元数据（名字、默认 base_url、默认模型、<b>backend 类型</b>等）；所有供应商登记在 <code class="inl">PROVIDERS</code> 元组里（<code class="inl">providers/registry.py:134</code>），<b>顺序即优先级</b>。文件顶部注释把「怎么加一家」写成了三步（<code class="inl">providers/registry.py:5</code>）。查找用 <code class="inl">find_by_name</code>。</p>
+<pre><span class="cmt"># providers/registry.py:5 —— 加一家新 provider 的官方步骤</span>
+<span class="cmt">#   1. Add a ProviderSpec to PROVIDERS below.</span>
+<span class="cmt"># providers/registry.py:131 —— 顺序 = 优先级</span>
+PROVIDERS: tuple[ProviderSpec, ...] = ( ... )</pre>
+
+      <h3 class="blk">3 · factory：按 backend 路由实例化</h3>
+      <p>真正把 ProviderSpec「变成」一个可用 provider 对象的是工厂。对外入口 <code class="inl">make_provider</code>（<code class="inl">providers/factory.py:173</code>），内部核心 <code class="inl">_make_provider_core</code>（<code class="inl">providers/factory.py:42</code>）读取 spec 的 <code class="inl">backend</code> 字段，用 if/elif 分派到不同实现类：</p>
+<pre><span class="cmt"># providers/factory.py:61-104（节选）—— backend 字段决定实例化哪个 provider 类</span>
+backend = spec.backend <span class="kw">if</span> spec <span class="kw">else</span> <span class="str">"openai_compat"</span>
+<span class="kw">if</span> backend == <span class="str">"azure_openai"</span>:      ...   <span class="cmt"># :68</span>
+<span class="kw">elif</span> backend == <span class="str">"openai_codex"</span>:    ...   <span class="cmt"># :85</span>
+<span class="kw">elif</span> backend == <span class="str">"github_copilot"</span>:  ...   <span class="cmt"># :100</span>
+<span class="kw">elif</span> backend == <span class="str">"anthropic"</span>:       ...   <span class="cmt"># :104</span></pre>
+      <p>支持的 backend 一览：<code class="inl">openai_compat</code>（默认，绝大多数 OpenAI 兼容端点走这条）、<code class="inl">azure_openai</code>、<code class="inl">openai_codex</code>、<code class="inl">github_copilot</code>、<code class="inl">anthropic</code>、以及 <code class="inl">bedrock/</code> 前缀模型的特殊处理（<code class="inl">factory.py:79</code>）。</p>
+
+      <h3 class="blk">4 · 两个代表性后端实现</h3>
+      <h4 class="sub">OpenAICompatProvider（providers/openai_compat_provider.py:407）</h4>
+      <p>这是覆盖面最广的后端。<code class="inl">chat</code>（:1545）与 <code class="inl">chat_stream</code>（:1586）为主，内部 <code class="inl">_build_kwargs</code>（:731）把统一的消息/工具/参数翻译成 OpenAI 请求体，响应再被 <code class="inl">_parse</code> 系列还原成 <code class="inl">LLMResponse</code>。NanoScope 里配的 <code class="inl">deepseek-v4-flash</code> 就走这条兼容后端。</p>
+      <h4 class="sub">AnthropicProvider（providers/anthropic_provider.py:50）</h4>
+      <p>Anthropic 的 messages API 与 OpenAI 有几处结构差异，这个类专门处理：<b>system 提示词要从 messages 里抽出来单独传</b>（<code class="inl">anthropic_provider.py:158</code> 返回 <code class="inl">(system, anthropic_messages)</code>）、工具调用走 <code class="inl">tool_use</code> 块、支持 <b>extended thinking</b>（<code class="inl">anthropic_provider.py:54</code> docstring 明确列出 prompt caching / extended thinking / tool calls / streaming）。这说明 Provider 层的价值就是<b>把各家的结构差异吃掉，对上暴露同一套 LLMResponse</b>。</p>
+
+      <h3 class="blk">5 · FallbackProvider：多家之间的熔断降级</h3>
+      <p>单点 LLM 会挂，所以 nanobot 提供 <code class="inl">FallbackProvider</code>（<code class="inl">providers/fallback_provider.py:59</code>，本身也是一个 LLMProvider）——它包住一串 provider，主用第一个，失败就切下一个。核心逻辑 <code class="inl">_try_with_fallback</code>（<code class="inl">fallback_provider.py:146</code>）逐个尝试，<code class="inl">_should_fallback</code>（<code class="inl">fallback_provider.py:293</code>）判断某个响应是否「该切换」。它带熔断计数：失败累计到阈值就短路，冷却一段时间再试。</p>
+      <div class="analogy"><b>🔌 类比：</b>Provider 层像家里的「多路电源 + 万能插头」。LLMProvider 是标准插座（不管电器是什么牌子，插头形状一致）；factory 按 backend 就像根据国家给你配对应转换头；FallbackProvider 是「市电断了自动切 UPS」的双电源切换器——上层电器（Runner）全程无感。</div>
+
+      <div class="tldr"><b>收口：</b>Providers = 抽象 <code class="inl">LLMProvider</code>（base.py:193，chat:370 / 重试内建 _run_with_retry:861）+ 统一数据结构（LLMResponse:150 / ToolCallRequest:48）+ 声明式 <code class="inl">PROVIDERS/ProviderSpec</code>（registry.py:32/134）+ <code class="inl">make_provider</code> 按 backend 路由（factory.py:173/42）+ <code class="inl">FallbackProvider</code> 熔断降级（fallback_provider.py:59）。加一家新 LLM 只需加一行 spec。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M5 Memory ==================== -->
+<section class="qa" id="m5">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M5</span>
+      <span class="q-text">Memory（agent/memory.py）—— 文件式长期记忆与 Dream 反思</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>职责：</b>给 Agent 一份跨回合、跨会话都不丢的「长期记忆」。实现刻意<b>朴素——就是几个 Markdown/JSONL 文件的读写</b>：<code class="inl">MEMORY.md</code>（事实记忆）、<code class="inl">SOUL.md</code>（人格/风格）、<code class="inl">USER.md</code>（用户画像）、<code class="inl">history.jsonl</code>（历史流水）。这层由 <code class="inl">MemoryStore</code>（<code class="inl">memory.py:46</code>）负责；上面还有一个 <code class="inl">Consolidator</code>（<code class="inl">memory.py:850</code>）做压缩（归到 M6 讲），以及 <b>Dream</b>——让 Agent 用一个 LLM 子过程「睡一觉、把流水记忆反思重写成结构化长期记忆」。</div>
+
+      <h3 class="blk">1 · MemoryStore：纯文件 I/O 的记忆底座</h3>
+      <p><code class="inl">MemoryStore</code>（<code class="inl">memory.py:46</code>）不接数据库、不接向量库，就是对工作区里几个文件的封装。这么设计的好处是：<b>可读、可 diff、可手改、可版本化</b>——你能直接打开 MEMORY.md 看 Agent「记住了什么」。关键方法：</p>
+      <table class="grid">
+        <tr><th>方法</th><th>行号</th><th>作用</th></tr>
+        <tr><td><code class="inl">get_memory_context()</code></td><td>memory.py:250</td><td>读出 MEMORY.md 内容，供 ContextBuilder 拼进 system prompt 的「# Memory」段</td></tr>
+        <tr><td><code class="inl">append_history(...)</code></td><td>memory.py:256</td><td>往 history.jsonl 追加一条历史（带时间戳）——长期记忆的原始流水</td></tr>
+        <tr><td><code class="inl">read_recent_history_for_prompt(...)</code></td><td>memory.py:408</td><td>读「上次 Dream 之后」的近期历史，拼进 prompt 的「# Recent History」段</td></tr>
+      </table>
+      <p>注意 <code class="inl">read_recent_history_for_prompt</code> 用一个 <code class="inl">since_cursor</code>（上次 Dream 的游标）来只取「还没被反思归档的新历史」——这就是 Memory 和 Dream 的接缝：Dream 处理过的部分，下次就不再重复塞 prompt。</p>
+
+      <h3 class="blk">2 · 三份记忆文件的分工</h3>
+      <div class="diagram">
+        <div class="title">记忆文件的层次（memory.py 管理）</div>
+        <div class="flow horiz">
+          <div class="box amber">SOUL.md<br>人格 / 语气 / 价值观<br>（很少变）</div>
+          <div class="box blue">USER.md<br>用户是谁 / 偏好<br>（缓慢积累）</div>
+          <div class="box green">MEMORY.md<br>事实 / 结论 / 待办<br>（经常更新）</div>
+          <div class="box gray">history.jsonl<br>逐条对话流水<br>（持续追加）</div>
+        </div>
+        <div class="legend">读进 prompt 的方向：SOUL/USER/MEMORY → system prompt 常驻；history → 只取「近期未归档」段</div>
+      </div>
+      <p>为什么要分四份而不是一份？因为它们的<b>更新频率和用途不同</b>：SOUL 是稳定人格（几乎不动）、USER 是缓慢积累的画像、MEMORY 是高频更新的事实、history 是只增不改的原始流水。分开存，才能让 Dream 有的放矢地「把流水提炼进前三份」。</p>
+
+      <h3 class="blk">3 · Dream：Agent 的「睡眠反思」</h3>
+      <p>Dream 是 nanobot 一个很有意思的能力——定期（cron 触发）让 Agent 用一个 LLM 子过程回顾近期 history，把值得长期记住的东西<b>反思重写进 SOUL/USER/MEMORY</b>，然后推进游标。这不是简单摘要，而是「带工具的重写」：</p>
+      <table class="grid">
+        <tr><th>构件</th><th>行号</th><th>作用</th></tr>
+        <tr><td><code class="inl">build_dream_prompt(...)</code></td><td>memory.py:598</td><td>组装 Dream 的提示词（喂近期 history + 现有记忆），返回 (prompt, entry_count)</td></tr>
+        <tr><td><code class="inl">build_dream_tools(...)</code></td><td>memory.py:659</td><td>给 Dream 子过程一套「改写记忆文件」的工具（写 SOUL/USER/MEMORY）</td></tr>
+      </table>
+      <p>Dream 用的提示词模板是 <code class="inl">templates/agent/dream.md</code>（见 M7）。它跑完后游标前移，<code class="inl">read_recent_history_for_prompt</code> 下次就从新游标开始——所以记忆不会无限膨胀，而是「流水 → 定期蒸馏成结构化记忆」。</p>
+      <div class="analogy"><b>🌙 类比：</b>白天你把事情随手记在便签上（history.jsonl）；晚上睡觉时大脑做「记忆固化」——把重要的便签整理进长期记忆、扔掉琐碎的（Dream 重写 MEMORY/SOUL/USER）。第二天你不需要翻所有便签，只记得整理后的结论。Dream 就是 Agent 的这觉。</div>
+
+      <div class="warn"><b>⚠️ 与 NanoScope 多用户记忆隔离的边界：</b>NanoScope 在此之上加了「按 Principal/Audience 隔离的记忆可见集」（scoped_memory），把基线的「全量 MEMORY.md 注入」替换成「可见集注入」——但那是 NanoScope 新增的隔离墙，已在 <code class="inl">NANOSCOPE_LEARNING_GUIDE.html</code> 讲过。<b>nanobot 基线</b>（<code class="inl">multi_user</code> 关闭）就是本节描述的「单份文件、全量注入」。</div>
+
+      <div class="tldr"><b>收口：</b>Memory = <code class="inl">MemoryStore</code>（memory.py:46）对 SOUL/USER/MEMORY/history 四个文件的纯 I/O（get_memory_context:250 / append_history:256 / read_recent_history_for_prompt:408）+ <b>Dream</b> 定期 LLM 反思重写（build_dream_prompt:598 / build_dream_tools:659）。朴素文件式设计换来可读可 diff；游标机制让记忆「流水→蒸馏」而不膨胀。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M6 上下文压缩四层 ==================== -->
+<section class="qa" id="m6">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M6</span>
+      <span class="q-text">上下文压缩四层 —— Governor / Consolidator / AutoCompact / Dream</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>职责：</b>LLM 的上下文窗口有限，对话越长越可能溢出、越贵、越慢。nanobot 用<b>四个层次</b>各管一段「时间尺度」的压缩，从「本次请求内」到「长期记忆」层层兜底：①<b>ContextGovernor</b>（请求内治理，最快）②<b>Consolidator</b>（按 token 归并历史）③<b>AutoCompact</b>（空闲会话定时压缩）④<b>Dream</b>（长期记忆蒸馏，最慢，已在 M5 讲）。理解这四层「谁在什么时候、压什么」是掌握 Agent 长程运行的关键。</div>
+
+      <h3 class="blk">1 · 四层全景：按时间尺度分工</h3>
+      <table class="grid">
+        <tr><th>层</th><th>触发时机</th><th>压什么</th><th>入口（文件:行）</th></tr>
+        <tr><td><b>① Governor</b></td><td>每次调 LLM 前（Runner 每轮）</td><td>本请求的消息副本：修结构、截超长工具结果、超窗则内联压缩</td><td><code class="inl">context_governance.py:75</code></td></tr>
+        <tr><td><b>② Consolidator</b></td><td>回合 BUILD 前 / SAVE 后</td><td>持久化历史：按 token 预算把旧消息归并成摘要</td><td><code class="inl">memory.py:1097</code></td></tr>
+        <tr><td><b>③ AutoCompact</b></td><td>主循环空闲（1s 超时）时</td><td>空闲超 TTL 的会话：定时把旧尾巴压成摘要</td><td><code class="inl">autocompact.py:66</code></td></tr>
+        <tr><td><b>④ Dream</b></td><td>cron 定期</td><td>长期记忆：把 history 反思重写进 SOUL/USER/MEMORY（M5）</td><td><code class="inl">memory.py:598</code></td></tr>
+      </table>
+      <div class="diagram">
+        <div class="title">四层压缩的时间尺度（从毫秒级到天级）</div>
+        <div class="flow horiz">
+          <div class="box red">① Governor<br>请求内 · 每轮</div>
+          <div class="arrow">→</div>
+          <div class="box amber">② Consolidator<br>回合级 · token 触发</div>
+          <div class="arrow">→</div>
+          <div class="box blue">③ AutoCompact<br>会话级 · 空闲 TTL</div>
+          <div class="arrow">→</div>
+          <div class="box green">④ Dream<br>长期 · cron</div>
+        </div>
+        <div class="legend">越靠左越高频、粒度越细、越「即时救火」；越靠右越低频、越「长期归档」</div>
+      </div>
+
+      <h3 class="blk">2 · ① ContextGovernor：请求内的九步流水线</h3>
+      <p>这是最贴近 LLM 的一层，由 Runner 每轮调用（<code class="inl">runner.py:361</code>）。核心是 <code class="inl">prepare_for_model</code>（<code class="inl">context_governance.py:75</code>），它对「发给模型的消息副本」跑一条<b>九步流水线</b>——注意 docstring 一句话点明设计红线：<code class="inl">"Prepare model-copy messages while preserving persisted history."</code>（<code class="inl">context_governance.py:73</code>），即<b>只改副本、绝不动落库历史</b>：</p>
+<pre><span class="cmt"># context_governance.py:81-89 —— prepare_for_model 的九步流水线</span>
+updated = self.<span class="fn">strip_placeholder_assistant_messages</span>(messages)  <span class="cmt"># 1 去占位 assistant</span>
+updated = self.<span class="fn">strip_malformed_tool_calls</span>(updated)          <span class="cmt"># 2 去畸形 tool_call</span>
+updated = self.<span class="fn">drop_orphan_tool_results</span>(updated)            <span class="cmt"># 3 去孤儿 tool 结果</span>
+updated = self.<span class="fn">backfill_missing_tool_results</span>(updated)       <span class="cmt"># 4 补缺失 tool 结果</span>
+updated = self.<span class="fn">apply_tool_result_budget</span>(config, updated)     <span class="cmt"># 5 工具结果预算</span>
+updated = self.<span class="fn">compact_inflight_overflow</span>(config, updated, ...)<span class="cmt"># 6 超窗内联压缩</span>
+updated = self.<span class="fn">snip_history</span>(config, updated)                 <span class="cmt"># 7 裁历史</span>
+updated = self.<span class="fn">drop_orphan_tool_results</span>(updated)            <span class="cmt"># 8 再去孤儿</span>
+<span class="kw">return</span> self.<span class="fn">backfill_missing_tool_results</span>(updated)         <span class="cmt"># 9 再补齐</span></pre>
+      <p>前 4 步是「修结构」（保证 tool_call 与 tool 结果配对合法，否则上游 API 会整条拒绝）；第 5 步管单条工具结果大小；第 6、7 步才是真正的「压缩」——当整体超预算时，<code class="inl">compact_inflight_overflow</code>（<code class="inl">context_governance.py:319</code>）把中段旧内容内联压缩、<code class="inl">snip_history</code>（<code class="inl">context_governance.py:380</code>）裁掉更旧的历史。预算怎么算？看 <code class="inl">input_budget</code>：</p>
+<pre><span class="cmt"># context_governance.py:104-107 —— 输入预算 = 窗口 − 输出预留 − 安全缓冲</span>
+budget = config.context_block_limit <span class="kw">or</span> (
+    config.context_window_tokens - max_output - SNIP_SAFETY_BUFFER)
+<span class="kw">return</span> budget <span class="kw">if</span> budget > 0 <span class="kw">else</span> 0</pre>
+      <p>工具结果的落盘/截断也在这层：<code class="inl">normalize_tool_result</code>（<code class="inl">context_governance.py:110</code>）超过 <code class="inl">max_tool_result_chars</code> 就落盘 + 截断（<code class="inl">context_governance.py:134-135</code>）。这就是 M3 提到的「工具能产出大结果但上下文不撑爆」的落点。</p>
+
+      <h3 class="blk">3 · ② Consolidator：按 token 归并持久化历史</h3>
+      <p>Governor 管「这一次请求」，Consolidator（<code class="inl">memory.py:850</code>）管「持久化历史的长期体量」。核心 <code class="inl">maybe_consolidate_by_tokens</code>（<code class="inl">memory.py:1097</code>）在回合 BUILD 前（<code class="inl">loop.py:1865</code>）和 SAVE 后（<code class="inl">loop.py:1978</code>）被调用，逻辑是「估算当前 prompt token，超预算就循环归并旧消息成摘要，直到降到目标线」：</p>
+<pre><span class="cmt"># memory.py:1121-1153（节选）—— 目标 = 预算 × consolidation_ratio</span>
+budget = self.<span class="fn">_input_token_budget</span>(runtime)
+target = int(budget * self.consolidation_ratio)          <span class="cmt"># 默认 ratio=0.5 → 压到半窗</span>
+...
+<span class="kw">if</span> estimated < budget:                                   <span class="cmt"># 没超预算就不动</span>
+    <span class="kw">return</span>
+<span class="kw">for</span> round_num <span class="kw">in</span> range(self._MAX_CONSOLIDATION_ROUNDS):   <span class="cmt"># 循环归并直到 ≤ target</span>
+    <span class="kw">if</span> estimated <= target:
+        <span class="kw">break</span>
+    boundary = self.<span class="fn">pick_consolidation_boundary</span>(session, ...)  <span class="cmt"># 找安全切点</span></pre>
+      <p>关键参数 <code class="inl">consolidation_ratio</code> 默认 <b>0.5</b>（在 <code class="inl">loop.py:273</code> 作为构造参数传入），意思是「一旦超预算，就压到窗口的一半」，留出足够空间给后续对话，避免「压一点点、马上又超、频繁压」。归并出的摘要写进 <code class="inl">consolidator_archive.md</code>（模板 <code class="inl">templates/agent/consolidator_archive.md</code>）。</p>
+
+      <h3 class="blk">4 · ③ AutoCompact：空闲会话的定时压缩</h3>
+      <p>前两层都在「有消息在处理」时触发。但一个会话可能聊到一半就没人理了——它的历史还占着内存/文件。AutoCompact（<code class="inl">autocompact.py:18</code>）专治这个：主循环<b>空闲</b>（1s 超时，<code class="inl">loop.py:1129</code>）时调 <code class="inl">check_expired</code>（<code class="inl">autocompact.py:66</code>），扫描所有会话，把「空闲超过 TTL <b>且</b>有可压缩尾巴」的会话安排后台压缩：</p>
+<pre><span class="cmt"># autocompact.py:74-84 —— 空闲扫描：跳过在跑的会话，压缩过期的</span>
+<span class="kw">for</span> info <span class="kw">in</span> self.sessions.<span class="fn">list_sessions</span>():
+    key = info.get(<span class="str">"key"</span>, <span class="str">""</span>)
+    <span class="kw">if</span> key <span class="kw">in</span> active_session_keys:           <span class="cmt"># 有在跑的任务 → 跳过（避免打架）</span>
+        <span class="kw">continue</span>
+    <span class="kw">if</span> self.<span class="fn">_is_expired</span>(updated_at, now) <span class="kw">and</span> self.<span class="fn">_has_compactable_idle_tail</span>(key):
+        self._archiving.add(key)
+        schedule_background(self.<span class="fn">_archive</span>(key, runtime=runtime))</pre>
+      <p>TTL 由 <code class="inl">session_ttl_minutes</code> 配（<code class="inl">loop.py:272</code>，默认 0 = 关闭）。压缩产物是一段「上次对话摘要」，下次这个会话再被唤起时，COMPACT 状态（M1）通过 <code class="inl">prepare_session</code>（<code class="inl">autocompact.py:109</code>）把摘要取出注入，用户体验上「接得上」。它实际调的是 Consolidator 的 <code class="inl">compact_idle_session</code>（<code class="inl">memory.py:1214</code>）。</p>
+      <div class="warn"><b>⚠️ 三条防打架规则：</b>AutoCompact 特意<b>跳过正在处理的会话</b>（<code class="inl">autocompact.py:78</code>）、<b>跳过内部会话</b>（如 <code class="inl">dream:</code> 前缀，<code class="inl">autocompact.py:20/64</code>）、<b>用 <code class="inl">_archiving</code> 集合防重复压缩</b>（<code class="inl">autocompact.py:83</code>）。这些细节保证「后台压缩」不会和「前台回合」抢同一个 session 造成数据竞态。</div>
+
+      <h3 class="blk">5 · 四层怎么协同——一张决策图</h3>
+      <div class="diagram">
+        <div class="title">什么时候哪一层出手（决策链）</div>
+        <div class="flow">
+          <div class="box gray">Runner 要调 LLM 了</div>
+          <div class="arrow">↓ 每轮必过</div>
+          <div class="box red">① Governor：修结构 + 截工具结果；本请求超窗 → 内联压缩 + 裁史（context_governance.py:75）</div>
+          <div class="arrow">↓ 回合 BUILD/SAVE</div>
+          <div class="box amber">② Consolidator：持久化历史超预算 → 归并到 ratio×budget（memory.py:1097）</div>
+          <div class="arrow">↓ 主循环空闲</div>
+          <div class="box blue">③ AutoCompact：会话空闲超 TTL → 后台压成摘要（autocompact.py:66）</div>
+          <div class="arrow">↓ cron 定期</div>
+          <div class="box green">④ Dream：history 反思重写进长期记忆（memory.py:598）</div>
+        </div>
+      </div>
+      <div class="analogy"><b>🧹 类比：桌面—抽屉—仓库—记忆宫殿。</b>① Governor 是「递交前把这一叠纸整理平整、太厚的附件换成索引卡」（每次都做）；② Consolidator 是「桌面纸超过一半高度就把旧的装订成纪要」；③ AutoCompact 是「这张桌子没人用了，定时把桌面收进抽屉」；④ Dream 是「每晚把抽屉里的重要内容誊进永久档案，其余丢弃」。四者各管一个时间尺度，合起来让 Agent 能长期运行而不被上下文压垮。</div>
+
+      <div class="tldr"><b>收口：</b>四层压缩 = ① <code class="inl">ContextGovernor.prepare_for_model</code>（context_governance.py:75，九步修结构+超窗内联压缩，只改副本不动历史）② <code class="inl">Consolidator.maybe_consolidate_by_tokens</code>（memory.py:1097，超预算归并到 ratio×budget，默认 0.5）③ <code class="inl">AutoCompact.check_expired</code>（autocompact.py:66，空闲 TTL 后台压缩，三条防打架规则）④ <b>Dream</b>（memory.py:598，长期蒸馏）。时间尺度从「每轮」到「每天」层层兜底。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M7 Prompt 模板 ==================== -->
+<section class="qa" id="m7">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M7</span>
+      <span class="q-text">Prompt 模板（templates/agent/ + ContextBuilder）—— 系统提示词怎么拼</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>职责：</b>Agent 的「人格 + 规则 + 上下文」全在 system prompt 里。nanobot 把它拆成两半：<b>静态文案</b>用 Jinja2 模板（<code class="inl">templates/agent/*.md</code>，共 12 个 + <code class="inl">_snippets/</code>）落盘，<b>动态拼装</b>由 <code class="inl">ContextBuilder</code>（<code class="inl">context.py:47</code>）在每个回合按顺序把「身份 → 引导文件 → 工具契约 → 记忆 → 技能 → 近期历史 → 归档摘要」拼成一整段。理解「哪些是模板、哪些是运行时注入、按什么顺序拼」就掌握了 Agent 的「大脑说明书」是怎么写出来的。</div>
+
+      <h3 class="blk">1 · 模板层：Jinja2 + 纯文本渲染</h3>
+      <p>模板渲染入口是 <code class="inl">render_template</code>（<code class="inl">prompt_templates.py:28</code>）。它背后是一个被 <code class="inl">@lru_cache</code> 缓存的 Jinja2 <code class="inl">Environment</code>（<code class="inl">prompt_templates.py:17-25</code>），有两个关键设定值得注意：</p>
+<pre><span class="cmt"># prompt_templates.py:20-25 —— 提示词是「纯文本」，不是 HTML</span>
+<span class="kw">return</span> Environment(
+    loader=FileSystemLoader(str(_TEMPLATES_ROOT)),
+    autoescape=<span class="kw">False</span>,      <span class="cmt"># 关键：不做 HTML 转义，& < > 原样保留</span>
+    trim_blocks=<span class="kw">True</span>,
+    lstrip_blocks=<span class="kw">True</span>,
+)</pre>
+      <p><code class="inl">autoescape=False</code>（<code class="inl">prompt_templates.py:22</code>）是刻意的——system prompt 是给 LLM 读的纯文本，若像渲染网页那样把 <code class="inl">&lt;</code>/<code class="inl">&amp;</code> 转义，模型看到的就是乱码。模板根目录写死在 <code class="inl">_TEMPLATES_ROOT = Path(__file__).resolve().parent.parent / "templates"</code>（<code class="inl">prompt_templates.py:14</code>），即 <code class="inl">nanobot/templates/</code>。调用时传相对名如 <code class="inl">render_template("agent/identity.md", runtime=..., channel=...)</code>。</p>
+      <table class="grid">
+        <tr><th>模板文件（templates/agent/）</th><th>用途</th></tr>
+        <tr><td><code class="inl">identity.md</code></td><td>核心身份：Runtime / Workspace / 平台策略 / 搜索约定（system prompt 第一段）</td></tr>
+        <tr><td><code class="inl">tool_contract.md</code></td><td>工具调用契约：告诉模型怎么发 tool_call、结果怎么读（每轮固定注入）</td></tr>
+        <tr><td><code class="inl">platform_policy.md</code></td><td>按操作系统（system 变量）注入的平台差异策略，被 identity 内联</td></tr>
+        <tr><td><code class="inl">skills_section.md</code></td><td>技能清单区块：把 <code class="inl">skills_summary</code> 包一层「怎么用技能」说明</td></tr>
+        <tr><td><code class="inl">dream.md</code> · <code class="inl">consolidator_archive.md</code></td><td>M5/M6 用：Dream 反思提示词、归并摘要提示词</td></tr>
+        <tr><td><code class="inl">subagent_system.md</code> · <code class="inl">subagent_announce.md</code></td><td>M10 用：子智能体的系统提示词与结果回报格式</td></tr>
+        <tr><td><code class="inl">cron_reminder.md</code> · <code class="inl">goal_runtime.md</code> · <code class="inl">evaluator.md</code> · <code class="inl">max_iterations_message.md</code></td><td>定时提醒 / 目标运行时 / 评估器 / 达到迭代上限的提示语</td></tr>
+      </table>
+      <p>模板里可以用 Jinja2 的条件与包含。例如 <code class="inl">identity.md</code> 按 channel 切换「格式提示」（<code class="inl">{% if channel == 'telegram' ... %}</code>），并用 <code class="inl">{% include 'agent/_snippets/untrusted_content.md' %}</code> 复用共享片段——这就是 docstring 说的「Shared copy lives under <code class="inl">agent/_snippets/</code>」（<code class="inl">prompt_templates.py:4-5</code>）。</p>
+
+      <h3 class="blk">2 · 拼装层：ContextBuilder.build_system_prompt 的七段顺序</h3>
+      <p>模板是「零件」，把零件按顺序焊成整段 system prompt 的是 <code class="inl">ContextBuilder.build_system_prompt</code>（<code class="inl">context.py:71</code>）。它维护一个 <code class="inl">parts</code> 列表，逐段 <code class="inl">append</code>，最后用 <code class="inl">"\n\n---\n\n"</code> 连接（<code class="inl">context.py:147</code>）——即各段之间用一条分隔线隔开：</p>
+<pre><span class="cmt"># context.py:88-147（顺序节选）—— system prompt 的七段拼装</span>
+parts = [self.<span class="fn">_get_identity</span>(channel=channel, workspace=root)]   <span class="cmt"># ① 身份(identity.md)</span>
+bootstrap = self.<span class="fn">_load_bootstrap_files</span>(root)                   <span class="cmt"># ② AGENTS/SOUL/USER.md</span>
+<span class="kw">if</span> bootstrap: parts.append(bootstrap)
+parts.append(<span class="fn">render_template</span>(<span class="str">"agent/tool_contract.md"</span>))         <span class="cmt"># ③ 工具契约</span>
+<span class="kw">if</span> scoped_memory <span class="kw">is</span> <span class="kw">not</span> <span class="kw">None</span>: ...                              <span class="cmt"># ④ 记忆(多用户可见集/全局MEMORY)</span>
+<span class="kw">if</span> always_skills: parts.append(...)                            <span class="cmt"># ⑤ 常驻技能</span>
+<span class="kw">if</span> skills_summary: parts.append(<span class="fn">render_template</span>(<span class="str">"agent/skills_section.md"</span>, ...))  <span class="cmt"># ⑥ 技能清单</span>
+<span class="kw">if</span> include_memory_recent_history: parts.append(<span class="str">"# Recent History..."</span>) <span class="cmt"># ⑦ 近期历史</span>
+<span class="kw">if</span> session_summary: parts.append(...)                          <span class="cmt"># ⑧ 归档摘要(来自 M6)</span>
+<span class="kw">return</span> <span class="str">"\n\n---\n\n"</span>.join(parts)                             <span class="cmt"># 分隔线连接</span></pre>
+      <div class="diagram">
+        <div class="title">system prompt 的拼装顺序（自上而下）</div>
+        <div class="flow">
+          <div class="box blue">① 身份 identity.md（Runtime/Workspace/平台策略/搜索约定）</div>
+          <div class="arrow">↓</div>
+          <div class="box blue">② 引导文件 AGENTS.md + SOUL.md + USER.md（BOOTSTRAP_FILES，context.py:50）</div>
+          <div class="arrow">↓</div>
+          <div class="box amber">③ 工具契约 tool_contract.md（每轮固定）</div>
+          <div class="arrow">↓</div>
+          <div class="box green">④ 记忆区（多用户=可见集合 / 单用户=全局 MEMORY.md，context.py:101-114）</div>
+          <div class="arrow">↓</div>
+          <div class="box green">⑤ 常驻技能 + ⑥ 技能清单 skills_section.md（context.py:116-124）</div>
+          <div class="arrow">↓</div>
+          <div class="box purple">⑦ 近期历史 Recent History（截到 50 条 / 8000 token，context.py:126-142）</div>
+          <div class="arrow">↓</div>
+          <div class="box gray">⑧ 归档摘要 session_summary（来自 M6 AutoCompact，context.py:144-145）</div>
+        </div>
+      </div>
+      <p><code class="inl">_get_identity</code>（<code class="inl">context.py:149</code>）负责 ① 段：它把当前操作系统、Python 版本、workspace 路径填进 <code class="inl">identity.md</code>，并把 <code class="inl">platform_policy.md</code> 的渲染结果作为变量再套进去（<code class="inl">context.py:156-162</code>）——模板套模板。② 段的引导文件由 <code class="inl">BOOTSTRAP_FILES = ["AGENTS.md", "SOUL.md", "USER.md"]</code>（<code class="inl">context.py:50</code>）定义，逐个读文件内容包成 <code class="inl">## 文件名\n\n内容</code>（<code class="inl">context.py:182-193</code>）。</p>
+
+      <h3 class="blk">3 · 从 system prompt 到完整 messages</h3>
+      <p><code class="inl">build_system_prompt</code> 只产出「一段文本」，把它变成 LLM 要的 <code class="inl">messages</code> 数组的是 <code class="inl">build_messages</code>（<code class="inl">context.py:203</code>）。它做三件事：把上面拼好的 system prompt 放进 <code class="inl">{"role":"system"}</code>、后面接上 <code class="inl">*history</code>、再把当前用户消息（含图片则转 base64 image block）追加或合并到末尾：</p>
+<pre><span class="cmt"># context.py:231-250（节选）—— system + 历史 + 当前消息</span>
+messages = [
+    {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: self.<span class="fn">build_system_prompt</span>(...)},
+    *history,                     <span class="cmt"># M8 提供的历史消息</span>
+]
+<span class="kw">if</span> messages[-1].get(<span class="str">"role"</span>) == current_role:   <span class="cmt"># 末条同角色 → 合并</span>
+    ...
+<span class="kw">else</span>:
+    messages.append({<span class="str">"role"</span>: current_role, <span class="str">"content"</span>: merged})</pre>
+      <div class="warn"><b>⚠️ 提示词是「每回合重建」的，不是一次性拼好存起来。</b>因为身份里有实时 Runtime、记忆区随用户可见集合变化、Recent History 会增长、session_summary 由后台压缩产生——这些都在变。所以 M1 的 BUILD 状态每回合都会调一次 <code class="inl">build_messages</code>（<code class="inl">loop.py:1887</code>）。这也解释了为什么 M6 的压缩治理要放在 Runner 每轮做：拼装是「重建全量」，压缩是「削减到能塞进窗口」。</div>
+
+      <div class="analogy"><b>🧩 类比：拼装一份「员工上岗手册」。</b>identity.md 是封面「你是谁、在哪上班」；AGENTS/SOUL/USER 是「公司章程 + 你的性格档案 + 老板偏好」；tool_contract 是「工具使用规程」；记忆区是「客户档案柜（多用户只给你看你负责的那几户）」；技能清单是「你能调用的部门目录」；Recent History 是「最近几天的交接班记录」。ContextBuilder 就是每天上班前把这本手册按固定目录重新装订一遍递给你。</div>
+
+      <div class="tldr"><b>收口：</b>Prompt = <b>模板层</b>（<code class="inl">render_template</code> prompt_templates.py:28，<code class="inl">autoescape=False</code>:22，12 个 <code class="inl">templates/agent/*.md</code>）+ <b>拼装层</b>（<code class="inl">ContextBuilder.build_system_prompt</code> context.py:71，七段用 <code class="inl">"\n\n---\n\n"</code> join 于 :147）+ <b>成型</b>（<code class="inl">build_messages</code> context.py:203：system + history + 当前消息）。每回合重建，与 M6 压缩互补。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M8 Session / Context ==================== -->
+<section class="qa" id="m8">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M8</span>
+      <span class="q-text">Session / Context（session/）—— 会话持久化、历史裁剪与 key 隔离</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>职责：</b>Agent 要「记得刚才聊了什么」，靠的就是 Session 层。它有两个核心对象：<b>Session</b>（<code class="inl">manager.py:128</code>，一段对话的内存表示：一串 messages + 元数据 + 已归并游标）和 <b>SessionManager</b>（<code class="inl">manager.py:413</code>，按 key 管理所有 session 的存取、每个 key 落一个 <code class="inl">.jsonl</code> 文件）。再加一个 <b>session key</b> 规则（<code class="inl">keys.py</code>）决定「哪些消息算同一个会话」——这就是多用户/多群隔离的第一道边界。</div>
+
+      <h3 class="blk">1 · Session：一段对话的内存表示</h3>
+      <p><code class="inl">Session</code>（<code class="inl">manager.py:128</code>）是个 dataclass，字段很直白：<code class="inl">key</code>（注释写明格式是 <code class="inl">channel:chat_id</code>，<code class="inl">manager.py:131</code>）、<code class="inl">messages</code>（消息列表）、<code class="inl">created_at/updated_at</code>、<code class="inl">metadata</code>、以及关键的 <code class="inl">last_consolidated</code>（已归并到文件的消息数，<code class="inl">manager.py:136</code>）。追加消息用 <code class="inl">add_message</code>（<code class="inl">manager.py:147</code>），它给每条消息盖时间戳后 append：</p>
+<pre><span class="cmt"># manager.py:147-156 —— add_message：盖时间戳后追加</span>
+<span class="kw">def</span> <span class="fn">add_message</span>(self, role: str, content: str, **kwargs) -> <span class="kw">None</span>:
+    msg = {<span class="str">"role"</span>: role, <span class="str">"content"</span>: content,
+           <span class="str">"timestamp"</span>: datetime.now().isoformat(), **kwargs}
+    self.messages.append(msg)
+    self.updated_at = datetime.now()</pre>
+      <p><code class="inl">last_consolidated</code> 是 M6 Consolidator 的「书签」：它标记「前 N 条已经被归并成摘要了」。所以 <code class="inl">get_history</code>（<code class="inl">manager.py:158</code>）取历史时是从这个书签往后切的——<code class="inl">unconsolidated = self.messages[self.last_consolidated:]</code>（<code class="inl">manager.py:171</code>），再按「最多 N 条」和「token 预算」两级裁剪。这就是「压缩过的旧消息不会重复进上下文」的实现点。</p>
+
+      <h3 class="blk">2 · SessionManager：按 key 存取 + 原子落盘</h3>
+      <p><code class="inl">SessionManager</code>（<code class="inl">manager.py:413</code>）是 session 的仓库。取会话统一走 <code class="inl">get_or_create</code>（<code class="inl">manager.py:501</code>）：内存有就返回，没有就从磁盘对应的 <code class="inl">.jsonl</code> 读回、再没有就新建一个空的。存回磁盘走 <code class="inl">save</code>（<code class="inl">manager.py:656</code>），它有一个很重要的工程细节——<b>先写临时文件再原子 rename</b>：</p>
+<pre><span class="cmt"># manager.py:667-686 —— 先写 .tmp，再 os.replace 原子替换</span>
+tmp_path = path.with_suffix(<span class="str">".jsonl.tmp"</span>)
+<span class="kw">with</span> open(tmp_path, <span class="str">"w"</span>, encoding=<span class="str">"utf-8"</span>) <span class="kw">as</span> f:
+    f.write(json.dumps(metadata_line, ...) + <span class="str">"\n"</span>)   <span class="cmt"># 首行 = 元数据</span>
+    <span class="kw">for</span> msg <span class="kw">in</span> session.messages:
+        f.write(json.dumps(msg, ...) + <span class="str">"\n"</span>)           <span class="cmt"># 每条消息一行 JSONL</span>
+os.replace(tmp_path, path)                            <span class="cmt"># 原子替换：崩溃也不会写坏</span></pre>
+      <div class="warn"><b>⚠️ 为什么要「先 tmp 再 replace」？</b>如果直接往目标文件写，进程在写一半时崩溃，会留下一个损坏的半截文件，下次读回就丢了整个会话。<code class="inl">os.replace</code>（<code class="inl">manager.py:686</code>）是操作系统级的原子操作——要么看到旧文件、要么看到完整新文件，永远不会看到「写一半」。这是文件式持久化的标准做法。</div>
+      <p>每个会话文件有容量上限 <code class="inl">FILE_MAX_MESSAGES = 2000</code>（<code class="inl">manager.py:35</code>），由 <code class="inl">enforce_file_cap</code>（<code class="inl">manager.py:388</code>）在超限时裁掉最旧的消息（M1 的 SAVE 状态会调它，<code class="inl">loop.py:1974</code>）。这保证单个会话文件不会无限膨胀。</p>
+
+      <h3 class="blk">3 · session key：隔离的第一道边界</h3>
+      <p>「哪些消息属于同一个会话」由 <code class="inl">session_key_for_channel</code>（<code class="inl">keys.py:8</code>）决定。默认规则很简单——<code class="inl">f"{channel}:{chat_id}"</code>（<code class="inl">keys.py:12</code>）：Telegram 的群 A 和群 B、CLI 和 Telegram，key 都不同，历史天然隔离。但有一个「统一会话」开关：</p>
+<pre><span class="cmt"># keys.py:8-12 —— key 规则：默认按 channel:chat_id 隔离，可选统一</span>
+<span class="kw">def</span> <span class="fn">session_key_for_channel</span>(channel, chat_id, *, unified_session=<span class="kw">False</span>):
+    <span class="kw">if</span> unified_session:
+        <span class="kw">return</span> UNIFIED_SESSION_KEY        <span class="cmt"># "unified:default"（keys.py:5）</span>
+    <span class="kw">return</span> f<span class="str">"{channel}:{chat_id}"</span>         <span class="cmt"># 默认：一个聊天窗口一个会话</span></pre>
+      <p>开 <code class="inl">unified_session</code> 时所有渠道共用一个 <code class="inl">UNIFIED_SESSION_KEY = "unified:default"</code>（<code class="inl">keys.py:5</code>）——适合「个人助理」场景（不管从哪个 App 找它，都是同一段记忆）。关掉则每个聊天窗口独立——适合「群机器人」场景（各群互不串味）。</p>
+      <div class="diagram">
+        <div class="title">Session 层的三个协作对象</div>
+        <div class="flow horiz">
+          <div class="box amber">session key<br>keys.py:8<br>「谁和谁是同一会话」</div>
+          <div class="arrow">→</div>
+          <div class="box blue">SessionManager<br>manager.py:413<br>get_or_create / save</div>
+          <div class="arrow">→</div>
+          <div class="box green">Session（内存）<br>manager.py:128<br>messages + last_consolidated</div>
+          <div class="arrow">↕</div>
+          <div class="box gray">{key}.jsonl（磁盘）<br>原子 os.replace</div>
+        </div>
+      </div>
+      <div class="warn"><b>⚠️ 与 NanoScope 多用户隔离的边界：</b>NanoScope 在群聊里进一步区分「同一群内不同发言人」（Principal/Audience 隔离），但那是 NanoScope 在 session key 之上叠加的新增隔离墙，已在 <code class="inl">NANOSCOPE_LEARNING_GUIDE.html</code> 讲过。<b>nanobot 基线</b>的隔离粒度就是本节的 <code class="inl">channel:chat_id</code>——群内所有人共享一段会话历史。</div>
+
+      <div class="analogy"><b>🗂️ 类比：一排带锁的文件柜。</b>session key 是「柜子编号规则」（按 <code class="inl">渠道:聊天</code> 编号，或全塞一个「统一柜」）；SessionManager 是管理员（按编号取柜、用完锁回去）；Session 是柜里那叠文件；<code class="inl">last_consolidated</code> 是夹在中间的书签（书签前的已经誊进档案室了，日常只翻书签后的）；原子落盘就是「换文件时先在旁边整理好一整叠，再一次性替换，绝不把柜子掏空到一半」。</div>
+
+      <div class="tldr"><b>收口：</b>Session 层 = <code class="inl">Session</code>（manager.py:128：messages + <code class="inl">last_consolidated</code> 书签:136，add_message:147 / get_history:158 从书签后切）+ <code class="inl">SessionManager</code>（manager.py:413：get_or_create:501 / save:656 用 <code class="inl">os.replace</code>:686 原子落盘 / enforce_file_cap:388 上限 2000:35）+ <code class="inl">session_key_for_channel</code>（keys.py:8：默认 <code class="inl">channel:chat_id</code>:12，可切 <code class="inl">unified:default</code>:5）。它给 M7 提供 history、给 M6 提供压缩书签。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M9 Bus + Channels ==================== -->
+<section class="qa" id="m9">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M9</span>
+      <span class="q-text">Bus 与 Channels（bus/ + channels/）—— 消息总线与平台适配</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>职责：</b>这是 Agent 与外部世界的「I/O 圈层」。<b>Channels</b>（<code class="inl">channels/</code>）是平台适配器——把 Telegram/QQ/Discord/CLI 各自五花八门的原始事件，翻译成统一的 <code class="inl">InboundMessage</code>；反过来把 <code class="inl">OutboundMessage</code> 翻译回各平台的发送 API。<b>Bus</b>（<code class="inl">bus/queue.py</code>）是它俩和 Loop 之间的缓冲带——两条异步队列（inbound / outbound）彻底解耦「收发消息」和「处理消息」。核心价值：Loop 永远只跟统一的 Message 打交道，加一个新平台不用改 Loop 一行代码。</div>
+
+      <h3 class="blk">1 · Bus：两条异步队列</h3>
+      <p><code class="inl">MessageBus</code>（<code class="inl">queue.py:8</code>）本身极简——就是两个 <code class="inl">asyncio.Queue</code>：</p>
+<pre><span class="cmt"># queue.py:17-30 —— 两条队列 + 四个存取方法</span>
+self.inbound: asyncio.Queue[InboundMessage] = asyncio.Queue()   <span class="cmt"># :17 平台→Agent</span>
+self.outbound: asyncio.Queue[OutboundMessage] = asyncio.Queue()  <span class="cmt"># :18 Agent→平台</span>
+
+<span class="kw">async def</span> <span class="fn">publish_inbound</span>(self, msg):  <span class="kw">await</span> self.inbound.put(msg)     <span class="cmt"># :20 Channel 投递</span>
+<span class="kw">async def</span> <span class="fn">consume_inbound</span>(self):       <span class="kw">return await</span> self.inbound.get() <span class="cmt"># :24 Loop 取</span>
+<span class="kw">async def</span> <span class="fn">publish_outbound</span>(self, msg): <span class="kw">await</span> self.outbound.put(msg)    <span class="cmt"># :28 Loop 投递</span></pre>
+      <p>方向很清晰（docstring <code class="inl">queue.py:12-13</code> 也点明）：Channel <code class="inl">publish_inbound</code> → Loop <code class="inl">consume_inbound</code>（就是 M1 主循环那句 <code class="inl">loop.py:1127</code>）；Loop 处理完 <code class="inl">publish_outbound</code>（<code class="inl">loop.py:1338</code>）→ ChannelManager 消费。队列天然提供「削峰填谷 + 背压」：平台消息来得再快，Loop 也按自己节奏一条条取。</p>
+      <p>队列里流动的是两个 dataclass：<code class="inl">InboundMessage</code>（<code class="inl">events.py:23</code>，含 channel/chat_id/sender_id/content/media 等）和 <code class="inl">OutboundMessage</code>（<code class="inl">events.py:47</code>，含目标 channel/chat_id/content）。此外还有个 <code class="inl">RuntimeEventBus</code>（<code class="inl">runtime_events.py:91</code>）走「流式增量/进度事件」的旁路，不与主消息队列混流。</p>
+
+      <h3 class="blk">2 · Channels：平台适配的抽象基类</h3>
+      <p>所有平台适配器都继承 <code class="inl">BaseChannel</code>（<code class="inl">base.py:21</code>，ABC）。它规定了两个方向的契约：<b>入站</b>用 <code class="inl">_handle_message</code>（<code class="inl">base.py:218</code>）——平台 SDK 收到消息后调它，它做完鉴权就把消息 <code class="inl">publish_inbound</code> 进总线（<code class="inl">base.py:279</code>）；<b>出站</b>用抽象方法 <code class="inl">send</code>（<code class="inl">base.py:92</code>）和流式 <code class="inl">send_delta</code>（<code class="inl">base.py:104</code>）——每个具体平台自己实现「怎么调它的 API 发消息」。</p>
+      <p><code class="inl">_handle_message</code> 里有个设计细节值得看：它把「发送者身份」和「授权主体」分开（<code class="inl">base.py:236</code>，<code class="inl">permission_id = authorization_id if ... else sender_id</code>）——群聊里可以按「群」授权而不改「发言人」身份。鉴权不通过且是私聊时，还会自动回一个配对码（<code class="inl">base.py:238-247</code>），这就是 <code class="inl">/pairing</code> 命令的另一半。</p>
+
+      <h3 class="blk">3 · ChannelManager：启动所有渠道 + 出站分发</h3>
+      <p><code class="inl">ChannelManager</code>（<code class="inl">manager.py:81</code>）管所有渠道实例。<code class="inl">start_all</code>（<code class="inl">manager.py:465</code>）在启动时把每个 channel 拉起（各自监听自己的平台）；同时它跑一个 <code class="inl">_dispatch_outbound</code>（<code class="inl">manager.py:571</code>）常驻协程，不停从 <code class="inl">bus.consume_outbound</code> 取消息（<code class="inl">manager.py:586</code>），按 <code class="inl">msg.channel</code> 找到对应 channel 调它的 <code class="inl">send</code> 发出去。这里还做了流式增量的「合并（coalescing）」优化（<code class="inl">manager.py:575-577</code> 的 pending 缓冲）。</p>
+      <div class="diagram">
+        <div class="title">一条消息进出的 I/O 环路</div>
+        <div class="flow">
+          <div class="box gray">平台 SDK（Telegram/QQ/CLI…）收到原始事件</div>
+          <div class="arrow">↓ channel._handle_message（base.py:218，鉴权）</div>
+          <div class="box blue">bus.publish_inbound（base.py:279）→ inbound 队列</div>
+          <div class="arrow">↓ loop.consume_inbound（loop.py:1127）</div>
+          <div class="box amber">AgentLoop 处理回合（M1）→ bus.publish_outbound（loop.py:1338）</div>
+          <div class="arrow">↓ outbound 队列</div>
+          <div class="box green">ChannelManager._dispatch_outbound（manager.py:571）按 channel 路由</div>
+          <div class="arrow">↓ channel.send（base.py:92）</div>
+          <div class="box gray">平台 SDK 发出 → 用户收到回复</div>
+        </div>
+      </div>
+      <div class="warn"><b>⚠️ 为什么要 Bus 这层间接？</b>如果 Loop 直接调各平台 SDK，就会被绑死在具体平台上，且收发速率必须严格匹配。加一层队列后：① Loop 只认统一 Message，平台适配全在 Channel 里；② 收发解耦，任一侧慢了另一侧不阻塞；③ 天然支持「一条消息进、多条渠道出」（跨渠道投递）。这是「适配器模式 + 生产者消费者」的经典组合。</div>
+
+      <div class="analogy"><b>📮 类比：跨国邮局。</b>Channels 是各国的「收件/投递窗口」（懂当地语言和邮编格式，把信统一翻译成国际标准信封 = InboundMessage）；Bus 是邮局内部的「待处理筐 / 待寄出筐」两个筐；Loop 是分拣中心（只看标准信封，不管这信原来是中文还是日文）。加一个新国家的业务，只需开一个新窗口，分拣中心完全不用改。</div>
+
+      <div class="tldr"><b>收口：</b>I/O 圈 = <b>Bus</b>（<code class="inl">MessageBus</code> queue.py:8：inbound:17/outbound:18 两队列 + publish/consume :20/:24/:28）承载 <code class="inl">InboundMessage</code>/<code class="inl">OutboundMessage</code>（events.py:23/47）+ <b>Channels</b>（<code class="inl">BaseChannel</code> base.py:21：入站 <code class="inl">_handle_message</code>:218→publish_inbound:279 / 出站 <code class="inl">send</code>:92；<code class="inl">ChannelManager</code> manager.py:81：start_all:465 / _dispatch_outbound:571）。适配器 + 队列，让 Loop 与平台彻底解耦。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M10 Skills / Subagent / Command ==================== -->
+<section class="qa" id="m10">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M10</span>
+      <span class="q-text">Skills / Subagent / Command —— 技能加载、子智能体与斜杠命令</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>职责：</b>这三个模块是 Agent 的「可扩展性三件套」。<b>Skills</b>（<code class="inl">agent/skills.py</code>）让能力以「文件夹 + SKILL.md」的形式插拔式扩展，不改代码就能加技能；<b>Subagent</b>（<code class="inl">agent/subagent.py</code>）让主 Agent 能派生一个「窄权限、独立上下文」的子智能体去干专项活；<b>Command</b>（<code class="inl">command/</code>）是斜杠命令路由，把 <code class="inl">/new</code> <code class="inl">/stop</code> <code class="inl">/model</code> 这类控制指令与普通对话分开处理。它们分别对应「加能力、加并发、加控制」。</div>
+
+      <h3 class="blk">1 · Skills：文件式技能包</h3>
+      <p><code class="inl">SkillsLoader</code>（<code class="inl">skills.py:21</code>）扫描两处目录：workspace 下的 <code class="inl">skills/</code> 和内置 builtin 技能，每个技能就是一个含 <code class="inl">SKILL.md</code> 的文件夹。<code class="inl">list_skills</code>（<code class="inl">skills.py:51</code>）列出所有可用技能（workspace 同名覆盖 builtin，<code class="inl">skills.py:61-66</code>；还会按 <code class="inl">_check_requirements</code> 过滤依赖不满足的，<code class="inl">skills.py:71-72</code>）。关键设计是<b>「按需加载」</b>：system prompt 里只放技能的<b>清单摘要</b>（<code class="inl">build_skills_summary</code>，<code class="inl">skills.py:111</code>），完整的 SKILL.md 要等模型决定用了才 <code class="inl">read_file</code> 读进来——这正是 <code class="inl">skills_section.md</code> 模板里那句「To use a skill, read its SKILL.md file」的由来（见 M7）。</p>
+      <div class="warn"><b>⚠️ 为什么不把所有 SKILL.md 全塞进 prompt？</b>技能可能几十个，全量注入会瞬间撑爆上下文、也浪费 token。所以只注入「一句话摘要 + 名字」当目录，模型想用哪个再按名 <code class="inl">read_file</code> 拉全文。这是「渐进式披露（progressive disclosure）」——把上下文预算花在刀刃上。</div>
+
+      <h3 class="blk">2 · Subagent：窄权限的子智能体</h3>
+      <p><code class="inl">SubagentManager</code>（<code class="inl">subagent.py:82</code>）负责派生子智能体。<code class="inl">spawn</code>（<code class="inl">subagent.py:219</code>）接一个 task 描述，起一个独立的 Runner 循环去完成，最后用 <code class="inl">_announce_result</code>（<code class="inl">subagent.py:386</code>）把结果回报给主 Agent。它的精髓在 <code class="inl">_build_tools</code>（<code class="inl">subagent.py:197</code>）——给子 Agent 装配一套<b>独立且更窄</b>的工具集：</p>
+<pre><span class="cmt"># subagent.py:204-216 —— 子 Agent 用独立 registry + subagent 作用域</span>
+registry = ToolRegistry()                              <span class="cmt"># 全新的注册表，与主 Agent 隔离</span>
+ctx = ToolContext(config=cfg, workspace=..., ...)
+ToolLoader().load(ctx, registry, scope=<span class="str">"subagent"</span>)     <span class="cmt"># :216 只装 subagent 作用域工具</span>
+<span class="kw">return</span> registry</pre>
+      <p>回顾 M3：工具类用 <code class="inl">_scopes</code> 声明自己属于哪些作用域（默认 <code class="inl">{"core"}</code>）。这里 <code class="inl">scope="subagent"</code>（<code class="inl">subagent.py:216</code>）只会装配声明了 subagent 作用域的工具——子 Agent 天然拿不到危险的全量工具（例如不能再 spawn、不能改配置）。加上独立的 <code class="inl">ToolRegistry</code> 和独立上下文，子 Agent 就是一个「沙盒里的小号」，跑完即弃、不污染主会话。</p>
+      <div class="diagram">
+        <div class="title">主 Agent 派生子 Agent（最小权限）</div>
+        <div class="flow horiz">
+          <div class="box blue">主 Agent<br>core 作用域<br>全量工具</div>
+          <div class="arrow">→ spawn(task)<br>subagent.py:219</div>
+          <div class="box purple">子 Agent<br>subagent 作用域<br>独立 registry（窄工具集）</div>
+          <div class="arrow">→ _announce_result<br>subagent.py:386</div>
+          <div class="box green">结果回报主 Agent</div>
+        </div>
+      </div>
+
+      <h3 class="blk">3 · Command：三级斜杠命令路由</h3>
+      <p><code class="inl">CommandRouter</code>（<code class="inl">router.py:53</code>）把控制类指令与普通对话分流。它的 docstring 讲得很清楚——<b>三级路由，按序匹配</b>（<code class="inl">router.py:56-61</code>）：</p>
+      <table class="grid">
+        <tr><th>层级</th><th>时机</th><th>典型命令</th><th>入口</th></tr>
+        <tr><td><b>① priority</b></td><td>在 dispatch 锁<b>之前</b>处理（要能打断正在跑的回合）</td><td><code class="inl">/stop</code> <code class="inl">/restart</code> <code class="inl">/status</code></td><td><code class="inl">dispatch_priority</code>（router.py:95）</td></tr>
+        <tr><td><b>② exact</b></td><td>在 dispatch 锁<b>内</b>精确匹配</td><td><code class="inl">/new</code> <code class="inl">/model</code> <code class="inl">/history</code> <code class="inl">/goal</code> <code class="inl">/dream</code> <code class="inl">/skill</code> <code class="inl">/help</code></td><td><code class="inl">dispatch</code>（router.py:103）</td></tr>
+        <tr><td><b>③ prefix</b></td><td>最长前缀优先（带参命令）</td><td>如 <code class="inl">"/team "</code></td><td><code class="inl">dispatch</code>（router.py:111）</td></tr>
+      </table>
+      <p>为什么 <code class="inl">/stop</code> 要放「priority、锁外」？因为它的使命就是<b>打断正在处理的回合</b>——如果它也排队等锁，那就永远得等当前回合跑完才能停，失去意义。所有内置命令在 <code class="inl">register_builtin_commands</code>（<code class="inl">builtin.py:986</code>）里登记：<code class="inl">router.priority("/stop", ...)</code>（<code class="inl">builtin.py:988</code>）、<code class="inl">router.exact("/new", ...)</code>（<code class="inl">builtin.py:991</code>）等，共约 12 条（<code class="inl">/new /stop /restart /status /model /history /goal /trigger /dream /skill /help /pairing</code>）。M1 回合状态机的 COMMAND 状态（<code class="inl">loop.py:1821</code>）就是调这个路由——命中命令就直接返回，不进 LLM 循环。</p>
+
+      <div class="analogy"><b>🧰 类比：一家装修公司。</b>Skills 是「工具间的技能手册目录」（想学贴瓷砖再去翻那本，不用把所有手册背在身上）；Subagent 是「临时招的专项分包工」（只给他进这一个房间的钥匙，干完结账走人）；Command 是「对讲机上的快捷指令」（喊「停工」要能立刻打断，不能排在正常派活后面）。三者让这家公司既能接新活、又能并行干、还能随时管控。</div>
+
+      <div class="tldr"><b>收口：</b>可扩展三件套 = <b>Skills</b>（<code class="inl">SkillsLoader</code> skills.py:21：list_skills:51 / build_skills_summary:111，渐进式披露，只注入摘要）+ <b>Subagent</b>（<code class="inl">SubagentManager</code> subagent.py:82：spawn:219 / _build_tools:197 用 <code class="inl">scope="subagent"</code>:216 装窄工具集 + 独立 registry）+ <b>Command</b>（<code class="inl">CommandRouter</code> router.py:53：priority/exact/prefix 三级，dispatch_priority:95 / dispatch:103，register_builtin_commands builtin.py:986 约 12 条命令）。分别对应加能力/加并发/加控制。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== M11 全链路串讲 ==================== -->
+<section class="qa" id="m11">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">M11</span>
+      <span class="q-text">全链路串讲 —— 一条消息从平台进来到回复出去的完整旅程</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>目标：</b>前面 M1–M10 把每个模块单独拆开了，本章把它们<b>串成一条线</b>——跟着一条用户消息走完全程，你就能看清各模块在什么时刻、以什么身份出场、把什么交给下一棒。这是检验「你是否真的理解这个 Agent 框架」的终极一图。</div>
+
+      <h3 class="blk">1 · 一条消息的 12 站旅程</h3>
+      <div class="diagram">
+        <div class="title">从「用户在群里 @ 机器人」到「机器人回复」的完整链路</div>
+        <div class="flow">
+          <div class="box gray">① 用户在 Telegram 发消息 → 平台 SDK 触发事件</div>
+          <div class="arrow">↓ M9</div>
+          <div class="box blue">② channel._handle_message（base.py:218）：鉴权 → 打包成 InboundMessage</div>
+          <div class="arrow">↓ M9</div>
+          <div class="box blue">③ bus.publish_inbound（base.py:279）→ inbound 队列排队</div>
+          <div class="arrow">↓ M1</div>
+          <div class="box amber">④ loop.consume_inbound（loop.py:1127）取出 → _dispatch（loop.py:1261）按 session key 入队（同会话串行）</div>
+          <div class="arrow">↓ M1 回合状态机启动</div>
+          <div class="box amber">⑤ RESTORE → COMPACT → COMMAND：取会话（M8）、注入空闲摘要（M6-③）、命令分流（M10）</div>
+          <div class="arrow">↓ 非命令，进正常回合</div>
+          <div class="box green">⑥ BUILD（loop.py:1860）：Consolidator 归并超长历史（M6-②）→ ContextBuilder 拼 system prompt（M7）</div>
+          <div class="arrow">↓ M2</div>
+          <div class="box red">⑦ RUN → Runner 循环（runner.py:355）：每轮 Governor 治理副本（M6-①）→ 调 LLM（M4）</div>
+          <div class="arrow">↓ 模型要调工具</div>
+          <div class="box red">⑧ _execute_tools（runner.py:1090）执行工具（M3）→ 结果 role=tool 回灌 → 再调 LLM</div>
+          <div class="arrow">↓ 模型给出最终文本</div>
+          <div class="box green">⑨ SAVE（loop.py:1949）：落库本回合（M8 原子写）+ enforce_file_cap + 调度 consolidate（M6-②）</div>
+          <div class="arrow">↓ M1</div>
+          <div class="box amber">⑩ RESPOND（loop.py:1991）：组装 OutboundMessage → bus.publish_outbound（loop.py:1338）</div>
+          <div class="arrow">↓ M9</div>
+          <div class="box blue">⑪ ChannelManager._dispatch_outbound（manager.py:571）按 channel 路由 → channel.send（base.py:92）</div>
+          <div class="arrow">↓</div>
+          <div class="box gray">⑫ 平台 SDK 发出 → 用户在群里收到回复</div>
+        </div>
+        <div class="legend">灰=平台/SDK边界 · 蓝=I/O圈(M9) · 黄=编排(M1) · 绿=能力(M6/M7/M8) · 红=执行(M2/M3/M4)</div>
+      </div>
+
+      <h3 class="blk">2 · 三个「回合外」的后台节律</h3>
+      <p>上面是「一条消息」的同步主线；此外还有三条<b>后台异步节律</b>在并行跑，它们不在单条消息的链路里，但共同支撑 Agent 长期运行：</p>
+      <table class="grid">
+        <tr><th>后台节律</th><th>触发</th><th>做什么</th><th>模块</th></tr>
+        <tr><td><b>空闲压缩</b></td><td>主循环每次 <code class="inl">consume_inbound</code> 超时（1s，<code class="inl">loop.py:1129</code>）</td><td>扫描空闲超 TTL 的会话，后台压成摘要</td><td>M6-③ AutoCompact</td></tr>
+        <tr><td><b>Dream 反思</b></td><td>cron 定期（内部会话 <code class="inl">dream:</code> 前缀）</td><td>把 history 流水反思重写进 SOUL/USER/MEMORY</td><td>M5 / M6-④</td></tr>
+        <tr><td><b>出站分发</b></td><td>常驻协程死循环</td><td>不停消费 outbound 队列，做流式合并后发各平台</td><td>M9 ChannelManager</td></tr>
+      </table>
+
+      <h3 class="blk">3 · 一张「谁依赖谁」的分层总图</h3>
+      <div class="diagram">
+        <div class="title">模块依赖分层（上层依赖下层，箭头表示「调用/依赖」方向）</div>
+        <div class="flow">
+          <div class="box gray">I/O 圈：Channels（M9）↔ Bus（M9）</div>
+          <div class="arrow">↓ 只交换统一 Message</div>
+          <div class="box amber">编排层：AgentLoop（M1）—— 7 态回合状态机 + 同会话串行/跨会话并发</div>
+          <div class="arrow">↓ 把「工具循环」下放</div>
+          <div class="box red">执行层：AgentRunner（M2）—— 调 LLM ↔ 执行工具 的收敛循环</div>
+          <div class="arrow">↓ 向下依赖各能力</div>
+          <div class="box green">能力层：Providers(M4) · Tools(M3) · Memory(M5) · Session(M8) · Prompt(M7) · 压缩四层(M6) · 扩展三件套(M10)</div>
+        </div>
+        <div class="legend">数据流单向下钻：Bus→Loop→Runner→Providers/Tools；状态回写单向上浮：Session/Memory 落盘 → 下一回合读回</div>
+      </div>
+      <div class="warn"><b>⚠️ 一个反复出现的设计母题：「持久化视图」与「模型视图」分离。</b>贯穿全链路你会看到同一个原则——落库的历史（M8 Session、M5 history.jsonl）是<b>事实真相</b>，只增不改；而发给模型的消息（M6 Governor 每轮治理的副本、M7 每回合重建的 prompt）是<b>临时视图</b>，可裁剪、可压缩、可重排。Runner 每轮 <code class="inl">prepare_for_model</code>（<code class="inl">runner.py:361</code>）治理的绝不是落库边界。理解这条线，就理解了为什么这个 Agent 能「长期记得、又不被上下文压垮」。</div>
+
+      <div class="analogy"><b>🎬 类比：一部电影的拍摄与放映。</b>用户消息是「一场戏的开拍」；Channels/Bus 是「场记板 + 传送到剪辑室」；Loop 是「导演」（喊 action、分镜、决定这条过不过、存不存档）；Runner 是「演员反复对戏直到 NG 消失」；Providers 是「外请的大牌主演（LLM）」；Tools 是「各种道具」；Memory/Session 是「胶片仓库」；压缩四层是「剪辑师」（把长素材剪成能放映的成片，但原始胶片永远留底）。三条后台节律是「夜里默默整理片库、写拍摄日志的场务」。全片看下来，你就懂了这套「Agent 制片厂」怎么运转。</div>
+
+      <div class="tldr"><b>全书收口：</b>一个 nanobot 式 Agent = <b>I/O 圈</b>（Channels+Bus，M9）把世界标准化 → <b>编排层</b>（Loop，M1）管回合生命周期（7 态 + 同会话串行）→ <b>执行层</b>（Runner，M2）跑「LLM↔工具」收敛循环 → <b>能力层</b>（Providers/Tools/Memory/Session/Prompt/压缩/扩展，M3–M8·M10）各司其职。加一条后台节律（空闲压缩、Dream、出站分发）支撑长程运行。抓住「持久化视图 vs 模型视图分离」这条主线，整套框架就从一堆文件变成了一台你能讲清楚的机器。</div>
+    </div>
+  </div>
+</section>
+
+<footer style="text-align:center;color:#94a3b8;font-size:13px;margin:48px auto 24px;max-width:960px;line-height:1.8;">
+  <div>NanoScope · Agent 框架学习文档（NANO_AGENT_GUIDE）</div>
+  <div>范围：仅 nanobot 沿用的 Agent 基础能力（记忆 / 上下文压缩 / 提示词 / 工具 / LLM Provider / 会话 / 总线 / 渠道 / 扩展）</div>
+  <div>NanoScope 新增的评测体系 / RAG / 多用户隔离墙详见 NANOSCOPE_LEARNING_GUIDE.html，本文不重复</div>
+  <div>所有代码引用均标注「文件:行号」，锚定真实源码（如行号漂移以仓库当前 grep 为准）</div>
+</footer>
+
+</div>
+<script>
+  // 左侧目录 scroll-spy：高亮当前正在阅读的模块
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.side-toc a'));
+    if (!links.length) return;
+    var map = {};
+    links.forEach(function (a) {
+      var id = a.getAttribute('href').slice(1);
+      var sec = document.getElementById(id);
+      if (sec) map[id] = a;
+    });
+    var sections = Object.keys(map).map(function (id) { return document.getElementById(id); });
+
+    function setActive(id) {
+      links.forEach(function (a) { a.classList.remove('active'); });
+      if (map[id]) map[id].classList.add('active');
+    }
+
+    if ('IntersectionObserver' in window) {
+      var visible = {};
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
+        // 取当前可见的最靠上的 section
+        var current = sections.filter(function (s) { return visible[s.id]; })[0];
+        if (current) setActive(current.id);
+      }, { rootMargin: '-45% 0px -50% 0px', threshold: 0 });
+      sections.forEach(function (s) { obs.observe(s); });
+    }
+    // 点击后立即高亮（平滑滚动期间也有即时反馈）
+    links.forEach(function (a) {
+      a.addEventListener('click', function () { setActive(a.getAttribute('href').slice(1)); });
+    });
+  })();
+</script>
+</body>
+</html>

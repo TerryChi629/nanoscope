@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NanoScope Q&A · 0727 · RAG 评测指标 & 检索工程</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(180deg, #f4f8ff 0%, #eef3fb 100%);
+    color: #1e293b; line-height: 1.75; padding: 0 0 80px;
+  }
+  header {
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 55%, #3b82f6 100%);
+    color: #fff; padding: 52px 40px 44px; box-shadow: 0 6px 28px rgba(37,99,235,.28);
+  }
+  header .wrap { max-width: 1080px; margin: 0 auto; }
+  header .kicker { font-size: 13px; letter-spacing: 3px; opacity: .82; text-transform: uppercase; }
+  header h1 { font-size: 30px; margin: 12px 0 10px; font-weight: 800; letter-spacing: .5px; }
+  header p { font-size: 15px; opacity: .92; max-width: 760px; }
+  header .meta { margin-top: 18px; font-size: 13px; opacity: .8; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 40px; }
+  nav.toc {
+    background: #fff; border: 1px solid #dbe6f5; border-radius: 16px;
+    padding: 26px 30px; margin: -28px auto 42px; max-width: 1000px;
+    box-shadow: 0 8px 30px rgba(30,64,175,.10); position: relative;
+  }
+  nav.toc h2 { font-size: 15px; color: #1e40af; margin-bottom: 14px; letter-spacing: 1px; }
+  nav.toc ol { list-style: none; counter-reset: q; }
+  nav.toc li { counter-increment: q; margin: 9px 0; padding-left: 40px; position: relative; font-size: 14.5px; }
+  nav.toc li::before {
+    content: "Q" counter(q); position: absolute; left: 0; top: 1px;
+    background: #dbeafe; color: #1e40af; font-weight: 700; font-size: 12px;
+    padding: 2px 9px; border-radius: 20px;
+  }
+  nav.toc a { color: #334155; text-decoration: none; border-bottom: 1px dashed transparent; transition: .18s; }
+  nav.toc a:hover { color: #1d4ed8; border-bottom-color: #93c5fd; }
+  section.qa { margin: 0 auto 34px; max-width: 1000px; }
+  .card { background: #fff; border: 1px solid #e2e9f4; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 18px rgba(30,64,175,.07); }
+  .q-head { display: flex; align-items: flex-start; gap: 14px; padding: 22px 28px; background: linear-gradient(90deg,#eff5ff,#f7faff); border-bottom: 1px solid #e5edf9; }
+  .q-badge { flex: none; background: #2563eb; color: #fff; font-weight: 800; font-size: 14px; padding: 5px 13px; border-radius: 9px; box-shadow: 0 2px 8px rgba(37,99,235,.3); }
+  .q-text { font-size: 17px; font-weight: 700; color: #16203a; padding-top: 3px; }
+  .q-body { padding: 26px 30px 30px; }
+  .q-body p { margin: 12px 0; font-size: 15px; }
+  h3.blk { font-size: 16px; color: #1a56db; margin: 26px 0 12px; padding-left: 12px; border-left: 4px solid #1a56db; }
+  h3.blk:first-child { margin-top: 4px; }
+  h4.sub { margin: 18px 0 8px; color: #1e3a8a; font-size: 15px; }
+  ul.dot, ol.num { margin: 12px 0 12px 6px; padding-left: 22px; }
+  ul.dot li, ol.num li { margin: 8px 0; font-size: 15px; }
+  code.inl { background: #eef2f8; color: #b91c1c; padding: 2px 7px; border-radius: 5px; font-family: "SF Mono", Consolas, monospace; font-size: 13.5px; }
+  pre { background: #0f1e38; color: #dbe7fb; border-radius: 12px; padding: 18px 20px; overflow-x: auto; margin: 16px 0; font-family: "SF Mono", Consolas, monospace; font-size: 13px; line-height: 1.7; }
+  pre .cmt { color: #7f95b3; }
+  pre .kw { color: #7dd3fc; }
+  pre .str { color: #86efac; }
+  .tldr { background: #eff6ff; border: 1px solid #bfdbfe; border-left: 5px solid #2563eb; border-radius: 10px; padding: 16px 20px; margin: 8px 0 20px; font-size: 15px; }
+  .tldr b { color: #1a56db; }
+  .warn { background: #fff7ed; border: 1px solid #fed7aa; border-left: 5px solid #ea580c; border-radius: 10px; padding: 16px 20px; margin: 16px 0; font-size: 14.5px; }
+  .warn b { color: #c2410c; }
+  .analogy { background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 10px; padding: 16px 20px; margin: 16px 0; font-size: 14.5px; }
+  .analogy b { color: #15803d; }
+  .formula { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 22px; margin: 16px 0; text-align: center; font-size: 17px; color: #0f172a; letter-spacing: .3px; }
+  table.grid { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+  table.grid th, table.grid td { border: 1px solid #dbe3ef; padding: 10px 12px; text-align: left; vertical-align: top; }
+  table.grid th { background: #eef4ff; color: #1e3a8a; font-weight: 700; }
+  table.grid tr:nth-child(even) td { background: #f8fafc; }
+  .diagram { background: #f8fafc; border: 1px dashed #b6c6e3; border-radius: 12px; padding: 22px; margin: 20px 0; }
+  .diagram .title { text-align: center; font-size: 13px; color: #64748b; margin-bottom: 16px; letter-spacing: 1px; }
+  .flow { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .box { border-radius: 10px; padding: 12px 18px; font-size: 13.5px; text-align: center; min-width: 220px; }
+  .box.blue { background: #dbeafe; border: 1.5px solid #60a5fa; color: #1e40af; }
+  .box.green { background: #dcfce7; border: 1.5px solid #4ade80; color: #166534; }
+  .box.gray { background: #f1f5f9; border: 1.5px solid #cbd5e1; color: #475569; }
+  .box.amber { background: #fef3c7; border: 1.5px solid #fbbf24; color: #92400e; }
+  .box.red { background: #fee2e2; border: 1.5px solid #f87171; color: #991b1b; }
+  .arrow { color: #94a3b8; font-size: 18px; }
+  footer { max-width: 1000px; margin: 50px auto 0; padding: 24px 30px; text-align: center; color: #64748b; font-size: 13px; border-top: 1px solid #dbe6f5; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="kicker">NanoScope · Learning Q&A</div>
+    <h1>RAG 评测指标 &amp; 检索工程 · 六问详解</h1>
+    <p>读 NANOSCOPE_LEARNING_GUIDE.html 时攒下的六个问题——从 Recall/MRR/nDCG 的读法，到 chunking 策略、ingestion 的身份来源，再到 Filtered-ANN 三策略里"筛完能否再图遍历"的关键洞察。每条结论均落到真实源码。</p>
+    <div class="meta">日期：2026-07-27 ｜ 主题：eval/metrics.py · rag/ingest.py · rag/index.py · rag/store.py</div>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>本篇目录</h2>
+  <ol>
+    <li><a href="#q1">Recall@k 里的 gold =「人工标注的标准答案 chunk 集」到底是什么？</a></li>
+    <li><a href="#q2">MRR 不是越大越好吗？为什么只要求「重排后 nDCG/MRR ≥ 重排前」？</a></li>
+    <li><a href="#q3">ingest.py 只有「固定+重叠 / 结构段落」两种切法，是不是偏简单？业界还有什么？</a></li>
+    <li><a href="#q4">文档切片写入 store 为什么要 SecurityContext？外部知识库文档的 ctx 从哪来？</a></li>
+    <li><a href="#q5">RAG 的文档是用户手动上传的吗？通过什么渠道进来？</a></li>
+    <li><a href="#q6">图遍历是把向量建成图吗？Pre-filter 筛完为什么不能再图遍历用上 ANN？</a></li>
+    <li><a href="#q7">给我介绍一下 HNSW。</a></li>
+    <li><a href="#q8">我们这里 RAG embedding 的向量是多少维的？</a></li>
+    <li><a href="#q9">index.py 分区已做了可见性过滤，为什么还需要 store.visible_chunks？</a></li>
+    <li><a href="#q10">这里 rerank 用什么算法？还有哪些常见的 rerank 算法？</a></li>
+    <li><a href="#q11">整理一下 RAG 模块的完整链路。</a></li>
+    <li><a href="#q12">HNSW 一次 query 怎么维护候选队列？为什么召回 top_k×4 再用余弦定序？</a></li>
+    <li><a href="#q13">过程中文档可能被修改，索引会自动重建吗？</a></li>
+    <li><a href="#q14">Cross-Encoder 主流重排架构讲解 + 本项目 reranker 数据流全程。</a></li>
+    <li><a href="#q15">关键内容被切成 chunk1/chunk2、只 chunk1 进 prompt 会漏信息吗？重叠切片能 100% 解决吗？</a></li>
+    <li><a href="#q16">按 ACL 分桶：有多少项目组/个人就有多少桶？复杂度会提升吗？</a></li>
+    <li><a href="#q17">精排完是找对应 chunk 给 prompt 吗？最后给多少个 chunk？</a></li>
+    <li><a href="#q18">HNSW 停止时「最近候选的邻居」可能更近却被漏吗？顶层贪心怎么找最近点？</a></li>
+  </ol>
+</nav>
+
+<div class="container">
+
+<!-- ============ Q1 ============ -->
+<section class="qa" id="q1">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q1</span>
+      <span class="q-text">Recall@k 中 gold =「人工标注的标准答案 chunk 集」是什么？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>一句话：</b>gold（金标准）是「对某个 query，<b>事先由人 / 规则认定『这几条 chunk 才是正确答案』的那个 id 集合</b>」。它是评测的<b>裁判标尺</b>——检索器返回一串结果后，拿它去对答案：命中 gold 的算对，没命中的算错。没有 gold，Recall/MRR/nDCG 全都无从算起。</div>
+
+      <h3 class="blk">1 · 为什么必须先有 gold</h3>
+      <p>任何检索质量指标，本质都是「<b>检索器的答案</b> vs <b>标准答案</b>」的对照。代码把这两者定义得非常干净（<code class="inl">eval/metrics.py:3-6</code>）：</p>
+      <ul class="dot">
+        <li><code class="inl">ranked_ids</code>：检索器按相关性<b>降序</b>返回的 chunk id 列表——这是「考生的答卷」。</li>
+        <li><code class="inl">gold_ids</code>：该 query <b>应该</b>召回的 id 集合（无序）——这是「标准答案」，也就是 gold。</li>
+      </ul>
+      <p>指标函数做的事，就是把答卷拿到标准答案上比对。以 Recall@K 为例（<code class="inl">metrics.py:16-24</code>）：</p>
+<pre><span class="cmt"># Recall@K：前 K 个结果里，命中 gold 的数量 ÷ gold 总数</span>
+<span class="kw">def</span> recall_at_k(ranked_ids, gold_ids, k):
+    <span class="kw">if</span> <span class="kw">not</span> gold_ids:
+        <span class="kw">return</span> 1.0                       <span class="cmt"># gold 为空 → 无可召回，视为满足（避免除零）</span>
+    hits = sum(1 <span class="kw">for</span> rid <span class="kw">in</span> ranked_ids[:k] <span class="kw">if</span> rid <span class="kw">in</span> gold_ids)
+    <span class="kw">return</span> hits / len(gold_ids)      <span class="cmt"># 命中数 / gold 总数</span></pre>
+      <p>看这行 <code class="inl">if rid in gold_ids</code> 就懂了：<b>gold 就是那把「算不算命中」的尺子</b>。检索器返回的 id 只有落在 gold 集合里才计数。</p>
+
+      <h3 class="blk">2 · gold 从哪来？——本项目是「构造式 gold」，不是纯人工标注</h3>
+      <p>指南里说「人工标注」是<b>通俗说法</b>，强调它是<b>可信的标准答案</b>。但在 NanoScope 的评测里，gold 是<b>用代码构造 + 埋点</b>出来的，比人工标注更严谨、可复现。看 <code class="inl">rag/sweep.py:89-97</code> 造数据时怎么埋 gold：</p>
+<pre><span class="cmt"># 造一批「量子加密」机密 chunk，属于 proj_a —— 这些就是 gold 全集</span>
+gold = []
+doc_a = store.register_document(admin, title=<span class="str">"A组机密"</span>)
+<span class="kw">for</span> i <span class="kw">in</span> range(n_per_group):
+    rec = store.add_chunk(admin, ..., content=<span class="str">f"量子加密算法密钥分发内部方案第{i}节…"</span>,
+                          scope=SCOPE_PROJECT, acl_group=<span class="str">"proj_a"</span>)
+    gold.append(rec.id)         <span class="cmt"># ★ 写入时就登记：这些 id 是「量子加密」query 的标准答案</span></pre>
+      <p>换句话说：<b>造数据的人一边写 chunk、一边记下「这条应该被『量子加密』这个 query 召回」</b>，把它的 id 塞进 gold 列表。查询时检索器返回的结果，就拿这个 gold 去判分。</p>
+      <div class="analogy"><b>🎯 类比：</b>gold 就像老师<b>出题时同时写好的标准答案</b>。学生（检索器）交卷（ranked_ids）后，老师逐题对标准答案打勾——打勾数 ÷ 标准答案总数 = Recall。没有标准答案，卷子根本没法批。</div>
+
+      <h3 class="blk">3 · 还有个「反面标尺」：forbidden</h3>
+      <p>这套评测的精妙处在于——除了 gold（该召回的），还埋了 <code class="inl">forbidden</code>（<b>越权、绝不该召回的</b>，<code class="inl">sweep.py:98-106</code>）：proj_b 的机密 chunk，内容关键词和 gold 高度重合（都含「量子加密」），语义上是最近邻。这样才能证伪隔离：<b>无授权时它必进候选（说明确实难挡），有授权时它被授权 WHERE 拦掉（说明隔离生效）</b>。gold 量「召回够不够」，forbidden 量「隔离漏不漏」——两把尺子，一正一反。</p>
+
+      <div class="tldr"><b>收口：</b>gold = 对某 query 预先认定的「正确答案 chunk id 集」，是所有召回指标的判分标尺。本项目用<b>构造式 gold</b>（造数据时埋点，<code class="inl">sweep.py</code>），比人工标注更可复现；并配一个 <code class="inl">forbidden</code> 反向集合来证伪隔离。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q2 ============ -->
+<section class="qa" id="q2">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q2</span>
+      <span class="q-text">MRR = 第一个正确答案名次的倒数，那为什么要求「重排后 nDCG/MRR ≥ 重排前」？MRR 不是越大越好吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>你没理解错，MRR 确实越大越好。</b>「重排后 ≥ 重排前」不是在说「MRR 越小越好」，而是一条<b>验收断言（assertion）</b>：它要求「重排这道工序<b>不能帮倒忙</b>」——加了 rerank 之后的分数，必须 <b>≥</b> 不加 rerank 的分数。这里的 ≥ 比较的是<b>「同一指标的两个版本（重排前 vs 重排后）」</b>，不是指标本身的优化方向。</div>
+
+      <h3 class="blk">1 · 先分清两个「大小」，别混为一谈</h3>
+      <table class="grid">
+        <tr><th>比较</th><th>含义</th><th>方向</th></tr>
+        <tr><td><b>MRR 本身</b></td><td>越大 = 第一个正确答案排得越靠前</td><td>越大越好（你说得对）</td></tr>
+        <tr><td><b>重排后 MRR vs 重排前 MRR</b></td><td>rerank 这道工序有没有把排序改好</td><td>要求「后 ≥ 前」＝这道工序至少没变差</td></tr>
+      </table>
+      <p>关键在于 <code class="inl">rerank.py:5</code> 那句话的语境——它是在给 <b>rerank（重排序）模块</b>立验收标准：</p>
+<pre><span class="cmt"># rerank.py:5</span>
+<span class="cmt"># 在自建 gold 上证明「重排后 nDCG/MRR ≥ 重排前」（D5/M18.3）</span></pre>
+      <p>rerank 是检索的<b>第二道工序</b>：第一道（召回）先粗粗捞回一批候选并给个初排；rerank 再用更精细的模型把这批候选<b>重新排一次序</b>，力图把最相关的顶到最前。</p>
+
+      <h3 class="blk">2 · 为什么要立这条「≥」断言？——防止重排帮倒忙</h3>
+      <p>重排是个「<b>可能变好、也可能变坏</b>」的操作。它用更贵的模型重新打分，理论上更准，但也可能：</p>
+      <ul class="dot">
+        <li>模型选得不好，把本来排第 1 的正确答案挤到第 3 → MRR 从 1.0 掉到 0.33；</li>
+        <li>过拟合某种模式，在你的真实数据上反而更差。</li>
+      </ul>
+      <p>所以必须有一条<b>底线断言</b>守住：<b>「你这道重排工序，加了之后不许比不加更差」</b>。用公式表达就是：</p>
+      <div class="formula">MRR<sub>重排后</sub> &nbsp;≥&nbsp; MRR<sub>重排前</sub> &nbsp;&nbsp;且&nbsp;&nbsp; nDCG<sub>重排后</sub> &nbsp;≥&nbsp; nDCG<sub>重排前</sub></div>
+      <p>这不是「希望 MRR 小」，恰恰相反——<b>正因为 MRR 越大越好，我们才要求「重排只能让它更大或持平，绝不能让它变小」</b>。这是一条<b>单调不降的质量门禁</b>。</p>
+
+      <div class="analogy"><b>🔧 类比：</b>rerank 就像给照片加一道「AI 增强滤镜」。滤镜当然是为了更好看（MRR 更大），但你得有个验收标准：<b>「加了滤镜的照片，不许比原图更丑」</b>。这句话不是说「照片越丑越好」，而是「这道增强工序不许帮倒忙」。「重排后 ≥ 重排前」就是这个意思。</div>
+
+      <h3 class="blk">3 · 顺带：MRR 与 nDCG 为什么一起看</h3>
+      <p>两者都衡量「排序好不好」，但侧重不同（<code class="inl">metrics.py:27-51</code>）：</p>
+      <table class="grid">
+        <tr><th>指标</th><th>公式核心</th><th>侧重</th></tr>
+        <tr><td><b>MRR</b></td><td>1 / 第一个命中的名次</td><td>只看<b>第一个</b>正确答案排多前（适合「找一条就够」的场景）</td></tr>
+        <tr><td><b>nDCG@K</b></td><td>Σ 命中项 1/log₂(名次+1) ÷ 理想排序</td><td>看<b>所有</b>正确答案的整体排布（越靠前贡献越大）</td></tr>
+      </table>
+      <p>用两个指标同时立「≥」断言，是为了防「按下葫芦浮起瓢」——重排不能为了顶高第一名（MRR）而把其他正确答案全压下去（nDCG 掉）。<b>两个都不许降，才叫真的没帮倒忙。</b></p>
+
+      <div class="tldr"><b>收口：</b>MRR 确实越大越好；「重排后 ≥ 重排前」是给 rerank 工序立的<b>单调不降门禁</b>——比较的是「同一指标的重排前后两个版本」，要求重排至少不劣化。它恰恰建立在「MRR/nDCG 越大越好」之上，而非否定它。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q3 ============ -->
+<section class="qa" id="q3">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q3</span>
+      <span class="q-text">ingest.py 的切割是两种模式：固定+重叠 / 结构段落感知。这是不是偏简单的版本？还有什么方法？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>是的，当前是「够用的基线版」，而且代码自己就坦白了这一点。</b><code class="inl">ingest.py:45</code> 注释明写：「模拟『按标题/段落切』的结构感知策略；<b>真实解析器（Markdown/PDF 标题树）留待接入</b>」。业界 chunking 是一条从「字符切」到「语义切」再到「层级切」的谱系，NanoScope 落在最稳的前两档，把复杂度留给了后续接入点。</div>
+
+      <h3 class="blk">1 · 当前两种切法（基线）</h3>
+      <table class="grid">
+        <tr><th>策略</th><th>代码</th><th>机制</th><th>优点 / 局限</th></tr>
+        <tr><td><b>fixed（固定+重叠）</b></td><td><code class="inl">chunk_fixed_window</code> (ingest.py:16)</td><td>每 <code class="inl">size</code>=200 字符切一刀，相邻块重叠 <code class="inl">overlap</code>=40 字符保上下文连续</td><td>✅ 简单、对 CJK 友好无需分词器；✗ 可能从句子/词中间切断</td></tr>
+        <tr><td><b>structure（结构感知）</b></td><td><code class="inl">chunk_by_structure</code> (ingest.py:42)</td><td>先按空行分段（段落），超长段落再退化为固定窗口</td><td>✅ 尊重段落边界，语义更完整；✗ 只认「空行」，不认标题层级</td></tr>
+      </table>
+      <p>为什么用「字符」而非「词」切？注释点明（<code class="inl">ingest.py:19</code>）：<b>以字符为单位对中文友好，无需引入分词器</b>——这与记忆检索用 trigram 的思路一脉相承（都在回避「中文分词」这个麻烦）。而且配置错误（size≤0 或 overlap≥size）是 <b>fail-closed 抛错</b>，不静默退化，符合项目一贯审美。</p>
+
+      <h3 class="blk">2 · 业界更进阶的 chunking 谱系</h3>
+      <div class="diagram">
+        <div class="title">chunking 复杂度谱系（从上到下越来越「懂语义」）</div>
+        <div class="flow">
+          <div class="box gray">① 固定窗口 + 重叠 &nbsp;←&nbsp; <b>NanoScope 有</b>（最简，字符级）</div>
+          <div class="arrow">▼</div>
+          <div class="box gray">② 结构 / 分隔符感知（段落、句子）&nbsp;←&nbsp; <b>NanoScope 有</b></div>
+          <div class="arrow">▼</div>
+          <div class="box blue">③ 递归字符切分（RecursiveCharacterTextSplitter）：按 [段落→句子→词] 优先级递归回退</div>
+          <div class="arrow">▼</div>
+          <div class="box blue">④ 文档结构树切分：Markdown 标题树 / PDF 版面 / HTML DOM，按 H1&gt;H2&gt;H3 层级切，保留标题路径</div>
+          <div class="arrow">▼</div>
+          <div class="box green">⑤ 语义切分（Semantic Chunking）：算相邻句 embedding 相似度，在「话题突变」处下刀</div>
+          <div class="arrow">▼</div>
+          <div class="box green">⑥ 命题 / LLM 切分：让 LLM 把文档改写成一条条自包含「命题」，每条独立成块</div>
+          <div class="arrow">▼</div>
+          <div class="box amber">⑦ 父子 / 层级检索（Parent-Child / Small-to-Big）：小块用于精确匹配，命中后回溯挂载大块给 LLM</div>
+        </div>
+      </div>
+      <table class="grid">
+        <tr><th>方法</th><th>核心思想</th><th>解决什么痛点</th><th>代价</th></tr>
+        <tr><td>③ 递归字符</td><td>按分隔符优先级 [\n\n → \n → 。→ 空格] 递归切，尽量不破坏结构</td><td>fixed 的「硬切断句」</td><td>低，纯规则</td></tr>
+        <tr><td>④ 结构树</td><td>解析 Markdown/PDF/HTML 的标题层级，按语义单元切，chunk 携带「标题路径」元数据</td><td>structure 只认空行、丢层级信息</td><td>中，需解析器（正是 ingest.py 说的「留待接入」）</td></tr>
+        <tr><td>⑤ 语义切分</td><td>相邻句向量相似度骤降处 = 话题边界，在此下刀</td><td>规则切法不懂「意思变了没」</td><td>高，切时就要跑 embedding</td></tr>
+        <tr><td>⑥ 命题切分</td><td>LLM 把长文拆成独立自洽的原子命题</td><td>一个 chunk 混多个事实，检索噪声大</td><td>很高，切时要调 LLM，慢且贵</td></tr>
+        <tr><td>⑦ 父子检索</td><td>索引小块（精准）、喂给 LLM 大块（完整上下文）</td><td>「块小则上下文缺、块大则检索糊」的两难</td><td>中，需维护父子映射</td></tr>
+      </table>
+
+      <h3 class="blk">3 · 为什么 NanoScope 现在只做前两档？——刻意的工程取舍</h3>
+      <ul class="dot">
+        <li><b>符合项目定位</b>：RAG 是「按需可插拔的正交优化」（见 0724 篇 Q12）。chunking 是可替换组件，先用零依赖、确定性的基线跑通端到端隔离与评测闭环，把「更聪明的切法」留作接口。</li>
+        <li><b>避免过早优化</b>：⑤⑥ 在切分时就要跑 embedding / LLM，成本高、不确定性大；在记忆规模未到拐点时，收益未必覆盖复杂度（与「BM25 是否必要」同款判断）。</li>
+        <li><b>接入点已留好</b>：<code class="inl">ingest_document(strategy=...)</code> 用字符串分派策略（<code class="inl">ingest.py:77-82</code>），新增 <code class="inl">strategy="markdown_tree"</code> 只需加一个分支，不动上下游契约——这就是「留待接入」的落点。</li>
+      </ul>
+
+      <div class="tldr"><b>收口：</b>当前两种切法是<b>确定性、零依赖、CJK 友好的基线</b>，代码已坦白「真实解析器留待接入」。业界更进阶的有递归字符、结构树、语义切分、命题切分、父子检索等。NanoScope 先做前两档，是「先跑通闭环、把复杂度留给接口」的刻意取舍，而非能力缺失。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q4 ============ -->
+<section class="qa" id="q4">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q4</span>
+      <span class="q-text">为什么切片写入 store 需要 SecurityContext？它不是用户发请求时才生成的吗？外部知识库文档的 ctx 从哪来？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>因为写入时必须回答「这批 chunk 属于谁、哪个组能看」——而归属绝不能让文档内容或模型自己说了算，只能由可信的运行时上下文注入。</b>你的直觉对了一半：面向用户请求的 ctx 确实在收到消息时生成；但 ingestion 是<b>另一条独立入口</b>，它的 ctx 由<b>发起入库的那个主体</b>提供——可能是管理员、运维脚本、或后台同步任务的<b>系统身份</b>，不来自聊天消息。</div>
+
+      <h3 class="blk">1 · 为什么写入非要 ctx 不可——归属标签的唯一可信来源</h3>
+      <p>回顾 Q12/store 的隔离设计：每条 chunk 落库时必须带 <code class="inl">tenant / scope / owner_id / acl_group</code> 四个归属标签，可见性 WHERE 全靠它们。问题来了——<b>这些标签谁来填？</b> 代码给出斩钉截铁的答案（<code class="inl">ingest.py:6-7</code>、<code class="inl">store.py:89</code>）：</p>
+<pre><span class="cmt"># ingest.py:6-7 —— 红线</span>
+<span class="cmt"># chunk 的 tenant/scope/owner/acl 标签由调用方（运行时上下文）注入，</span>
+<span class="cmt"># ingest_document 只透传给 add_chunk，模型/文档内容无法伪造归属。</span>
+
+<span class="cmt"># store.py:89</span>
+<span class="cmt"># add_chunk 从 SecurityContext + 显式 scope/acl_group 注入归属，模型无法伪造。</span></pre>
+      <p>这就是要 ctx 的根本原因：<b>tenant_id 从 <code class="inl">ctx.tenant_id</code> 取，绝不从文档正文或函数参数里让人随意指定</b>。否则一份恶意文档只要在正文写「我属于 org 全员可见」，就能把自己提权成全员可见——<b>归属一旦可伪造，整套隔离墙就废了</b>。ctx 是归属的<b>唯一可信来源</b>，这是 fail-closed 原则在写入侧的落地。</p>
+      <div class="analogy"><b>🏷️ 类比：</b>ingestion 像往<b>档案库</b>归档文件。每份文件必须贴「密级 + 归属部门」标签，而这个标签只能由<b>持证的档案管理员</b>（ctx）来贴，绝不能让「文件自己封面上写什么就是什么」。否则谁都能伪造一份「绝密→改成公开」的封面蒙混过关。</div>
+
+      <h3 class="blk">2 · 那外部知识库文档的 ctx 从哪来？——不来自聊天，来自「入库主体」</h3>
+      <p>关键认知纠偏：<b>SecurityContext 不是「只有用户发消息才会生成」，而是「任何需要鉴权的操作都要带的身份凭证」</b>。用户请求是其中一条来源，但不是唯一。ingestion 是一条<b>独立的管理入口</b>，它的 ctx 由发起入库者提供。项目里就有现成例子——评测造数据时用一个<b>管理员身份</b>入库（<code class="inl">sweep.py:84-88</code>）：</p>
+<pre><span class="cmt"># sweep.py:84-88 —— ingestion 用的是「构造出来的管理员 ctx」，不是聊天消息里的</span>
+admin = SecurityContext(
+    tenant_id=<span class="str">"orgX"</span>, principal_id=<span class="str">"orgX:feishu:admin"</span>,
+    session_key=<span class="str">"feishu:admin"</span>, audience_type=AUDIENCE_DM,
+    roles=(<span class="str">"proj_a"</span>, <span class="str">"proj_b"</span>),   <span class="cmt"># 管理员可跨组入库</span>
+)
+doc_a = store.register_document(admin, title=<span class="str">"A组机密"</span>)   <span class="cmt"># 用这个身份归档</span></pre>
+      <p>真实生产里，这个入库 ctx 的典型来源有三类：</p>
+      <table class="grid">
+        <tr><th>入库场景</th><th>ctx 从哪来</th><th>身份性质</th></tr>
+        <tr><td>管理员在后台上传部门知识库</td><td>管理员登录态 → 构造其 SecurityContext</td><td>真人管理员</td></tr>
+        <tr><td>定时同步 Confluence/Drive 等外部源</td><td>后台任务的<b>服务账号（service account）</b>身份</td><td>系统身份（非自然人）</td></tr>
+        <tr><td>用户在会话里上传文件（见 Q5）</td><td>复用该<b>用户请求的 RequestContext</b></td><td>发起上传的用户本人</td></tr>
+      </table>
+      <p>所以「ctx 从哪来」的答案取决于<b>是谁在入库</b>：管理员入库→管理员身份；后台同步→服务账号身份；用户上传→用户自己的请求上下文。<b>无论哪种，都必须有一个可信主体为这批文档的归属背书</b>，这正是写入需要 ctx 的意义。</p>
+
+      <div class="tldr"><b>收口：</b>写入要 ctx，是因为归属标签（tenant/scope/owner/acl）<b>只能由可信运行时身份注入、绝不许文档或模型伪造</b>（fail-closed）。ctx 不是「只有用户请求才有」——ingestion 是独立入口，其 ctx 来自<b>入库主体</b>：管理员、服务账号或（用户上传时）用户自己的请求上下文。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q5 ============ -->
+<section class="qa" id="q5">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q5</span>
+      <span class="q-text">RAG 的各类文档是用户手动上传的吗？通过请求窗口上传文件，还是什么渠道？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>都可以，取决于文档的 scope。</b>NanoScope 当前代码里，文档入库统一走 <code class="inl">ingest_document()</code> 这个<b>编程入口</b>（还没有做「聊天窗口拖拽上传」的 UI）。但从架构设计看，三种 scope 的文档天然对应三条不同的入库渠道。<b>「用户在对话里上传文件」只是其中一条（对应 user/DM scope），而且当前尚未接入 UI，是留待接入的能力。</b></div>
+
+      <h3 class="blk">1 · 当前代码事实：只有一个编程入口 ingest_document</h3>
+      <p>先说 ground truth——翻遍 <code class="inl">rag/</code>，文档进库的唯一函数是 <code class="inl">ingest_document(store, ctx, *, title, text, scope, acl_group, strategy…)</code>（<code class="inl">ingest.py:60</code>）。它接收<b>已经是纯文本的 <code class="inl">text</code></b>，负责切块 + 带 ACL 落库。也就是说：</p>
+      <ul class="dot">
+        <li>当前没有「聊天窗口点击上传 → 自动解析 PDF/Word」的完整链路，那属于 <code class="inl">ingest.py:45</code> 说的「真实解析器留待接入」。</li>
+        <li>现在调用它的地方是<b>评测 / 造数据脚本</b>（如 <code class="inl">sweep.py</code>），由代码显式喂文本和身份。</li>
+        <li>所以严格讲：<b>当前是「编程式入库」，不是「用户 UI 上传」</b>。UI 上传是这个入口之上待补的一层。</li>
+      </ul>
+
+      <h3 class="blk">2 · 架构意图：三种 scope → 三条渠道</h3>
+      <p>虽然 UI 未接，但 <code class="inl">user/org/project</code> 三级 scope 已经把「文档从哪来、谁能入」的渠道设计钉死了：</p>
+      <div class="diagram">
+        <div class="title">文档 scope 与入库渠道的对应</div>
+        <div class="flow">
+          <div class="box blue">scope=<b>user</b> ｜ 个人文档 &nbsp;→&nbsp; <b>用户在会话里上传</b>（复用其 RequestContext，owner=本人）</div>
+          <div class="box amber">scope=<b>project</b> ｜ 项目组文档 &nbsp;→&nbsp; <b>项目管理员 / 组内成员上传</b>（带 acl_group=组名）</div>
+          <div class="box green">scope=<b>org</b> ｜ 全员文档 &nbsp;→&nbsp; <b>平台管理员 / 后台同步外部源</b>（服务账号身份）</div>
+        </div>
+      </div>
+      <table class="grid">
+        <tr><th>渠道</th><th>典型形态</th><th>入库 ctx 来源（承接 Q4）</th><th>当前状态</th></tr>
+        <tr><td><b>会话内上传</b></td><td>用户在飞书/Slack 拖个文件给 bot</td><td>该用户的 RequestContext</td><td>入口已备，UI/解析待接</td></tr>
+        <tr><td><b>管理后台上传</b></td><td>管理员在 Web 后台批量传部门资料</td><td>管理员登录态构造的 ctx</td><td>入口已备，后台待建</td></tr>
+        <tr><td><b>外部源同步</b></td><td>定时抓 Confluence / Google Drive / 网盘</td><td>后台任务的服务账号身份</td><td>入口已备，连接器待接</td></tr>
+      </table>
+
+      <h3 class="blk">3 · 为什么不同渠道很重要？——渠道决定归属，归属决定可见性</h3>
+      <p>这三条渠道不是「三种 UI」的区别，而是<b>三种身份来源</b>的区别，直接决定文档的可见范围：</p>
+      <ul class="dot">
+        <li><b>用户上传的</b>：ctx 是用户本人 → scope=user、owner=他 → 只有他自己（且在 DM 里）能检索到，这是私人文档。</li>
+        <li><b>管理员为某组上传的</b>：ctx 带 acl_group → scope=project → 该组成员可见，跨组不可见。</li>
+        <li><b>后台同步的公共资料</b>：服务账号 → scope=org → 全员可见。</li>
+      </ul>
+      <p>可见性完全由入库时注入的归属标签决定（Q4 讲的红线），而<b>归属标签由渠道背后的身份提供</b>。所以「文档从哪个渠道进来」本质上就是在回答「这份文档属于谁、谁能看」——渠道和权限是同一件事的两面。</p>
+
+      <div class="tldr"><b>收口：</b>当前 NanoScope 文档统一走 <code class="inl">ingest_document()</code> <b>编程入口</b>，尚无聊天窗口上传 UI（属「留待接入」）。架构上按 scope 设计了三条渠道：<b>用户会话上传（user）、管理员后台上传（project）、后台同步外部源（org）</b>。渠道的本质区别是<b>入库身份不同</b>，而身份决定归属、归属决定可见性。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q6 ============ -->
+<section class="qa" id="q6">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q6</span>
+      <span class="q-text">图遍历是把向量建成一张图吗？Pre-filter 先筛再算相似度会丢掉 ANN 加速——为什么不能筛完再图遍历用上 ANN？暴力算余弦不就完全没用到 ANN 了吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>你的直觉完全正确，而且你亲手推出了本项目的「选定解」！</b>①「图遍历」确实是把向量建成一张图（HNSW）再在图上跳着找近邻。②「筛完再图遍历」这条路<b>真的存在、真的能用上 ANN</b>——它就是三策略里的第三种 <code class="inl">Partitioned（分区索引）</code>，也正是 NanoScope 最终<b>选定的方案</b>。③ Pre-filter 暴力算余弦确实没用到 ANN，但它被刻意保留为「正确性基线 / recall 天花板」。你没有想错，只是「筛完再建图」这件事有个前提——<b>筛的维度必须能预先分区</b>。</div>
+
+      <h3 class="blk">1 · 先确认：「图遍历」是什么</h3>
+      <p>对，就是把向量建成一张图。这里的图是 <b>HNSW（Hierarchical Navigable Small World，分层可导航小世界图）</b>——业界最主流的 ANN 索引（<code class="inl">index.py:41</code> 用的 <code class="inl">hnswlib</code>）。它把每个向量当作图上一个节点，节点间连「距离近」的边，查询时从入口点<b>沿边贪心跳跃</b>，像走小世界网络一样几跳就逼近最近邻。</p>
+      <ul class="dot">
+        <li><b>暴力搜（brute force）</b>：拿 query 和<b>全部 N 个</b>向量逐个算余弦，O(N)，精确但慢。代码里是 <code class="inl">_brute_topk</code>（<code class="inl">index.py:65</code>）。</li>
+        <li><b>ANN 图遍历</b>：在 HNSW 图上跳，只碰 O(log N) 量级的节点就找到近似最近邻，快几个数量级，代价是「近似」（极小概率漏掉真最近邻）。</li>
+      </ul>
+      <p>所以你说的没错：<b>「暴力算余弦」就是彻底不用 ANN；「图遍历」才是 ANN 的加速所在</b>。冲突的根源是——ANN 图是<b>预先对全体向量建好</b>的，而权限过滤要求<b>只在「可见子集」里搜</b>，两者时间轴上打架。</p>
+
+      <h3 class="blk">2 · 冲突的完备拆解：筛子相对图遍历只有三个位置</h3>
+      <p>代码头注释给了一个漂亮的<b>完备性论证</b>（<code class="inl">index.py:4-12</code>）：ACL 过滤这把「筛子」相对「图遍历」，在时间轴上<b>只能放三个位置——前、中（建索引时）、后</b>，所以策略必然且只有三种：</p>
+      <table class="grid">
+        <tr><th>策略</th><th>筛子位置</th><th>机制</th><th>能用 ANN？</th><th>裁决</th></tr>
+        <tr><td><b>Post-filter</b></td><td>图遍历<b>之后</b></td><td>先全局取 top-k，再删越权项</td><td>✅ 能</td><td>❌ 破 recall + <b>越权向量已进候选</b>，违红线，仅作反面对照</td></tr>
+        <tr><td><b>Pre-filter</b></td><td>图遍历<b>之前</b></td><td>先 WHERE 选可见子集，再<b>暴力</b>算余弦</td><td>❌ 不能</td><td>✅ 正确安全，但丢 ANN 加速（O(N·可见率)）；留作<b>正确性基线</b></td></tr>
+        <tr><td><b>Partitioned</b></td><td><b>建索引阶段</b></td><td>按 ACL group <b>各建子图</b>，只搜可见子图</td><td>✅ 能</td><td>✅✅ <b>速度 + 正确兼得，选定解</b></td></tr>
+      </table>
+
+      <h3 class="blk">3 · 你的问题正中要害：为什么 Pre-filter 不能「筛完再图遍历」？</h3>
+      <p>因为 <b>HNSW 图必须预先建好</b>，而 pre-filter 的「可见子集」是<b>查询时才知道、且每个用户都不同</b>的。你不可能为「张三这次查询恰好可见的这批向量」现场建一张 HNSW 图——<b>建图本身就是 O(N log N) 的重活，比你省下的搜索时间还贵</b>。所以 pre-filter 一旦筛出子集，只能对这个<b>临时子集暴力算余弦</b>：</p>
+      <div class="diagram">
+        <div class="title">Pre-filter：可见子集是「查询时才定、人人不同」→ 无法复用预建图</div>
+        <div class="flow">
+          <div class="box gray">全体向量（预建了一张 HNSW 大图）</div>
+          <div class="arrow">▼ 用户查询到来，WHERE 筛出「他可见的那批」</div>
+          <div class="box amber">可见子集：每个用户不同、每次不同 → 大图的边大多指向「被筛掉的点」，图残破无法用</div>
+          <div class="arrow">▼ 现建图太贵（O(N log N)）</div>
+          <div class="box blue">只能：对可见子集<b>暴力算余弦</b> O(可见数)</div>
+        </div>
+      </div>
+      <p>这就是「pre-filter 丢掉 ANN 加速」的<b>精确原因</b>：不是不想用 ANN，是<b>可见子集的动态性让「预建图」无法复用</b>。所以它被定位成「recall 天花板与正确性基线」（<code class="inl">index.py:16</code>：pre-filter <b>永远暴力</b>，不接 ANN）——它的价值是「绝对正确、可复现」，用来给其他策略当参照系。</p>
+
+      <h3 class="blk">4 · 你设想的「筛完再图遍历」= Partitioned，本项目的选定解！</h3>
+      <p>你的直觉——「筛完再图遍历不就能用 ANN 了」——<b>是对的</b>，关键在于「什么时候筛」。Pre-filter 是<b>查询时</b>筛（太晚，图建不了）；而 <b>Partitioned 是建索引时就按 ACL 组把向量分好区、每组各建一张 HNSW 子图</b>（<code class="inl">index.py:269-279</code>）：</p>
+<pre><span class="cmt"># index.py:269-279 —— PartitionedSearcher（选定解）</span>
+<span class="cmt"># 分区结构：{(tenant,org):大图, (tenant,project,组):子图, (tenant,user,人):子图}</span>
+<span class="cmt"># 查询时：用户可见分区 = 同租户 org ∪ 其 DM 个人分区 ∪ 其所属 project 子图</span>
+<span class="cmt"># 只在这几个分区跑 ANN，结果合并。越权子图【从未被加载/访问】(F3)。</span></pre>
+      <div class="analogy"><b>🗂️ 类比：</b>与其把全公司文件堆成一座山、每次查完再挑出「你能看的」（post-filter，越权文件已翻过），或每次现从山里抽出你能看的一小堆逐份翻（pre-filter，暴力）；<b>不如一开始就按部门把文件分成一个个上锁的档案柜，每个柜内部单独编好索引</b>。张三来查，只开他有钥匙的几个柜、在柜内索引上快速定位（子图内跑 ANN）——<b>别的柜从头到尾没打开过</b>。这就是 Partitioned。</div>
+      <p>它为什么能成立？关键前提在 <code class="inl">index.py:277</code>：<b>本项目 ACL 维度是 org/project（部门/项目，数量级几~几十），分区数天然可控</b>——所以「按组预分区建子图」可行。这正是「敢选分区索引」的答辩点。它还留了 fail-safe（<code class="inl">index.py:282-283</code>）：分区数异常膨胀超过 256 时，自动退化为 pre-filter 暴力，<b>正确性永远保底</b>。</p>
+
+      <h3 class="blk">5 · 三策略同表对比</h3>
+      <table class="grid">
+        <tr><th></th><th>Post-filter</th><th>Pre-filter</th><th>Partitioned（选定）</th></tr>
+        <tr><td>能否用 ANN 加速</td><td>能</td><td><b>不能</b>（子集动态，图无法预建）</td><td><b>能</b>（子图预建）</td></tr>
+        <tr><td>越权向量是否进候选</td><td>❌ 进了（违红线）</td><td>✅ 从不</td><td>✅ 从不（越权子图不加载）</td></tr>
+        <tr><td>正确性</td><td>破 recall</td><td>✅ 天花板基线</td><td>✅ 由分区结构保证</td></tr>
+        <tr><td>定位</td><td>反面对照</td><td>正确性基线 / 保底</td><td><b>生产选定解</b></td></tr>
+      </table>
+
+      <div class="tldr"><b>收口：</b>①「图遍历」= 在预建的 HNSW 图上跳着找近邻，暴力算余弦则完全不用 ANN——你理解准确。② Pre-filter 之所以只能暴力，是因为<b>可见子集查询时才定、人人不同，无法复用预建图</b>，现建图又太贵。③ 你设想的「筛完再图遍历」<b>正是 Partitioned 策略</b>——把「筛」提前到<b>建索引时</b>按 ACL 组分区建子图，查询时只搜可见子图，既用上 ANN 又不碰越权数据，<b>正是 NanoScope 的选定解</b>。你凭直觉推到了正确答案。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q7 ============ -->
+<section class="qa" id="q7">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q7</span>
+      <span class="q-text">给我介绍一下 HNSW。</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>一句话：</b>HNSW（Hierarchical Navigable Small World，<b>分层可导航小世界图</b>）是当前<b>最主流的 ANN（近似最近邻）索引</b>。核心思想两句话：①把向量连成一张「近的相连」的图，查询时<b>沿边贪心跳跃</b>逼近目标，把 O(N) 暴力降到 <b>O(log N)</b>；②叠成<b>多层</b>（上稀疏、下稠密），像坐「高速→省道→小路」逐级逼近，避免陷入局部最优。NanoScope 用的就是它（<code class="inl">index.py:41</code> 的 <code class="inl">hnswlib</code>，<code class="inl">space="cosine"</code>）。</div>
+
+      <h3 class="blk">1 · 要解决的问题：暴力搜太慢</h3>
+      <p>向量检索的本质是「给一个 query 向量，从 N 个向量里找最相似的 top-k」。最朴素的办法是<b>暴力</b>：和全部 N 个逐一算余弦，O(N)。N=一千还行，N=一千万就卡死。ANN 的思路是<b>用一点点精度换巨大的速度</b>——不保证找到「绝对最近」，但以极高概率找到「几乎最近」，代价从 O(N) 降到 O(log N) 量级。HNSW 是 ANN 家族里综合最优的一种。</p>
+
+      <h3 class="blk">2 · 两个关键词拆开讲</h3>
+      <h4 class="sub">① Small World（小世界图）——为什么能「几跳就到」</h4>
+      <p>「小世界」就是<b>六度分隔</b>那个现象：社交网络里任意两人平均只隔几个人。HNSW 把每个向量当成图上一个<b>节点</b>，给每个节点连若干条「距离近」的<b>边</b>（邻居）。查询时从某个入口点出发，<b>每一步都跳到「当前邻居里离 query 最近的那个」</b>，像贪心爬山一样逼近目标。因为图有小世界性质，<b>几跳就能从图的任意角落逼近目标区域</b>，不用遍历全部节点。</p>
+      <h4 class="sub">② Hierarchical（分层）——为什么要叠好几层</h4>
+      <p>单层小世界图有个毛病：可能在一个局部区域里「打转」，跳不出去。HNSW 的解法是<b>叠成金字塔式的多层</b>：</p>
+      <div class="diagram">
+        <div class="title">HNSW 多层结构：从稀疏高层逐级下沉到稠密底层</div>
+        <div class="flow">
+          <div class="box gray">Layer 2（最稀疏，少数节点，长边）——「高速公路」，一跳跨很远</div>
+          <div class="arrow">▼ 在本层贪心逼近后，下沉一层</div>
+          <div class="box blue">Layer 1（中等密度）——「省道」，中等粒度逼近</div>
+          <div class="arrow">▼ 继续下沉</div>
+          <div class="box green">Layer 0（最稠密，全部节点都在）——「小路」，精细定位最终 top-k</div>
+        </div>
+      </div>
+      <p>查询从<b>最高层</b>的入口点开始，在稀疏图上大步逼近；到某层局部最优后<b>下沉一层</b>，在更密的图上继续精修；一路降到<b>第 0 层</b>（含全部节点）做最终精确逼近。这就像找地址：先上高速到城市，下省道到城区，再走小路到门牌——<b>逐级缩小范围，避免在小路上从头开始瞎找</b>。</p>
+
+      <h3 class="blk">3 · 三个必须知道的超参（NanoScope 的取值）</h3>
+      <p>代码里三个默认超参（<code class="inl">index.py:83-86</code>）正是 HNSW 的三个旋钮：</p>
+      <table class="grid">
+        <tr><th>超参</th><th>代码默认</th><th>含义</th><th>调大的影响</th></tr>
+        <tr><td><code class="inl">M</code></td><td>16</td><td>每个节点连多少条边（邻居数）</td><td>图更密 → 召回更准，但内存更大、建图更慢</td></tr>
+        <tr><td><code class="inl">ef_construction</code></td><td>200</td><td><b>建图时</b>每步考察的候选邻居数</td><td>建的图质量更高，但建图更慢</td></tr>
+        <tr><td><code class="inl">ef_search</code></td><td>50</td><td><b>查询时</b>维护的候选队列长度</td><td>召回更准，但单次查询更慢</td></tr>
+      </table>
+      <p>本质都是<b>「精度 vs 速度/内存」的权衡旋钮</b>。<code class="inl">M</code> 和 <code class="inl">ef_construction</code> 在建图时定死，<code class="inl">ef_search</code> 可以在查询时动态调（<code class="inl">index.py:118</code> 的 <code class="inl">set_ef</code>）。</p>
+
+      <h3 class="blk">4 · NanoScope 怎么用 HNSW——两个关键约束</h3>
+      <ul class="dot">
+        <li><b>只给候选，不做精排</b>（<code class="inl">index.py:91-95</code>）：<code class="inl">_HnswIndex</code> 只负责「返回近邻的原始下标」，拿到候选后<b>外层再用精确余弦重打分</b>（<code class="inl">_brute_topk</code>）。所以先用 ANN 多召回 <code class="inl">top_k×4</code> 个候选（<code class="inl">_ANN_FANOUT_MULT=4</code>），再精排回 top_k——<b>ANN 只决定「看哪些」，精确余弦决定「怎么排」</b>，保证同一候选集结果可复现。</li>
+        <li><b>单线程建图保证可复现</b>（<code class="inl">index.py:114-116</code>）：<code class="inl">num_threads=1</code>，因为多线程插入顺序不确定会让图结构不可复现——这是项目「确定性」审美的体现。</li>
+        <li><b>可选依赖 + 优雅降级</b>（<code class="inl">index.py:40-48</code>）：没装 <code class="inl">hnswlib</code> 时全部退化为纯 Python 暴力余弦，<code class="inl">SearchOutcome</code> 契约逐字节不变——HNSW 是<b>加速层</b>，不是正确性的必需品。</li>
+      </ul>
+      <div class="warn"><b>⚠ 红线：</b>HNSW <b>永不承担可见性判断</b>（<code class="inl">index.py:22-24</code>、<code class="inl">index.py:94-95</code>）。它只做「候选召回排序」，可见性永远由授权 WHERE 或分区结构保证。这就是为什么 Q9 里 <code class="inl">visible_chunks</code> 依然不可省——下一问详解。</div>
+
+      <div class="tldr"><b>收口：</b>HNSW = 分层小世界图的 ANN 索引，用「多层图 + 贪心跳跃」把最近邻搜索从 O(N) 降到 O(log N)，靠 <code class="inl">M / ef_construction / ef_search</code> 三个旋钮权衡精度与速度。NanoScope 用它<b>只做候选召回</b>（外层精确余弦重排），单线程建图保证可复现，且未装依赖时优雅降级为暴力——它是<b>可选加速层，永不碰可见性</b>。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q8 ============ -->
+<section class="qa" id="q8">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q8</span>
+      <span class="q-text">我们这里 RAG embedding 的向量是多少维的？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>一句话：默认 2048 维。</b>NanoScope 用智谱 GLM 的 <code class="inl">embedding-3</code> 模型（<code class="inl">eval/embedding.py:24</code>），其<b>默认输出维度是 2048</b>（<code class="inl">embedding.py:38-39</code> 注释明写「None 用模型默认（2048）」）。同时支持<b>可选降维</b>：传 <code class="inl">dimensions</code> 参数可让 GLM 输出更低维度（如 1024/512），省存储、加速检索。</div>
+
+      <h3 class="blk">1 · 证据：维度由 embedding 模型决定</h3>
+      <p>向量维度不是我们随便定的，而是<b>由所选 embedding 模型决定</b>。NanoScope 的选型写死在 <code class="inl">embedding.py</code>：</p>
+<pre><span class="cmt"># embedding.py:23-24</span>
+_DEFAULT_BASE_URL = <span class="str">"https://open.bigmodel.cn/api/paas/v4"</span>
+_DEFAULT_MODEL = <span class="str">"embedding-3"</span>          <span class="cmt"># ← 智谱 GLM embedding-3</span>
+
+<span class="cmt"># embedding.py:38-39（GlmEmbedder 类 docstring）</span>
+<span class="cmt"># dimensions 可选（GLM 支持降维，省存储/加速）；None 用模型默认（2048）。</span></pre>
+      <p>所以：<b>不传 <code class="inl">dimensions</code>（默认 None）→ 每条文本被编码成一个 2048 维的稠密浮点向量</b>。</p>
+
+      <h3 class="blk">2 · 降维是可选优化</h3>
+      <p><code class="inl">GlmEmbedder</code> 构造时可传 <code class="inl">dimensions</code>（<code class="inl">embedding.py:47</code>），非 None 时会加进请求 payload（<code class="inl">embedding.py:60-61</code>），让 GLM 直接返回降维后的向量：</p>
+      <table class="grid">
+        <tr><th>dimensions 取值</th><th>输出维度</th><th>权衡</th></tr>
+        <tr><td>None（默认）</td><td>2048</td><td>信息最全，精度最高；存储/计算成本最大</td></tr>
+        <tr><td>1024 / 512（示例）</td><td>对应值</td><td>省一半以上存储、检索更快；轻微精度损失</td></tr>
+      </table>
+      <p>为什么降维有用？2048 维向量存 100 万条 = 约 2048×4字节×1M ≈ <b>8 GB</b>；降到 512 维直接省到 2 GB。对大规模库，降维是很实际的成本优化——这也是 GLM embedding-3 相比固定维度模型的一个灵活点。</p>
+
+      <h3 class="blk">3 · 维度在检索链路里怎么流转</h3>
+      <ul class="dot">
+        <li><b>建 HNSW 图时</b>：维度自动从向量读取（<code class="inl">index.py:108</code> <code class="inl">self._dim = len(vecs[0])</code>），传给 <code class="inl">hnswlib.Index(space="cosine", dim=self._dim)</code>。所以换维度不用改索引代码，自适应。</li>
+        <li><b>算相似度时</b>：用余弦相似度（<code class="inl">index.py:56-62</code> <code class="inl">_cosine</code>），维度多少都通用。</li>
+        <li><b>测试时</b>：可注入 <code class="inl">FakeEmbedder</code>（确定性假向量，<code class="inl">embedding.py:12</code>），维度可控，不依赖网络/密钥——这就是为什么单测不需要真调 GLM。</li>
+      </ul>
+
+      <div class="warn"><b>⚠ 一致性铁律：</b>建库和查询<b>必须用同一个 embedding 模型 + 同一维度</b>。若入库时用 2048 维、查询时用 512 维，两者根本不在同一向量空间，余弦相似度完全无意义。这是所有向量检索系统的隐性前提。</div>
+
+      <div class="tldr"><b>收口：</b>RAG embedding 用 GLM <code class="inl">embedding-3</code>，<b>默认 2048 维</b>（<code class="inl">embedding.py:24,38-39</code>）；支持传 <code class="inl">dimensions</code> 降维（如 1024/512）以省存储、加速。维度自动流入 HNSW 建图与余弦计算，测试用 <code class="inl">FakeEmbedder</code> 解耦。铁律：建库与查询必须同模型同维度。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q9 ============ -->
+<section class="qa" id="q9">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q9</span>
+      <span class="q-text">index.py 的 Partitioned 分区建子图这一步其实已经在做可见性过滤，为什么还需要 store.py 的 visible_chunks？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>一句话：因为分区索引是「加速层的近似隔离」，而 <code class="inl">visible_chunks</code> 是「数据库层的授权真值」——两者是纵深防御，不是重复。</b>代码给了斩钉截铁的答案（<code class="inl">search.py:55</code> 注释）：「<b>SQL 可见集合是最终授权真值；交集防止陈旧/误配索引扩大权限</b>」。索引可能陈旧、可能配错、可能有 bug；一旦它「多召回了」越权 chunk，最后那道 <code class="inl">visible_chunks</code> 交集会把它挡下。<b>索引只负责快，WHERE 才负责对。</b></div>
+
+      <h3 class="blk">1 · 先厘清两者各自的角色（红线：索引只排序，WHERE 定可见）</h3>
+      <table class="grid">
+        <tr><th></th><th>store.visible_chunks（SQL WHERE）</th><th>index.py 分区结构</th></tr>
+        <tr><td>层次</td><td><b>数据库授权层</b>（权威）</td><td><b>检索加速层</b>（近似）</td></tr>
+        <tr><td>职责</td><td>唯一决定「能不能看」（fail-closed）</td><td>决定「先看哪些候选、怎么排序」</td></tr>
+        <tr><td>依据</td><td>实时查库 + 授权谓词（<code class="inl">store.py:185-207</code>）</td><td>建索引时的分区快照（可能滞后）</td></tr>
+        <tr><td>红线</td><td>是授权的<b>最终真值</b></td><td><b>永不承担可见性</b>（<code class="inl">index.py:22-24</code>）</td></tr>
+      </table>
+      <p>项目把这条红线写得极重（<code class="inl">index.py:22-24</code>）：「索引只承担『候选召回排序』，<b>永不承担可见性</b>——可见性永远由授权 WHERE（pre/post）或分区结构（partitioned）保证。」注意措辞：分区结构「参与保证」，但它<b>不是最终仲裁者</b>。最终仲裁永远是 SQL。</p>
+
+      <h3 class="blk">2 · 核心证据：search.py 里的「交集」防线</h3>
+      <p>看权限感知检索单入口是怎么把两者串起来的（<code class="inl">search.py:44-56</code>）：</p>
+<pre><span class="cmt"># search.py:44 —— 第一步就取 SQL 授权真值</span>
+visible = store.visible_chunks(ctx)
+by_id = {c.id: c <span class="kw">for</span> c <span class="kw">in</span> visible}     <span class="cmt"># 授权白名单</span>
+...
+<span class="cmt"># search.py:54-56 —— 分区索引出的候选，必须与授权白名单取交集</span>
+outcome = vector_searcher.search(ctx, query, fanout)
+<span class="cmt"># SQL 可见集合是最终授权真值；交集防止陈旧/误配索引扩大权限。</span>
+vec_ranking = [chunk.id <span class="kw">for</span> chunk <span class="kw">in</span> outcome.results <span class="kw">if</span> chunk.id <span class="kw">in</span> by_id]</pre>
+      <p>看最后那行 <code class="inl">if chunk.id in by_id</code>——<b>索引返回的每一个候选，都要再过一遍 SQL 授权白名单</b>。索引说「这些相关」，SQL 说「这些你能看」，<b>只有两者都点头的才留下</b>。这就是为什么 <code class="inl">visible_chunks</code> 一天都不能省。</p>
+
+      <h3 class="blk">3 · 为什么索引不可尽信？——三个现实风险</h3>
+      <ul class="dot">
+        <li><b>陈旧（staleness）</b>：分区索引是<b>建索引时的快照</b>（<code class="inl">index.py:320-342</code> 靠 <code class="inl">revision</code> 判断是否重建）。若某 chunk 的权限刚被调整、而索引还没重建，索引里就是<b>过期视图</b>。SQL 查的是<b>实时</b>当前状态。</li>
+        <li><b>误配（misconfiguration）</b>：分区 key 的推导（<code class="inl">index.py:307-312</code>）若有 bug、或 <code class="inl">use_ann</code> 开关配错，可能把某 chunk 分错区。索引出错，WHERE 兜底。</li>
+        <li><b>召回近似性</b>：ANN 本就是「近似」，加上 <code class="inl">fanout</code> 放大召回，候选集里可能混入本不该出现的项。交集是<b>确定性的最后一道闸</b>。</li>
+      </ul>
+      <div class="analogy"><b>🔐 类比：</b>分区索引像大楼里的<b>「楼层门禁」</b>——刷卡只让你进你那层，很快很方便。但真正的机密档案柜上<b>还有一把独立的锁</b>（<code class="inl">visible_chunks</code>）。就算门禁系统被改错了、放你进了别的楼层，档案柜的锁依然打不开。<b>门禁负责效率，柜锁负责安全</b>——你不会因为有了门禁就把柜锁拆了。</div>
+
+      <h3 class="blk">4 · 这正是项目「隔离墙与检索正交」审美的落地</h3>
+      <p>这个设计呼应了 0724 篇反复强调的原则：<b>可见性（安全）与检索排序（性能）解耦</b>。</p>
+      <ul class="dot">
+        <li><b>索引可以大胆优化</b>：换 HNSW 超参、改分区策略、上更激进的 ANN——<b>永远撞不穿隔离墙</b>，因为最终有 SQL 交集兜底。</li>
+        <li><b>安全不依赖索引正确</b>：即便索引层完全失效（退化暴力、甚至召回全库），<code class="inl">visible_chunks</code> 交集仍保证只返回可见项。这就是 <b>fail-closed</b>：出错时向「更安全」的方向塌缩。</li>
+        <li><b>可证伪</b>：正因为有权威的 <code class="inl">visible_chunks</code>，才能拿它当基准，检验索引层有没有「扩大权限」（<code class="inl">forbidden_doc_exposure</code> 应恒为 0，<code class="inl">search.py:78-85</code>）。</li>
+      </ul>
+
+      <div class="tldr"><b>收口：</b>分区建子图是<b>加速层的近似隔离</b>（可能陈旧/误配/近似），<code class="inl">visible_chunks</code> 是<b>数据库层的授权真值</b>。<code class="inl">search.py:56</code> 用「索引候选 ∩ SQL 白名单」把两者串成纵深防御——<b>索引负责快，WHERE 负责对</b>。省掉 <code class="inl">visible_chunks</code> 就等于把安全押注在「索引永不出错」上，违背 fail-closed。这正是「隔离墙与检索正交」的核心落地。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q10 ============ -->
+<section class="qa" id="q10">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q10</span>
+      <span class="q-text">这里 rerank 用什么算法？除此之外还有哪些常见的算法？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>一句话：当前用的是一个确定性 <code class="inl">StubReranker</code>（占位版），不是真模型。</b>它用「query 与 chunk 的<b>字符级重合度</b>」（Jaccard 变体）当相关性分（<code class="inl">rerank.py:23-43</code>），对 CJK 友好、可离线复现。代码明说「真实 cross-encoder（如 bge-reranker）<b>留待接入</b>」（<code class="inl">rerank.py:3-5</code>），这个 stub 只为在合成 gold 上跑通「重排后 nDCG/MRR ≥ 重排前」的验收管线。</div>
+
+      <h3 class="blk">1 · 先分清：rerank 在链路里是「第二道排序」</h3>
+      <p>检索通常是<b>两阶段</b>：①<b>召回（retrieve）</b>——用快而糙的方法（BM25/向量 ANN）从海量库里粗筛出 top-N 候选；②<b>重排（rerank）</b>——用慢而精的模型只对这 N 个候选<b>重新精排</b>，把最相关的顶到最前。为什么不直接用精模型搜全库？因为精模型太贵，只能用在「已缩小到几十个候选」的小集合上。这就是 rerank 的定位。</p>
+
+      <h3 class="blk">2 · NanoScope 当前的 StubReranker</h3>
+<pre><span class="cmt"># rerank.py:24-42 —— 确定性 stub：字符级重合度当联合分</span>
+<span class="kw">def</span> rerank(self, query, candidates):
+    q = set(query.strip())                        <span class="cmt"># query 的字符集合</span>
+    scored = [
+        (idx, len(q & set(text)) / len(q))        <span class="cmt"># |交集| / |query 字符数|</span>
+        <span class="kw">for</span> idx, text <span class="kw">in</span> enumerate(candidates)
+    ]
+    scored.sort(key=<span class="kw">lambda</span> kv: (-kv[1], kv[0]))  <span class="cmt"># 分高在前，同分按原序（确定性 tie-break）</span>
+    <span class="kw">return</span> [idx <span class="kw">for</span> idx, _ <span class="kw">in</span> scored]</pre>
+      <ul class="dot">
+        <li><b>算法本质</b>：<code class="inl">|query字符 ∩ chunk字符| / |query字符|</code>——一个 Jaccard 变体，衡量「query 的字覆盖了多少」。</li>
+        <li><b>为什么用它</b>：零依赖、确定性可复现、对中文友好（按字符不按词）。它<b>不是真语义模型</b>，但足以演示「重排管线 + 增益度量」是否跑通。</li>
+        <li><b>可整体替换</b>：<code class="inl">Reranker</code> 是个 <code class="inl">Protocol</code>（<code class="inl">rerank.py:16-20</code>），只要实现 <code class="inl">rerank(query, candidates)->list[int]</code>，真实模型可无缝替换 stub，契约不变。</li>
+      </ul>
+      <div class="warn"><b>⚠ 红线（<code class="inl">rerank.py:7</code>）：</b>rerank <b>只对已隔离的可见候选排序，绝不改变可见性</b>。它拿到的候选早已过了 <code class="inl">visible_chunks</code> 授权白名单——重排纯粹是「排序美化」，动不了权限。</div>
+
+      <h3 class="blk">3 · 业界常见的 rerank 算法谱系</h3>
+      <div class="diagram">
+        <div class="title">rerank 方法：从字面重合 → 学习排序 → 深度语义 → 大模型</div>
+        <div class="flow">
+          <div class="box gray">① 字面/统计重合（Jaccard、当前 stub）——零依赖，纯字面</div>
+          <div class="arrow">▼ 越来越懂语义</div>
+          <div class="box blue">② Learning-to-Rank（LambdaMART/GBDT）——手工特征 + 树模型学排序</div>
+          <div class="arrow">▼</div>
+          <div class="box green">③ Cross-Encoder（bge-reranker、Cohere Rerank、MiniLM）——query 与 chunk 拼一起过 BERT，输出相关分</div>
+          <div class="arrow">▼</div>
+          <div class="box amber">④ LLM-as-Reranker（RankGPT、列表式提示）——让大模型直接对候选列表排序</div>
+        </div>
+      </div>
+      <table class="grid">
+        <tr><th>方法</th><th>核心机制</th><th>精度</th><th>成本/延迟</th><th>典型代表</th></tr>
+        <tr><td>① 字面重合</td><td>字符/词集合重叠度</td><td>低（无语义）</td><td>极低</td><td>Jaccard（当前 stub）</td></tr>
+        <tr><td>② Learning-to-Rank</td><td>人工特征喂树模型学序</td><td>中</td><td>低</td><td>LambdaMART、XGBoost-rank</td></tr>
+        <tr><td><b>③ Cross-Encoder</b></td><td><b>query+chunk 拼接过一个 BERT，直接输出相关分</b></td><td><b>高（当前工业主流）</b></td><td>中（每候选一次前向）</td><td><b>bge-reranker、Cohere Rerank</b></td></tr>
+        <tr><td>④ LLM-as-Reranker</td><td>大模型 zero-shot 对列表排序</td><td>很高</td><td>很高（调 LLM）</td><td>RankGPT、RankLLaMA</td></tr>
+      </table>
+      <h4 class="sub">为什么 Cross-Encoder 是当前主流？——和召回用的 Bi-Encoder 对比</h4>
+      <ul class="dot">
+        <li><b>Bi-Encoder（召回用，如 embedding 模型）</b>：query 和 doc <b>各自独立</b>编码成向量，再算余弦。可以<b>预先算好 doc 向量入库</b>，检索时只编码 query——<b>快，适合搜全库</b>，但 query 和 doc「没见过面」，精度受限。</li>
+        <li><b>Cross-Encoder（重排用）</b>：query 和 doc <b>拼在一起</b>送进模型，让二者在每一层充分交互——<b>精度高得多</b>，但<b>不能预计算</b>（每个 query×doc 都要现算一次），只能用在「已缩小到几十个候选」的重排阶段。</li>
+      </ul>
+      <p>这正好解释了两阶段设计：<b>Bi-Encoder 快而糙负责召回，Cross-Encoder 精而慢负责重排</b>——各司其职。NanoScope 注释点名的 <code class="inl">bge-reranker</code> 就是典型的开源 Cross-Encoder，是 stub 未来的替换目标。</p>
+
+      <div class="tldr"><b>收口：</b>当前 rerank 是确定性 <code class="inl">StubReranker</code>（字符级 Jaccard 重合度，<code class="inl">rerank.py</code>），零依赖可复现，仅为跑通验收管线；真实 <b>Cross-Encoder（bge-reranker）留待接入</b>。业界谱系：字面重合 → Learning-to-Rank → <b>Cross-Encoder（当前主流）</b> → LLM-as-Reranker。核心分野是「Bi-Encoder 召回、Cross-Encoder 重排」的两阶段分工。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q11 ============ -->
+<section class="qa" id="q11">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q11</span>
+      <span class="q-text">整理一下 RAG 模块的完整链路。</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>一句话：NanoScope RAG 分「写入」与「检索」两条链路。写入链：文档 → 切块 → 带 ACL 标签落库 →（可选）建分区 HNSW 索引；检索链：授权 WHERE 取可见集 → BM25 + 向量(ANN) 两路召回 → RRF 融合 → rerank 精排 → wrap 包裹后注入 prompt。</b>贯穿始终的红线：<b>可见性永远由 SQL 授权层仲裁，索引只加速、rerank 只排序，谁都碰不了权限（fail-closed）。</b></div>
+
+      <h3 class="blk">1 · 写入链路（Ingestion）——把文档变成带权限标签的可检索 chunk</h3>
+      <div class="diagram">
+        <div class="title">写入链路：文档 → chunk → 落库 → 建索引</div>
+        <div class="flow">
+          <div class="box gray">① 原始文档（text）+ 入库者身份 ctx（管理员/服务账号/用户，见 Q4/Q5）</div>
+          <div class="arrow">▼ ingest_document(ctx, text, scope, acl_group, strategy)</div>
+          <div class="box blue">② 切块 chunking（<code class="inl">ingest.py</code>）：固定+重叠 或 结构段落（见 Q3）</div>
+          <div class="arrow">▼ 每个 chunk 由 ctx 注入 tenant/scope/owner/acl_group（模型不可伪造）</div>
+          <div class="box green">③ 落库 add_chunk（<code class="inl">store.py</code>）：写 doc_chunks 表，DB CHECK 焊死归属合法性</div>
+          <div class="arrow">▼（可选，use_ann=True 时）</div>
+          <div class="box amber">④ 建分区 HNSW 索引（<code class="inl">index.py</code> PartitionedSearcher）：按 ACL group 分桶，各建子图（见 Q6/Q7）</div>
+        </div>
+      </div>
+      <table class="grid">
+        <tr><th>步骤</th><th>文件</th><th>关键点</th></tr>
+        <tr><td>切块</td><td><code class="inl">rag/ingest.py</code></td><td>字符级切分，CJK 友好；strategy 可插拔</td></tr>
+        <tr><td>嵌入</td><td><code class="inl">eval/embedding.py</code></td><td>GLM embedding-3，2048 维（见 Q8）</td></tr>
+        <tr><td>落库</td><td><code class="inl">rag/store.py</code></td><td>归属标签由 ctx 注入，DB CHECK 保证 scope/owner/acl 组合合法</td></tr>
+        <tr><td>建索引</td><td><code class="inl">rag/index.py</code></td><td>分区子图，越权分区从不加载；revision 变更时重建</td></tr>
+      </table>
+
+      <h3 class="blk">2 · 检索链路（Retrieval）——doc_search_visible 单入口的五步</h3>
+      <p>检索全部收口在 <code class="inl">search.py</code> 的 <code class="inl">doc_search_visible()</code>（<code class="inl">search.py:24-75</code>），严格按「隔离在召回前」的顺序：</p>
+      <div class="diagram">
+        <div class="title">检索链路：授权过滤 → 双路召回 → 融合 → 重排 → 包裹注入</div>
+        <div class="flow">
+          <div class="box red">用户 query + ctx（tenant/principal/roles/audience）</div>
+          <div class="arrow">▼ 第 1 步</div>
+          <div class="box green">① 授权 WHERE 过滤：store.visible_chunks(ctx) 取可见集（唯一授权真值，见 Q9）</div>
+          <div class="arrow">▼ 第 2 步（在可见集合内，双路并行）</div>
+          <div class="box blue">② BM25 路（trigram 字面）&nbsp;+&nbsp; 向量路（HNSW ANN，结果再 ∩ 可见白名单）</div>
+          <div class="arrow">▼ 第 3 步</div>
+          <div class="box blue">③ RRF 融合两路 ranking（确定性 tie-break，空输入 abstain）</div>
+          <div class="arrow">▼ 第 4 步</div>
+          <div class="box amber">④ rerank 精排 top-N（StubReranker→留待接入 cross-encoder，见 Q10）</div>
+          <div class="arrow">▼ 第 5 步</div>
+          <div class="box gray">⑤ 返回 top_k chunk → 注入 prompt 前经 wrap_untrusted_memory 包裹（防注入，见 0724 篇 Q6）</div>
+        </div>
+      </div>
+      <table class="grid">
+        <tr><th>步</th><th>动作</th><th>文件/函数</th><th>红线</th></tr>
+        <tr><td>1</td><td>授权过滤取可见集</td><td><code class="inl">store.visible_chunks</code></td><td>越权 chunk 从不进候选（隔离在召回前）</td></tr>
+        <tr><td>2</td><td>BM25 + 向量双路召回</td><td><code class="inl">Bm25Retriever</code> / <code class="inl">PartitionedSearcher</code></td><td>向量结果再 ∩ 可见白名单（防索引扩权）</td></tr>
+        <tr><td>3</td><td>RRF 融合</td><td><code class="inl">rrf_fuse</code></td><td>确定性、可复现</td></tr>
+        <tr><td>4</td><td>rerank 精排</td><td><code class="inl">StubReranker</code></td><td>只排序，不改可见性</td></tr>
+        <tr><td>5</td><td>包裹后注入</td><td><code class="inl">wrap_untrusted_memory</code></td><td>检索内容视为不可信数据</td></tr>
+      </table>
+
+      <h3 class="blk">3 · 为什么是「BM25 + 向量」双路而不是只用一个？</h3>
+      <ul class="dot">
+        <li><b>BM25（trigram 字面）</b>：擅长<b>精确关键词/专有名词</b>匹配（如「量子加密」这种字面命中），但不懂同义/语序。</li>
+        <li><b>向量（embedding 语义）</b>：擅长<b>语义相近</b>（如「橘猫豆豆」vs「豆豆的橘猫」无共同 trigram 但语义近，<code class="inl">embedding.py:3-4</code> 举的例），但对罕见专名可能糊。</li>
+        <li><b>RRF 融合</b>：取两者之长、互补盲区——这就是 <code class="inl">search.py:35</code> 「BM25+向量 RRF 融合」的动机。</li>
+      </ul>
+
+      <h3 class="blk">4 · 一图贯穿：安全与性能的分层</h3>
+      <div class="diagram">
+        <div class="title">RAG 的分层职责：每层各司其职，权限只在最底层仲裁</div>
+        <div class="flow">
+          <div class="box green">🔒 授权层（store.py SQL WHERE + DB CHECK）——唯一决定「能不能看」，fail-closed</div>
+          <div class="arrow">▲ 上层全部构建在「已过授权」的可见集合之上</div>
+          <div class="box blue">⚡ 召回层（index.py HNSW + BM25）——决定「先看哪些」，只加速，∩ 白名单兜底</div>
+          <div class="arrow">▲</div>
+          <div class="box amber">🎯 排序层（rrf + rerank）——决定「怎么排」，只美化，不碰权限</div>
+          <div class="arrow">▲</div>
+          <div class="box gray">🛡️ 注入层（wrap_untrusted_memory）——把检索内容降级为不可信数据，防 prompt 注入</div>
+        </div>
+      </div>
+      <p>这张分层图是整个 RAG 模块的灵魂：<b>权限只在最底层的 SQL 授权层仲裁一次，上面的召回、排序、注入无论怎么优化，都不可能扩大可见范围</b>。这就是「隔离墙与检索正交」——你可以放心大胆地换 embedding 模型、调 HNSW、上真 cross-encoder，隔离墙纹丝不动。</p>
+
+      <div class="tldr"><b>收口：</b>RAG = <b>写入链</b>（文档→切块→带 ACL 落库→建分区 HNSW）+ <b>检索链</b>（授权 WHERE→BM25+向量双路→RRF 融合→rerank→wrap 注入）。四层职责分明：<b>授权层定可见（唯一真值）、召回层管加速、排序层管美化、注入层防注入</b>。贯穿红线：可见性永远由 SQL 层 fail-closed 仲裁，其余各层正交可替换——这是 NanoScope RAG 可防守、可演进的根基。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q12 ============ -->
+<section class="qa" id="q12">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q12</span>
+      <span class="q-text">形象讲讲 HNSW 一次 query 怎么维护候选队列？为什么 ANN 召回 top_k×4 个候选，再用余弦决定？召回过程不是已经算过 cos 了吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>两句话：</b>①HNSW 查询时靠<b>两个队列</b>在图上「贪心找路」——一个 <code class="inl">candidates</code>（待探索，离 query 越近越先弹）、一个 <code class="inl">W</code>（当前找到的最好 ef 个，动态最近邻表）；它<b>只走图的一小条路</b>，算过的 cos 只是「导航用」的、且<b>只算了走过的那几十个点</b>。②正因为它是<b>近似</b>且只探了局部，代码把 ANN 结果当「粗筛候选池」——多捞 <code class="inl">top_k×4</code> 个，<b>丢掉 HNSW 自己那套距离</b>（<code class="inl">index.py:125</code> 的 <code class="inl">labels, _</code>），再用<b>一把统一的精确余弦</b>在这几个候选里重新算、重新排（<code class="inl">index.py:148-152</code>）。所以不是「算了两遍」，而是「导航用的近似分」和「定序用的精确分」是<b>两码事</b>。</div>
+
+      <h3 class="blk">1 · 先建立画面：HNSW 查询时维护哪两个队列</h3>
+      <p>在最底层（layer 0）真正找近邻时，HNSW 同时维护两个优先队列（<code class="inl">ef</code> 就是 <code class="inl">ef_search=50</code>，队列容量）：</p>
+      <table class="grid">
+        <tr><th>队列</th><th>类型</th><th>作用</th><th>弹出规则</th></tr>
+        <tr><td><code class="inl">candidates</code>（待探索）</td><td>最小堆（按到 query 的距离）</td><td>「接下来去看谁的邻居」——离 query 最近的先探</td><td>弹<b>最近</b>的那个去扩展</td></tr>
+        <tr><td><code class="inl">W</code>（动态最近邻表 / 结果集）</td><td>最大堆，容量 = ef</td><td>「目前找到的最好的 ef 个」，最终从这里取 top-k</td><td>满了就丢<b>最远</b>的那个</td></tr>
+      </table>
+      <p>核心循环一句话：<b>从 candidates 弹出「最近的待探点」→ 看它在图上的邻居 → 邻居若比 W 里最差的还近（或 W 没满），就同时塞进 candidates 和 W → W 只留最好的 ef 个。当「candidates 里最近的都已经比 W 里最差的还远」时，说明再找也不会更好了，停。</b></p>
+
+      <h3 class="blk">2 · 形象图解：一次 query 的两段旅程</h3>
+      <div class="diagram">
+        <div class="title">第一段：上层「高速公路」贪心下降（每层只找 1 个最近点当下一层入口，ef=1）</div>
+        <div class="flow">
+          <div class="box gray">Layer 2（最稀疏·高速）：从固定入口点出发，贪心跳到本层离 query 最近的点</div>
+          <div class="arrow">▼ 把它作为入口下沉一层</div>
+          <div class="box gray">Layer 1（中间·省道）：以上层落点为起点，继续贪心跳到本层最近点</div>
+          <div class="arrow">▼ 下沉到最底层</div>
+          <div class="box blue">Layer 0（最稠密·小路）：拿到一个「很接近答案」的入口点，准备开 ef=50 精找</div>
+        </div>
+      </div>
+      <p>上层的意义：图分层是「金字塔」，上层点稀疏、边跨度大（像高速公路），几跳就能从地图这头冲到 query 附近；下沉到底层时已经站在正确答案的「隔壁小区」，避免在稠密底层从头乱走陷入局部最优。这几层每层只维护 1 个最近点（ef=1），<b>算过的 cos 屈指可数</b>。</p>
+
+      <div class="diagram">
+        <div class="title">第二段：Layer 0 用 ef=50 展开——两个队列的快照演化（示意）</div>
+        <table class="grid">
+          <tr><th>步骤</th><th>动作</th><th>candidates（待探索·最近优先）</th><th>W（当前最好 ef 个·留最近）</th></tr>
+          <tr><td>init</td><td>放入底层入口点 e</td><td>[e(.72)]</td><td>[e(.72)]</td></tr>
+          <tr><td>1</td><td>弹出 e，看它邻居 a,b,c；都比 W 最差近 → 全进</td><td>[a(.81), b(.78), c(.74)]</td><td>[a(.81), b(.78), c(.74), e(.72)]</td></tr>
+          <tr><td>2</td><td>弹出 a（最近），看邻居 d,f；d 更近入队，f 太远但 W 没满也进</td><td>[d(.83), b(.78), c(.74), f(.69)]</td><td>[d(.83), a(.81), b(.78), c(.74)…]（超 ef 丢最远）</td></tr>
+          <tr><td>3</td><td>弹出 d，看邻居 g,h；g 稍近入队，h 比 W 最差还远 → <b>剪枝丢弃</b></td><td>[g(.82), b(.78), c(.74), f(.69)]</td><td>[d(.83), g(.82), a(.81), b(.78)…]</td></tr>
+          <tr><td>…</td><td>继续弹最近的探，W 不断被更好的点替换、稳定收敛</td><td>越弹越远</td><td>越填越好（分数升）</td></tr>
+          <tr><td>stop</td><td>candidates 里最近的（如 .70）已 &lt; W 里最差的（.78）→ 停</td><td>[.70, .68…]（都不够好）</td><td><b>最终 ef=50 个最近邻</b></td></tr>
+        </table>
+      </div>
+      <p>（分数=余弦相似度，越大越近；实际 hnswlib 内部用「距离=1−cos」，方向相反，这里为直觉统一写成相似度。）关键观察：<b>整趟只对「走过的几十个点」算了 cos，全库成千上万个点绝大多数<u>从没被计算过</u></b>——这正是 ANN 快在哪（O(log N) 而非 O(N)），也正是它<b>近似</b>在哪（没走到的分支里可能藏着真正的近邻，被漏掉）。停止后从 W 里取最靠前的 <code class="inl">k</code> 个作为「候选下标」返回。</p>
+
+      <h3 class="blk">3 · 回答你的核心疑问：召回时不是已经算过 cos 了吗？为什么还要再算？</h3>
+      <p>先看这段代码里最关键的一个细节——<b>HNSW 算出的那套距离，被<u>当场扔掉</u>了</b>（<code class="inl">index.py:120-128</code>）：</p>
+<pre><span class="kw">def</span> query(self, query_vec, k):
+    ...
+    labels, _ = self._index.knn_query(...)   <span class="cmt"># ★ 只要 labels（下标），距离 _ 直接丢弃</span>
+    <span class="kw">return</span> [int(i) <span class="kw">for</span> i <span class="kw">in</span> labels[0]]   <span class="cmt"># 只把「看哪些候选」交出去</span></pre>
+      <p>然后外层拿这些下标，<b>多捞一批、再用一把统一的精确余弦重新打分排序</b>（<code class="inl">index.py:148-152</code>）：</p>
+<pre><span class="cmt"># _ANN_FANOUT_MULT = 4：召回放大倍数</span>
+fanout = min(len(corpus.chunks), max(top_k * <span class="kw">_ANN_FANOUT_MULT</span>, top_k))  <span class="cmt"># 要 5 个 → 先捞 20 个</span>
+cand_idx = corpus.ann.query(query_vec, fanout)      <span class="cmt"># HNSW 只给 20 个「候选下标」</span>
+cand_chunks = [corpus.chunks[i] <span class="kw">for</span> i <span class="kw">in</span> cand_idx]
+cand_vecs   = [corpus.vecs[i]   <span class="kw">for</span> i <span class="kw">in</span> cand_idx]
+<span class="kw">return</span> _brute_topk(query_vec, cand_chunks, cand_vecs, top_k, ...)  <span class="cmt"># 在这 20 个里精确算 cos，取真·top5</span></pre>
+      <p>所以你的直觉「召回时不是算过 cos 了吗」——<b>对，但那笔 cos 有两个『不能用来定序』的毛病</b>：</p>
+      <table class="grid">
+        <tr><th>#</th><th>毛病</th><th>后果</th><th>重打分怎么修</th></tr>
+        <tr><td>①</td><td><b>近似</b>：HNSW 只探了图的一条路，走过的点才算过 cos，真近邻可能在没走到的分支里被漏掉</td><td>直接拿 HNSW 的 top-5 当答案，可能少 1~2 个真正最相关的</td><td>先多捞 4 倍（20 个）撒大网，把真近邻「大概率也网进来」，再精算挑真 top-5 → <b>补 recall</b></td></tr>
+        <tr><td>②</td><td><b>不可复现</b>：图遍历路径、内部浮点、库版本都可能让同一 query 的近似分/顺序有微差</td><td>同样输入两次跑，结果可能不逐字节一致——破坏项目的 D4 一致性红线</td><td>丢掉 HNSW 的分，改用外层<b>唯一一把</b>精确 <code class="inl">_cosine</code> + 确定性 tie-break <code class="inl">(-score, id)</code>（<code class="inl">index.py:79</code>）→ <b>逐字节可复现</b></td></tr>
+      </table>
+      <p>代码注释把这层意思说得很直白（<code class="inl">index.py:141-142</code>）：<b>「ANN 只影响『看哪些候选』，不影响『候选内如何排序/过滤』，故同一候选集下结果逐字节可复现」</b>。换句话说，职责被干净地劈成两半：</p>
+      <div class="diagram">
+        <div class="title">近似分 vs 精确分：一次检索里两笔 cos 的分工</div>
+        <div class="flow">
+          <div class="box blue">① HNSW 内部的 cos（导航分）：只为「在图上往哪跳、留哪 20 个候选」服务 → 用完即弃</div>
+          <div class="arrow">▼ 交出的只有 20 个「候选下标」，不含任何分数</div>
+          <div class="box green">② 外层 _brute_topk 的 cos（定序分）：在这 20 个候选上精确重算，决定最终 top-5 的名次与去留（min_score）</div>
+        </div>
+      </div>
+
+      <h3 class="blk">4 · 为什么偏偏是「×4」？多捞多少才够？</h3>
+      <p><code class="inl">_ANN_FANOUT_MULT = 4</code>（<code class="inl">index.py:88</code>）是个<b>召回-开销的折中旋钮</b>：</p>
+      <ul class="dot">
+        <li><b>捞太少（=top_k）</b>：网太小，ANN 一漏近邻就补不回来，recall 掉。</li>
+        <li><b>捞太多（=全库）</b>：等于退化成暴力搜索，ANN 加速全废。</li>
+        <li><b>×4</b>：要 5 个先看 20 个。撒 4 倍大的网，真近邻落进候选池的概率大幅提升，而精确重打分只在这 20 个上算——<b>O(fanout) 而非 O(N)</b>，加速仍在。这就是「用一点点多余的精算，把 ANN 的近似误差买回来」。</li>
+      </ul>
+      <p>注意 <code class="inl">min(len(corpus.chunks), max(top_k*4, top_k))</code> 的封顶：候选池永远不超过语料总数，小语料时自然收敛到「全量精算」，等价于暴力基线——<b>小数据不冒险，大数据才吃 ANN 红利</b>。</p>
+
+      <div class="analogy"><b>🎣 类比：撒网捕鱼再上岸挑。</b>HNSW 像<b>凭鱼群探测仪（近似）在大海里快速圈一片鱼多的水域，一网下去捞 20 条</b>——探测仪只告诉你「这片有鱼」，不保证每条都大。上岸后你<b>用秤（精确余弦）逐条称重，挑出最大的 5 条</b>，还把太小的（min_score）扔回海里。探测仪的读数（HNSW 距离）只用来决定「在哪撒网」，上不了餐桌；真正定夺去留的是岸上那杆统一的秤。多捞到 20 条（×4）就是怕探测仪不准、5 条里混进小鱼。</div>
+
+      <div class="warn"><b>⚠ 一句话戳破误区：</b>「召回时算过 cos」和「重打分算 cos」<b>不是重复劳动</b>——前者是 HNSW 为了<b>在图上导航</b>顺带算的、只覆盖走过的几十个点、且用完丢弃；后者是在<b>选定的候选池</b>上，用<b>项目唯一权威的那把余弦尺</b>做最终定序与过滤。近似分负责「快而广地找候选」，精确分负责「准而稳地定名次」，各司其职。</div>
+
+      <div class="tldr"><b>收口：</b>HNSW 查询 = 上层高速贪心下降（ef=1）+ 底层 ef=50 双队列（candidates 探路、W 存最好）展开，<b>只对走过的几十个点算 cos</b>，天生近似。故 NanoScope 把 ANN 当「粗筛」：多召回 <code class="inl">top_k×4</code>、<b>丢掉 HNSW 自带距离</b>（<code class="inl">labels, _</code>），再用外层<b>唯一一把精确余弦 + 确定性 tie-break</b> 在候选池里重排（<code class="inl">_brute_topk</code>）。两笔 cos 分工明确：<b>导航分求快、定序分求准且可复现</b>——这既补回了近似召回的 recall，又守住了 D4 逐字节可复现红线。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q13 ============ -->
+<section class="qa" id="q13">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q13</span>
+      <span class="q-text">过程中文档可能被修改，索引会自动重建吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>会——但不是「立刻重建」，而是「下一次查询时按需、惰性重建」。</b>机制是一个<b>全库单调递增的版本号（revision）</b>：任何写入都把它 +1（<code class="inl">store.py:180</code>）；<code class="inl">PartitionedSearcher</code> 缓存自己建索引时的版本号，<b>每次 <code class="inl">search()</code> 开头先比一次版本</b>（<code class="inl">index.py:359 → _refresh_if_stale</code>），发现「库变了、我旧了」就整体重建分区索引再查。<b>重要澄清：</b>当前 store 只有 <code class="inl">add_chunk</code>（追加写），<b>没有原地改/删的方法</b>——所以今天说的「文档被修改」，实现层面是「以新 chunk 再入库」，同样触发 revision +1、同样被自动重建捕获。</div>
+
+      <h3 class="blk">1 · 触发信号：一个全库共享的 revision 计数器</h3>
+      <p>索引怎么知道「库变了」？靠的不是监听文件、也不是定时轮询，而是 DB 里一行<b>单调递增的版本号</b>。建表时初始化为 0（<code class="inl">store.py:67</code>），每写一条 chunk 就在同一个事务里 +1（<code class="inl">store.py:180</code>）：</p>
+<pre><span class="cmt"># store.py:67 —— 建表即埋一行版本号</span>
+INSERT OR IGNORE INTO rag_metadata (key, value) VALUES (<span class="str">'chunks_revision'</span>, 0);
+
+<span class="cmt"># store.py:170-182 —— add_chunk 尾部：写 chunk 与 +1 同一事务提交</span>
+self._conn.execute(<span class="str">"INSERT INTO doc_chunks (...) VALUES (...)"</span>, (...))
+self._conn.execute(
+    <span class="str">"UPDATE rag_metadata SET value = value + 1 WHERE key = 'chunks_revision'"</span>)
+self._conn.commit()   <span class="cmt"># ★ chunk 落库与版本号 +1 原子提交——不会出现「数据变了但版本没变」</span></pre>
+      <p><code class="inl">revision</code> 作为只读属性暴露（<code class="inl">store.py:105-112</code>），读不到就 <code class="inl">raise</code>（fail-closed，宁可报错不给陈旧结果）。它是<b>「库内容有没有动过」的唯一权威信号</b>——不关心动了哪条、怎么动的，只要数字变了就代表「你手上的索引可能过期」。</p>
+
+      <h3 class="blk">2 · 响应动作：查询前惰性自检 + 按需重建</h3>
+      <p><code class="inl">PartitionedSearcher</code> 建索引时把当时的版本号记在 <code class="inl">self._revision</code>（<code class="inl">index.py:341</code>）。之后<b>每一次 <code class="inl">search()</code> 的第一行</b>就是自检（<code class="inl">index.py:358-359</code>）：</p>
+<pre><span class="kw">def</span> search(self, ctx, query, top_k=5):
+    self._refresh_if_stale()          <span class="cmt"># ★ 查询前先对表版本号</span>
+    ...
+
+<span class="cmt"># index.py:344-347</span>
+<span class="kw">def</span> _refresh_if_stale(self):
+    <span class="kw">if</span> self._store.revision != self._revision:   <span class="cmt"># 库的版本 ≠ 我建索引时的版本</span>
+        self._build_partitions()                  <span class="cmt"># → 整体重建分区子图</span></pre>
+      <p>所以「自动重建」的准确含义是：<b>不是写入的瞬间同步重建，而是把重建<u>推迟到下一次真正要查的时候</u></b>——这叫<b>惰性重建（lazy / on-read rebuild）</b>。好处是：写入侧极轻（只 +1 一个计数器），连写 100 条也不会触发 100 次昂贵重建；重建成本只在「确实有人来查」时付一次。</p>
+      <div class="analogy"><b>📚 类比：图书馆的「馆藏版本号」。</b>管理员每上/换一批书，就在门口牌子上把版本号 +1。你（检索器）不必时刻盯着书架，只需<b>每次进门瞄一眼牌子</b>：号没变就用脑子里的旧地图直接找；号变了才花几分钟重新走一遍、更新地图。既不会用过期地图（安全/正确），也不会每上一本书就全馆重绘（高效）。</div>
+
+      <h3 class="blk">3 · 重建时的一致性：带「版本前后校验」的重试循环</h3>
+      <p>重建过程本身也可能撞上「边建边被人写」的竞态。<code class="inl">_build_partitions</code> 用一个 <b>read-verify-retry 循环</b>兜住（<code class="inl">index.py:320-342</code>）：</p>
+<pre><span class="kw">def</span> _build_partitions(self):
+    <span class="kw">with</span> self._refresh_lock:                    <span class="cmt"># RLock 串行化重建，避免并发重复建图</span>
+        <span class="kw">if</span> self._revision == self._store.revision:
+            <span class="kw">return</span>                              <span class="cmt"># 已最新，直接返回</span>
+        <span class="kw">while</span> True:
+            revision_before = self._store.revision      <span class="cmt"># ① 建之前记一次版本</span>
+            buckets = 分桶(self._store.all_chunks_unfiltered())
+            partitions = {k: _EmbeddedCorpus(...) ...}  <span class="cmt"># ② 全量重嵌 + 重建 HNSW 子图</span>
+            revision_after = self._store.revision       <span class="cmt"># ③ 建之后再记一次版本</span>
+            <span class="kw">if</span> revision_before == revision_after:       <span class="cmt"># ④ 建的过程中没人写 → 快照一致</span>
+                self._partitions = partitions
+                self._revision = revision_after
+                <span class="kw">return</span>
+            <span class="cmt"># 否则：建到一半库又变了 → 丢弃、拿新版本重建，直到拿到一致快照</span></pre>
+      <p>这段的精髓是<b>「建前建后各读一次版本，相等才采信」</b>：保证落地的索引对应<b>某一个原子快照</b>，绝不会是「一半旧数据 + 一半新数据」的撕裂状态。配合 <code class="inl">RLock</code> 串行化，多线程并发查询也只会重建一次。</p>
+
+      <div class="warn"><b>⚠ 三个必须说清的边界（面试防守点）：</b>
+      <ul class="dot">
+        <li><b>粒度是「全量重建」，非增量。</b><code class="inl">_build_partitions</code> 每次都 <code class="inl">all_chunks_unfiltered()</code> 重新分桶、<b>重新 embed、重建所有 HNSW 子图</b>。小语料（本项目 org/project 数量级几~几十）无所谓；真上大规模需换「增量 add_items / 脏分区局部重建」——这是坦白的演进点，非当前实现。</li>
+        <li><b>「修改/删除」当前没有原地实现。</b>store 只有 <code class="inl">add_chunk</code>（append-only），无 update/delete 方法。所以「文档被修改」today = 重新 ingest 成新 chunk（revision 照样 +1、照样被捕获重建）；真要支持「改一条/删一条」，得先在 store 加相应写口并同样 bump revision，索引侧的 revision 机制<b>无需改动就能自动跟上</b>。</li>
+        <li><b>非分区路径（PreFilterSearcher）不缓存、无此问题。</b>它每次查询都现取 <code class="inl">visible_chunks</code> 现算，天然永远看到最新数据——「自动重建」只对<b>缓存了 HNSW 子图的 PartitionedSearcher</b> 才是个议题。</li>
+      </ul></div>
+
+      <div class="tldr"><b>收口：</b>会自动重建，走「<b>revision 计数器（写入 +1，store.py:180）→ 查询前惰性自检（_refresh_if_stale，index.py:346）→ 版本前后校验的重试循环全量重建（index.py:325-342）</b>」三步。设计取舍：<b>写轻（只 +1）、读时才付重建成本、快照强一致</b>。两条诚实边界：当前是<b>全量重建</b>非增量，且 store <b>只追加</b>无原地改删——但 revision 机制对未来接入改/删是<b>前向兼容</b>的（新写口照样 bump，索引自动跟上）。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q14 ============ -->
+<section class="qa" id="q14">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q14</span>
+      <span class="q-text">补充 reranker 主流模型架构（重点 Cross-Encoder），并梳理本项目 RAG 里 reranker 的数据流全程。</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>两部分：</b>①主流重排模型 = <b>Cross-Encoder</b>：把 <code class="inl">[CLS] query [SEP] doc [SEP]</code> <b>拼成一条</b>喂进 BERT 类编码器，让 query 与 doc 的每个 token 在自注意力里<b>充分交互</b>，最后一个打分头输出一个相关性标量。它比召回用的 Bi-Encoder（双塔各自编码、算 cos）准得多，代价是<b>不能预计算、每个 (query,doc) 对都要现算一次前向</b>，所以只用在「已缩小到几十条候选」的重排阶段。②本项目当前是 <code class="inl">StubReranker</code>（字符级 Jaccard 占位，<code class="inl">rerank.py:33-43</code>），但它严格实现了同一个 <code class="inl">Reranker</code> 契约、跑的是同一条数据流——<b>接口即真实 Cross-Encoder 的插槽</b>，换模型不动链路。</div>
+
+      <h3 class="blk">1 · Cross-Encoder 架构：为什么它准？</h3>
+      <p>要讲清 Cross-Encoder，最好的办法是把它和召回阶段的 <b>Bi-Encoder</b>（双塔）并排看——两者是「检索两段式」的两半：</p>
+      <table class="grid">
+        <tr><th>维度</th><th>Bi-Encoder（双塔·召回用）</th><th>Cross-Encoder（交叉·重排用）</th></tr>
+        <tr><td>输入方式</td><td>query、doc <b>分别</b>进模型</td><td>query+doc <b>拼成一条</b>一起进模型</td></tr>
+        <tr><td>结构</td><td>Enc(query)→向量 a；Enc(doc)→向量 b</td><td>Enc(<code class="inl">[CLS] q [SEP] d [SEP]</code>)→打分头→标量</td></tr>
+        <tr><td>交互时机</td><td><b>编码后</b>才交互（只在最后算一次 cos(a,b)）</td><td><b>编码中</b>就交互（每层自注意力里 q↔d 逐 token 互看）</td></tr>
+        <tr><td>能否预计算</td><td>✅ doc 向量可离线建库，查询只编码 query</td><td>❌ 依赖具体 query，<b>每对必须现算</b></td></tr>
+        <tr><td>成本</td><td>O(N) 但可 ANN 加速到 O(log N)</td><td>O(候选数) 次完整前向，重且不可预算</td></tr>
+        <tr><td>精度</td><td>够用（负责「广撒网别漏」）</td><td>高（负责「精挑细选定名次」）</td></tr>
+        <tr><td>典型模型</td><td>GLM embedding-3、BGE-embedding、E5</td><td>bge-reranker、Cohere Rerank、monoBERT/monoT5</td></tr>
+      </table>
+      <p>一句话抓住本质：<b>Bi-Encoder 把 query 和 doc「隔空」各编码成向量再比一次，Cross-Encoder 把它俩「贴脸」拼在一起让 Transformer 逐 token 互相看</b>。后者能捕捉「否定、指代、条件、细粒度匹配」这些双塔向量压不进去的信号（例如 query「不含糖的饮料」vs doc「无糖」——双塔容易被「糖」带偏，交叉编码能读懂「不/无」的否定关系）。</p>
+      <div class="diagram">
+        <div class="title">Cross-Encoder 打分：一次前向的结构</div>
+        <div class="flow">
+          <div class="box gray">拼接输入：<code class="inl">[CLS] query tokens [SEP] doc tokens [SEP]</code></div>
+          <div class="arrow">▼ 整条序列进 Transformer</div>
+          <div class="box blue">多层自注意力：query token ↔ doc token 双向充分交互（这是精度来源）</div>
+          <div class="arrow">▼ 取 [CLS] 表示</div>
+          <div class="box green">打分头（Linear→scalar）：输出这对 (query, doc) 的相关性分数</div>
+          <div class="arrow">▼ 对候选逐一打分后</div>
+          <div class="box amber">按分数降序 = 重排后名次</div>
+        </div>
+      </div>
+      <p><b>为什么只能放在重排、不能放在召回？</b>因为它不可预计算：doc 向量没法离线建库，来一个 query 就得把「这个 query × 每条候选」全跑一遍完整前向。对百万级全库跑一遍不现实；但对召回缩小后的<b>几十条候选</b>跑一遍完全可接受——这正是「Bi-Encoder 召回（快而广）→ Cross-Encoder 重排（精而重）」两段式的分工由来，也是本项目 <code class="inl">search.py</code> 链路的骨架。</p>
+
+      <h3 class="blk">2 · 重排模型谱系（从轻到重）</h3>
+      <table class="grid">
+        <tr><th>档位</th><th>代表</th><th>机制</th><th>本项目位置</th></tr>
+        <tr><td>字面重合</td><td>Jaccard / BM25 重打分</td><td>词/字符集合重叠度，零模型</td><td>✅ <b>当前 StubReranker</b>（rerank.py）</td></tr>
+        <tr><td>Learning-to-Rank</td><td>LambdaMART / GBDT</td><td>人工特征 + 树模型学排序</td><td>—</td></tr>
+        <tr><td><b>Cross-Encoder</b></td><td><b>bge-reranker、Cohere Rerank</b></td><td><b>query×doc 拼接进 Transformer</b></td><td>🎯 <b>预留插槽（留待接入）</b></td></tr>
+        <tr><td>LLM-as-Reranker</td><td>GPT/Claude listwise 打分</td><td>直接让大模型对候选列表排序/评分</td><td>—（更重、更贵）</td></tr>
+      </table>
+      <p>代码注释白纸黑字点明了这个升级路径（<code class="inl">rerank.py:3-5</code>）：「真实 cross-encoder（如 <b>bge-reranker</b>）留待接入；本模块给出可离线跑的确定性 stub」。当前 stub 用<b>字符级 Jaccard</b>（<code class="inl">len(q &amp; set(text)) / len(q)</code>，<code class="inl">rerank.py:38</code>）——对 CJK 友好、零依赖、逐字节可复现，够在合成 gold 上演示「重排管线跑通 + 增益度量」，但它<b>不是</b>真正理解语义的交叉编码。</p>
+
+      <h3 class="blk">3 · 本项目 reranker 数据流全程（一条链跑到底）</h3>
+      <p>reranker 是 <code class="inl">doc_search_visible</code> 的<b>最后一道工序</b>，位于「授权→双路召回→RRF 融合」之后（<code class="inl">search.py:69-75</code>）。把整条链拆开看它在哪、拿什么、吐什么：</p>
+      <div class="diagram">
+        <div class="title">RAG 检索链里 reranker 的上下游数据流</div>
+        <div class="flow">
+          <div class="box green">① 授权过滤：<code class="inl">visible = store.visible_chunks(ctx)</code> → <code class="inl">by_id = {c.id: c}</code>（search.py:44-47）</div>
+          <div class="arrow">▼ 只在可见集合内继续</div>
+          <div class="box blue">② 双路召回：BM25 路 + 向量(HNSW)路，各出一串 ranking；向量路 ∩ by_id 兜底（search.py:50-63）</div>
+          <div class="arrow">▼ 两串 id 排名</div>
+          <div class="box blue">③ RRF 融合：<code class="inl">fused = rrf_fuse([bm25, vec], top_k=max(top_k,fanout))</code>（search.py:65）</div>
+          <div class="arrow">▼ 融合后的候选 id 列表（约 fanout=20 条）</div>
+          <div class="box amber">④ 取候选文本：<code class="inl">cand_ids = fused[:N]</code>；<code class="inl">cand_texts = [by_id[cid].content ...]</code>（search.py:71-72）</div>
+          <div class="arrow">▼ ★ reranker 的入参：(query, cand_texts)</div>
+          <div class="box amber">⑤ <b>rerank 打分定序</b>：<code class="inl">order = rr.rerank(query, cand_texts)</code> → 返回重排后<b>下标</b>（search.py:73）</div>
+          <div class="arrow">▼ 下标映射回 id</div>
+          <div class="box amber">⑥ 还原 + 截断：<code class="inl">reranked_ids = [cand_ids[i] for i in order]</code> → <code class="inl">return [by_id[cid] for cid in reranked_ids[:top_k]]</code>（search.py:74-75）</div>
+          <div class="arrow">▼ top_k 条 chunk 记录</div>
+          <div class="box gray">⑦ 交回上层 → 注入 prompt 前须过 <code class="inl">wrap_untrusted_memory</code> 防注入（search.py 头注释红线）</div>
+        </div>
+      </div>
+      <p>放大第 ⑤ 步——reranker 内部（<code class="inl">StubReranker.rerank</code>，<code class="inl">rerank.py:33-43</code>）到底做了什么：</p>
+<pre><span class="kw">def</span> rerank(self, query, candidates):        <span class="cmt"># candidates = cand_texts（一串候选正文）</span>
+    q = set(query.strip())
+    <span class="kw">if</span> <span class="kw">not</span> q <span class="kw">or</span> <span class="kw">not</span> candidates:
+        <span class="kw">return</span> list(range(len(candidates)))  <span class="cmt"># 退化：原序返回（abstain 友好）</span>
+    scored = [
+        (idx, len(q &amp; set(text)) / len(q))    <span class="cmt"># 字符级 Jaccard：query 与候选的重合度</span>
+        <span class="kw">for</span> idx, text <span class="kw">in</span> enumerate(candidates)
+    ]
+    scored.sort(key=<span class="kw">lambda</span> kv: (-kv[1], kv[0]))  <span class="cmt"># 分数降序，同分按原下标（确定性 tie-break）</span>
+    <span class="kw">return</span> [idx <span class="kw">for</span> idx, _ <span class="kw">in</span> scored]        <span class="cmt"># ★ 只返回「重排后的下标顺序」，不返回文本</span></pre>
+      <p>三个关键契约点，正是「换成真 Cross-Encoder 也不用改链路」的原因：</p>
+      <ul class="dot">
+        <li><b>入参是纯文本 + query</b>：<code class="inl">rerank(query, cand_texts)</code>。真 Cross-Encoder 也正是吃这个——把每个 <code class="inl">(query, text)</code> 拼接进 Transformer 打分，接口一字不差。</li>
+        <li><b>出参是下标顺序（<code class="inl">list[int]</code>）而非文本/分数</b>：由 <code class="inl">Reranker</code> Protocol 规定（<code class="inl">rerank.py:16-20</code>）。下标让外层用 <code class="inl">cand_ids[i]</code> 精确还原 id，reranker 无需知道 id/chunk 结构——<b>职责最小化</b>。</li>
+        <li><b>红线：只排序，不碰可见性</b>（<code class="inl">rerank.py:7</code>）。它拿到的 <code class="inl">cand_texts</code> 早已是「授权 WHERE + ∩by_id」过滤后的可见候选，rerank 只在这个封闭集合内换名次，<b>无论怎么打分都不可能引入越权 chunk</b>。这与 Q9/Q11 的「隔离墙与检索正交」是同一条红线。</li>
+      </ul>
+      <div class="analogy"><b>🏅 类比：初赛海选 → 决赛评委打分。</b>召回+RRF（Bi-Encoder 那一路）像<b>海选</b>：快速从全库刷掉绝大多数，留 20 强进决赛。reranker（Cross-Encoder）像<b>决赛评委</b>：只对这 20 个选手<b>逐一细看、当场打分重排</b>，选出前 5 名。评委不会去场外再拉人进来（不碰可见性），也不必给全国海选打分（不可预算、只处理决赛候选）——快慢分工、精粗互补。</div>
+
+      <div class="tldr"><b>收口：</b>主流重排是 <b>Cross-Encoder</b>——query×doc 拼接进 Transformer 逐 token 交互、打分头出标量，精度高但不可预计算，故专用于召回后的几十条候选。本项目当前是 <code class="inl">StubReranker</code>（字符级 Jaccard，rerank.py:33-43），但严守同一 <code class="inl">Reranker</code> 契约：<b>吃 (query, cand_texts)、吐重排下标、只排序不碰可见性</b>。数据流固定为「授权→BM25+向量召回→RRF 融合→<u>取候选文本→rerank 出下标→还原 id 截断 top_k</u>→wrap 注入」（search.py:44-75），真实 bge-reranker 接入时<b>只换第⑤步的实现，全链路一行不改</b>。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q15 ============ -->
+<section class="qa" id="q15">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q15</span>
+      <span class="q-text">关键内容被切成 chunk1/chunk2，只有 chunk1 分数高进了 prompt、漏了 chunk2——我的项目会有这情况吗？重叠切片能 100% 解决吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>会，而且<u>重叠切片不能 100% 解决</u>——这是所有 RAG 的固有难题，不是你项目的 bug。</b>你的 <code class="inl">chunk_fixed_window</code> 默认 <code class="inl">size=200 / overlap=40</code>（<code class="inl">ingest.py:16</code>），只在<b>相邻两片的接缝处补了 40 字符的公共区</b>。它能救的只有「关键信息恰好横跨那条切割线、且长度 ≤40 字符」这一种情况；一旦关键信息<b>被拆到两片的非重叠区</b>（间隔 &gt;160 字符）、或<b>分散在文档相距很远的两段</b>，overlap 完全够不着。真正的缓解不是靠 overlap，而是靠<b>「返回多个 chunk（top_k&gt;1）+ 双路召回 + 更聪明的切分/父子检索」</b>组合兜底。</div>
+
+      <h3 class="blk">1 · 先算清楚：你的 overlap 到底能盖住多大范围</h3>
+      <p>看切分的实际步进（<code class="inl">ingest.py:29-38</code>）：</p>
+<pre><span class="cmt"># ingest.py:16,29 —— size=200, overlap=40</span>
+step = size - overlap        <span class="cmt"># = 160：每片起点比上一片后移 160 字符</span>
+<span class="kw">while</span> i &lt; len(text):
+    chunk = text[i : i + size]   <span class="cmt"># 取 200 字符</span>
+    ...
+    i += step                    <span class="cmt"># 前进 160，于是相邻两片有 40 字符重合</span></pre>
+      <p>所以文档被切成：<code class="inl">[0:200]</code>、<code class="inl">[160:360]</code>、<code class="inl">[320:520]</code>…相邻两片的公共区只有 <b>40 字符</b>（如 160–200）。这 40 字符的意义是：<b>如果一个关键短语正好压在第 200 字符这条切割线上，它在两片里各留了一部分，overlap 让至少一片能包含完整短语。</b></p>
+      <div class="diagram">
+        <div class="title">overlap 能救 vs 救不了的三种情形</div>
+        <div class="flow">
+          <div class="box green">✅ 情形A：关键句「密钥每 24 小时轮换」正好跨第 200 字（190–210）→ 落在 160–200 重叠区附近，chunk1 尾部或 chunk2 头部能完整含住</div>
+          <div class="arrow">▼ 但换个位置就不行</div>
+          <div class="box red">❌ 情形B：关键因果「因为 A（第 50 字）… 所以 B（第 300 字）」——A 在 chunk1、B 在 chunk2，中间隔 250 字 &gt; overlap，两片都只有半句</div>
+          <div class="arrow">▼</div>
+          <div class="box red">❌ 情形C：答案要同时用到文档开头的定义 + 结尾的结论（相距上千字）——根本不在相邻片，overlap 无关</div>
+        </div>
+      </div>
+      <p>结论很直接：<b>overlap 只是一层「接缝胶水」，防的是「切割线正好劈开一个词/短句」这种<u>局部</u>损伤；它对「关键信息本身就分散在文档不同位置」这种<u>全局</u>问题无能为力。</b>而且 overlap 调大也有代价——重叠越多，chunk 数量越多、冗余越多、存储和召回噪声都上升，不是免费的。</p>
+
+      <h3 class="blk">2 · 那你的项目实际上靠什么兜住漏召回？</h3>
+      <p>好消息是：单个 chunk 漏了，不等于整条链就漏了。你的检索链有几层「多召回」的冗余，正是为这种情况兜底的：</p>
+      <table class="grid">
+        <tr><th>兜底层</th><th>机制</th><th>怎么救 chunk2</th></tr>
+        <tr><td><b>返回多个 chunk</b></td><td><code class="inl">top_k=5</code>（<code class="inl">search.py:30</code>）：最终给 prompt 的不是 1 个而是<b>5 个</b> chunk</td><td>chunk1、chunk2 只要都进了 top5，两片<b>一起</b>进 prompt，LLM 自己拼上下文</td></tr>
+        <tr><td><b>召回放大</b></td><td>ANN <code class="inl">fanout=top_k×4≈20</code>（<code class="inl">index.py:146</code>）先捞 20 个候选</td><td>chunk2 分数没 chunk1 高，但只要进前 20 就有机会被 rerank 顶回 top5</td></tr>
+        <tr><td><b>双路召回</b></td><td>BM25（字面）+ 向量（语义）各出一路再 RRF 融合（<code class="inl">search.py:58-65</code>）</td><td>chunk2 语义分低，但若含关键词，BM25 路可能把它捞回来——两路互补降低漏召回</td></tr>
+      </table>
+      <p>所以「只有 chunk1 进 prompt」这句话里的前提——<b>「只进一个」——在你项目里通常不成立</b>：默认一次给 5 个 chunk。真正的失败模式是<b>「chunk2 连 top_k×4=20 的候选池都没进」</b>，那才彻底漏。overlap 不解决这个，<b>「多召回 + 双路 + 合适的 top_k」</b>才是主力。</p>
+
+      <h3 class="blk">3 · 业界更进阶的切分/检索怎么进一步缓解（你项目的演进位）</h3>
+      <ul class="dot">
+        <li><b>语义切分（semantic chunking）</b>：不按固定字数，而按「语义边界」（相邻句 embedding 相似度骤降处）下刀，尽量不把一个完整意群劈开。</li>
+        <li><b>父子检索 / small-to-big</b>：用小 chunk 做<b>检索</b>（精准命中），命中后把它所属的<b>大段落/整节</b>（父块）喂给 prompt——等于「按小片找、按大片给」，天然带回被切走的上下文。这是解决你这个问题最对症的业界方案。</li>
+        <li><b>带重叠的滑窗 + 元数据回填</b>：chunk 存「前后邻居 id」，命中后自动把相邻 chunk 一并取出（context expansion）。</li>
+        <li><b>命题切分（proposition）</b>：把长句拆成自足的原子命题再建库，减少「半句」现象。</li>
+      </ul>
+      <p>你项目的 <code class="inl">ingest.py:45</code> 注释已经坦白「真实解析器（Markdown/PDF 标题树）留待接入」——<b>结构树切分 + 父子检索就是预留的升级点</b>，接口不变、只换 chunking/检索实现即可。</p>
+
+      <div class="analogy"><b>✂️ 类比：把长论文按页撕开分给几个人读。</b>overlap 像「每页多印两行上一页结尾」，能防「一句话被撕在页脚」；但如果论证的前提在第 3 页、结论在第 30 页，多印那两行救不了——得要么「让每人多拿几页」（top_k 多给几个 chunk），要么「谁读到关键页就把整章递上来」（父子检索）。指望靠「多印两行」把跨页论证补全，本就不现实。</div>
+
+      <div class="tldr"><b>收口：</b>会漏，且 overlap（size=200/overlap=40）<b>只能补相邻片接缝处 ≤40 字符的局部损伤，无法 100% 解决</b>关键信息跨片/跨段的全局问题。你项目真正的兜底是<b>「top_k=5 一次给多个 chunk + fanout×4 多召回 + BM25/向量双路 RRF」</b>三重冗余，让 chunk1、chunk2 都进 top5 一起入 prompt。要根治得上<b>语义切分 / 父子检索（small-to-big）</b>——正是 <code class="inl">ingest.py:45</code> 预留的演进位。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q16 ============ -->
+<section class="qa" id="q16">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q16</span>
+      <span class="q-text">按 ACL 分桶（个人 / 项目组 / org 公开…），是不是有多少项目组、多少个人用户，就有多少个桶？复杂度会提升吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>桶的<u>总数</u>确实随「项目组数 + 个人用户数」线性增长——但你真正该关心的「<u>单次查询</u>复杂度」不受它影响。</b>因为查询时<b>只加载并搜索「该用户可见的那几个分区」</b>（org + 自己的 DM 分区 + 自己所属的几个 project 子图，<code class="inl">index.py:349-356</code>），个位数级别；越权分区<b>从不被加载</b>。所以总桶数涨的是<b>建库/内存的空间开销</b>，不是<b>单查询的时间开销</b>——而项目里 ACL 维度（org/project）本就是「几~几十」量级，再加 <code class="inl">_MAX_PARTITIONS=256</code> fail-safe 封顶，分区爆炸时自动降级暴力保底。</div>
+
+      <h3 class="blk">1 · 桶总数：是的，随 ACL 主体数线性增长</h3>
+      <p>分桶键的定义写得很清楚（<code class="inl">index.py:307-312</code>）：</p>
+<pre><span class="kw">def</span> _partition_key(c):
+    <span class="kw">if</span> c.scope == <span class="str">"org"</span>:     <span class="kw">return</span> (tenant, <span class="str">"org"</span>, None)          <span class="cmt"># 每租户 1 个 org 大桶</span>
+    <span class="kw">if</span> c.scope == <span class="str">"project"</span>: <span class="kw">return</span> (tenant, <span class="str">"project"</span>, acl_group)  <span class="cmt"># 每个项目组 1 桶</span>
+    <span class="kw">return</span> (tenant, <span class="str">"user"</span>, owner_id)                       <span class="cmt"># 每个 DM 用户 1 桶</span></pre>
+      <p>所以单租户内桶总数 ≈ <b>1（org）+ 项目组数 + 有个人文档的 DM 用户数</b>。你的直觉没错：主体越多，桶越多。但「桶多」影响的是什么，要拆开看——这是关键。</p>
+
+      <h3 class="blk">2 · 分清两种复杂度：空间（随总桶数涨）vs 单查询时间（不随总桶数涨）</h3>
+      <table class="grid">
+        <tr><th>维度</th><th>随总桶数增长？</th><th>为什么</th></tr>
+        <tr><td><b>建库 / 内存空间</b></td><td>✅ 会（线性）</td><td>每个桶要各建一张 HNSW 子图、各存一份向量。桶越多，总图数、总内存越多——但这是<b>一次性/常驻空间</b>成本，且各桶更小、单图更省。</td></tr>
+        <tr><td><b>单次查询时间</b></td><td>❌ <b>不会</b></td><td>查询<u>只碰该用户可见的分区</u>，不遍历全部桶。10000 个项目组和你没关系，你只搜自己所属的那几个。</td></tr>
+        <tr><td><b>建库/重建时间</b></td><td>✅ 会（全量重建时）</td><td>Q13 讲过是全量重建，桶越多重建越久——大规模需上增量，属演进点。</td></tr>
+      </table>
+      <p>决定单查询开销的，是这段「只取可见分区」的逻辑（<code class="inl">index.py:349-356 → search 循环 368-375</code>）：</p>
+<pre><span class="kw">def</span> _visible_partition_keys(ctx):
+    keys = [(ctx.tenant_id, <span class="str">"org"</span>, None)]                 <span class="cmt"># org 大桶</span>
+    <span class="kw">if</span> ctx.audience_type == <span class="str">"dm"</span>:
+        keys.append((tenant, <span class="str">"user"</span>, ctx.principal_id))    <span class="cmt"># 只有「自己」这一个 user 桶</span>
+    <span class="kw">for</span> g <span class="kw">in</span> (ctx.roles or ()):
+        keys.append((tenant, <span class="str">"project"</span>, g))              <span class="cmt"># 只有「自己所属」的几个 project 桶</span>
+    <span class="kw">return</span> keys
+
+<span class="cmt"># search 里：只对这几个 key 对应的分区跑 ANN，其余从不 .get/加载</span>
+<span class="kw">for</span> key <span class="kw">in</span> self._visible_partition_keys(ctx):
+    corpus = self._partitions.get(key)   <span class="cmt"># 越权桶：压根不在这个列表里 → 从不访问（F3 审计断言）</span></pre>
+      <p>所以一个用户查询碰到的分区数 = <b>1 + (是否 DM: 0/1) + 他加入的项目组数</b>，通常<b>个位数</b>，跟系统里总共有多少桶<b>完全解耦</b>。这正是「Partitioned 策略敢选」的核心答辩点——<b>它把「可见性过滤」变成了「只加载可见子图」，过滤成本≈0，还顺带保住了 ANN 加速</b>。</p>
+
+      <h3 class="blk">3 · 两道防线让「桶爆炸」不至于失控</h3>
+      <ul class="dot">
+        <li><b>ACL 维度天然可控（业务事实）</b>：注释点明（<code class="inl">index.py:277</code>）——本项目 ACL 是 org/project（部门/项目），数量级「几~几十」，不是「每条消息一个 ACL」那种会爆炸的细粒度。这是「敢按 ACL 分区」的前提。</li>
+        <li><b><code class="inl">_MAX_PARTITIONS=256</code> fail-safe（工程兜底）</b>：万一分区数异常膨胀，<code class="inl">search</code> 直接降级为 <code class="inl">PreFilterSearcher</code> 暴力路（<code class="inl">index.py:360-362</code>）——<b>牺牲 ANN 加速换正确性永远保底</b>，绝不会因桶太多把系统拖垮或搜错。</li>
+      </ul>
+      <div class="warn"><b>⚠ 诚实边界：</b>真正会随桶数上涨的是<b>空间</b>和<b>全量重建耗时</b>（Q13）。当项目组/用户数达到十万量级，需要的是「懒加载分区（用到才建图）+ 增量重建 + 冷分区落盘」——这些是<b>规模化演进项</b>，当前实现按「几~几十个 ACL 组」的设定是成立且高效的。别把「空间线性增长」错当成「查询变慢」，二者在这套设计里是<b>解耦</b>的。</b></div>
+
+      <div class="tldr"><b>收口：</b>桶总数 = 1（org）+ 项目组数 + DM 用户数，<b>确实线性增长</b>；但<b>单次查询只加载该用户可见的个位数个分区</b>（<code class="inl">_visible_partition_keys</code>），查询时间与总桶数<b>解耦</b>。涨的是<b>空间与重建耗时</b>（空间换隔离+加速的代价）。两道防线兜底：ACL 维度业务上「几~几十」量级 + <code class="inl">_MAX_PARTITIONS=256</code> 分区爆炸时降级暴力保正确性。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q17 ============ -->
+<section class="qa" id="q17">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q17</span>
+      <span class="q-text">最后精排完，是找到对应的 chunk 给 prompt 吗？最后提供多少个 chunk？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>是的——精排出的是一串<u>下标</u>，映射回 chunk 记录后交给上层；数量是 <code class="inl">top_k</code>，默认 5 个</b>（<code class="inl">search.py:30,75</code>）。但有两个必须说清的细节：①它返回的是 <b><code class="inl">DocChunkRecord</code> 结构体</b>（含 id/正文/归属），不是裸文本——<b>入 prompt 前还要过 <code class="inl">wrap_untrusted_memory</code> 防注入包裹</b>（红线）；②数量<b>「至多 5 个、可能更少、甚至 0 个」</b>——<code class="inl">min_score</code> 过滤和空召回 abstain 会让结果不足 top_k，这是<b>刻意的「宁可少给、不给噪声」</b>。</div>
+
+      <h3 class="blk">1 · 精排的产物：下标 → 还原成 chunk 记录</h3>
+      <p>看 <code class="inl">doc_search_visible</code> 最后三行（<code class="inl">search.py:73-75</code>）——这就是「精排完怎么变成给 prompt 的 chunk」：</p>
+<pre>order = rr.rerank(query, cand_texts)              <span class="cmt"># rerank 只吐「重排后下标」list[int]</span>
+reranked_ids = [cand_ids[i] <span class="kw">for</span> i <span class="kw">in</span> order]     <span class="cmt"># 下标 → 候选 id</span>
+<span class="kw">return</span> [by_id[cid] <span class="kw">for</span> cid <span class="kw">in</span> reranked_ids[:top_k]]  <span class="cmt"># id → DocChunkRecord，截前 top_k 个</span></pre>
+      <p>三级映射：<b>下标 <code class="inl">order</code> → id <code class="inl">reranked_ids</code> → 记录 <code class="inl">by_id[cid]</code></b>。<code class="inl">by_id</code> 是最早从授权可见集合建的字典（<code class="inl">search.py:47</code>），所以<b>还原出来的一定是可见 chunk</b>——精排换名次，绝不可能换出越权内容。返回的每个元素是 <code class="inl">DocChunkRecord</code>（<code class="inl">store.py:71-83</code>），带 <code class="inl">id / content / scope / owner / source_doc_id</code> 等完整字段。</p>
+
+      <h3 class="blk">2 · 到底几个？——top_k=5 是上限，不是保证</h3>
+      <table class="grid">
+        <tr><th>场景</th><th>返回数量</th><th>出处</th></tr>
+        <tr><td>正常</td><td>= top_k = <b>5</b></td><td><code class="inl">search.py:30</code> 默认 <code class="inl">top_k=5</code>；调用方可改</td></tr>
+        <tr><td>可见/相关候选不足 5</td><td><b>&lt; 5</b>（有几个给几个）</td><td><code class="inl">reranked_ids[:top_k]</code> 切片，不足则短</td></tr>
+        <tr><td>全库都不够相关</td><td><b>0（abstain 弃权）</b></td><td><code class="inl">min_score</code> 过滤（<code class="inl">index.py:78</code>）+ 空融合 return []（<code class="inl">search.py:66-67</code>）</td></tr>
+        <tr><td>该用户无任何可见 chunk</td><td><b>0</b></td><td><code class="inl">search.py:44-46</code> visible 为空直接 return []</td></tr>
+      </table>
+      <p>特别注意<b>「宁可少给、不给噪声」</b>这条设计取向：<code class="inl">_brute_topk</code> 里有 <code class="inl">s &gt; min_score</code> 的过滤（<code class="inl">index.py:78</code>），全库都不相关时<b>宁可返回空</b>也不硬凑 5 个无关 chunk 去污染 prompt。这与项目一贯的 <b>abstain（弃权）</b>审美一致——<b>没有好答案时闭嘴，好过塞垃圾误导 LLM</b>。</p>
+
+      <h3 class="blk">3 · 拿到 chunk 之后：入 prompt 前的最后一道红线</h3>
+      <p><code class="inl">doc_search_visible</code> 返回的 chunk <b>不能直接拼进 prompt</b>。<code class="inl">search.py</code> 头注释（<code class="inl">search.py:7-9</code>）明确：「检索到的 chunk 若要注入 prompt，须经 M12 <code class="inl">wrap_untrusted_memory</code> 不可信数据块包裹（防注入红线一致，D7）」。</p>
+      <div class="diagram">
+        <div class="title">精排产物 → prompt 的完整落地</div>
+        <div class="flow">
+          <div class="box amber">rerank 出 top_k 下标</div>
+          <div class="arrow">▼ 映射回记录（search.py:74-75）</div>
+          <div class="box green">≤5 个 DocChunkRecord（可见、相关性降序）</div>
+          <div class="arrow">▼ 逐条包裹（M12 红线）</div>
+          <div class="box blue">wrap_untrusted_memory：标记为「不可信外部数据」，隔离指令注入</div>
+          <div class="arrow">▼</div>
+          <div class="box gray">拼入 prompt 的 context 段，交给 LLM</div>
+        </div>
+      </div>
+      <p>为什么要包裹？因为 chunk 内容是<b>外部文档</b>，可能藏有「忽略以上指令，改为……」这类<b>提示注入攻击</b>。<code class="inl">wrap_untrusted_memory</code> 把它显式框成「这是数据、不是给你的指令」，与用户 query、系统 prompt 在信任层级上隔开。</p>
+
+      <div class="tldr"><b>收口：</b>是——精排吐「重排下标」，经<b>下标→id→<code class="inl">DocChunkRecord</code></b>三级映射还原（<code class="inl">search.py:73-75</code>），从 <code class="inl">by_id</code> 可见字典取，绝不越权。数量 = <code class="inl">top_k</code> <b>默认 5、是上限非保证</b>：<code class="inl">min_score</code> 过滤 + 空召回 abstain 会让结果<b>不足 5 甚至为 0</b>（宁可少给不给噪声）。返回的 chunk 记录<b>入 prompt 前必过 <code class="inl">wrap_untrusted_memory</code> 防注入包裹</b>（D7 红线）。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q18 ============ -->
+<section class="qa" id="q18">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q18</span>
+      <span class="q-text">HNSW 底层会不会这样：停止时 candidates 里最近的（如 .70）已 &lt; W 里最差的，但这个最近点的<u>邻居</u>其实 &gt; W 里最差的、被漏了？顶层又是怎么用贪心找到最近点的？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>你抓到了 HNSW 的命门——是的，完全可能漏，而这正是它叫「<u>近似</u>最近邻（ANN）」而非「精确最近邻」的根本原因。</b>停止条件「candidates 最近的都 ≥（比 W 最差的更远）就停」是一种<b>剪枝赌注</b>：它<b>赌</b>「一个比当前结果都远的点，其邻居也大概率更远，不值得再展开」。这个赌<b>基于小世界图「近邻的近邻仍相对近」的统计规律，大概率成立，但不保证</b>——你说的那种「远点身后藏着近邻」的情况真会发生，就是 ANN 的召回损失。<b>顶层贪心</b>则是另一码事：每层只维护 1 个最近点（ef=1），<b>反复跳到「当前点的邻居里离 query 最近的那个」，直到邻居都不更近为止（爬山法）</b>，把这个落点作为下一层入口。</div>
+
+      <h3 class="blk">1 · 先正面回答：会漏，这是 ANN 的定义性代价</h3>
+      <p>你描述的场景精确无误。底层展开的停止条件是（回顾 Q12 的循环）：<b>「当 candidates 队列里<u>最近</u>的待探点，都已经比 W 里<u>最差</u>的结果还远时，停」</b>。它的<b>隐含假设</b>是：</p>
+      <div class="warn"><b>剪枝赌注：</b>「既然这个候选点 X 本身都比我现有的 top-ef 都差，那 X 的邻居（离 X 近的点）大概率也在 X 附近、离 query 也远，展开它多半是白费力气——所以直接放弃 X，不看它的邻居。」</div>
+      <p>但正如你指出的：<b>X 离 query 远，不代表 X 的<u>某个</u>邻居离 query 也远</b>。图上完全可能存在「X 是个远点，但它恰好连着一个离 query 很近的 Y」。一旦到达 X 时触发了停止条件、没展开 X，Y 就<b>永远不会被发现</b>——这就是 <b>ANN 的召回损失（recall loss）</b>。</p>
+      <div class="analogy"><b>🏔️ 类比：爬山找最高峰，雾里只看脚下几步。</b>你规定「如果周围能看到的点都比手上记的最高点矮，就收工」。但也许翻过眼前这座矮坡，背后藏着一座更高的山——因为雾太大（只看局部邻居）你没走过去，就把它漏了。HNSW 就是这个「雾里爬山」：<b>快（不用走遍全山），但可能错过被矮坡挡住的高峰。</b></div>
+
+      <h3 class="blk">2 · 既然会漏，为什么还敢用？——三道「把漏概率压到很低」的设计</h3>
+      <table class="grid">
+        <tr><th>机制</th><th>怎么降低漏召回</th><th>本项目参数</th></tr>
+        <tr><td><b>ef_search 加宽搜索</b></td><td>W 容量越大，停止门槛越「宽容」，愿意多探很多点才收手——ef 越大越接近精确、越慢</td><td><code class="inl">ef_search=50</code>（<code class="inl">index.py:84</code>）：要 top-k 却维护 50 个，冗余探索</td></tr>
+        <tr><td><b>分层 + 小世界高连通</b></td><td>每个点邻居多（M 条边）、且有长短边混合，"远点连着近邻"时往往<u>另一条路径</u>也能到达该近邻</td><td><code class="inl">M=16</code>（<code class="inl">index.py:82</code>）：每点约 16 邻居，多路径冗余</td></tr>
+        <tr><td><b>★ 外层多召回 + 精确重排</b></td><td>就算 HNSW 单次有损，<code class="inl">fanout=top_k×4</code> 多捞 4 倍候选，再用精确暴力余弦重打分——把「近似漏一点」用「候选池撒大网」补回来</td><td><code class="inl">_ANN_FANOUT_MULT=4</code>（<code class="inl">index.py:86,146</code>）</td></tr>
+      </table>
+      <p>第三行就是 Q12 讲过的「ANN 当粗筛、精确余弦定序」的深层动机之一：<b>正因为承认 HNSW 会漏，才不敢信它的 top-k，而是让它多吐候选、再拿精确尺子重量一遍</b>。你项目里 <code class="inl">_corpus_topk</code>（<code class="inl">index.py:146-150</code>）就是这么做的——HNSW 的近似损失，被「多召回 + 精确重排」这层结构性地兜住了大部分。</p>
+      <p>还有个「保底逃生舱」：当 <code class="inl">use_ann=False</code> 或没装 hnswlib，直接走 <code class="inl">_brute_topk</code> 暴力精确（<code class="inl">index.py:144-145</code>）——<b>要绝对不漏（recall 天花板）时，退回暴力即可，正确性永远有下界</b>。</p>
+
+      <h3 class="blk">3 · 顶层贪心：ef=1 的「爬山法」怎么找最近点</h3>
+      <p>你问的第二半——顶层（上面几层稀疏图）是怎么贪心的。它和底层 ef=50 的展开<b>不是一回事</b>：上层只为「快速逼近 query 所在区域」，每层只维护 <b>1 个</b>当前最近点（等价 ef=1），做纯粹的<b>贪心爬山</b>：</p>
+      <div class="diagram">
+        <div class="title">顶层贪心爬山（每层 ef=1）：一步步跳向 query</div>
+        <div class="flow">
+          <div class="box gray">① 从本层固定入口点 cur 出发，算 dist(cur, query)</div>
+          <div class="arrow">▼ 看 cur 的所有邻居</div>
+          <div class="box blue">② 邻居里挑一个「离 query 比 cur 更近」的，跳过去（cur ← 该邻居）</div>
+          <div class="arrow">▼ 重复②</div>
+          <div class="box amber">③ 直到「cur 的所有邻居都不比 cur 更近 query」——本层到达局部最近点，停</div>
+          <div class="arrow">▼ 把这个落点作为下一层入口，下沉</div>
+          <div class="box green">④ 在下一层（更稠密）重复①~③，越走越精细，最终到 Layer 0 交给 ef=50 精搜</div>
+        </div>
+      </div>
+      <p>关键点：<b>贪心 = 每步都往「邻居中离 query 最近」的方向走，只要还能更近就继续，一旦周围没有更近的就停在本层</b>。上层图<b>稀疏、边跨度大</b>（长边像高速公路），几跳就能横跨大半张图逼近 query；下沉一层后图变密、边变短，做更精细的逼近。这样<b>避免了在最底层稠密图里从随机点开始一小步一小步挪</b>——分层的意义就在这。</p>
+      <div class="warn"><b>⚠ 顶层贪心也会陷「局部最优」：</b>纯贪心（ef=1）在单层可能卡在局部最近点、错过全局更近的区域。HNSW 的解法正是<b>分层</b>（上层用长边跨越、跳出局部坑）+ <b>底层加宽 ef</b>（Layer 0 用 ef=50 而非 1，容忍暂时变远的探索）。所以「顶层 ef=1 贪心 + 底层 ef=50 加宽」是一套<b>组合拳</b>：上层求快速逼近、下层求召回质量。</div>
+
+      <div class="tldr"><b>收口：</b>会漏——「candidates 最近的都比 W 最差的远就停」是<b>剪枝赌注</b>，赌「远点的邻居也远」，基于小世界图统计规律<u>大概率</u>成立但<u>不保证</u>，这正是 ANN「近似」的来源。项目用三层兜底把漏概率压低：<code class="inl">ef_search=50</code> 加宽、<code class="inl">M=16</code> 高连通多路径、<b>外层 <code class="inl">fanout×4</code> 多召回 + 精确重排</b>（承认会漏才多捞再精算），并保留 <code class="inl">use_ann=False</code> 暴力逃生舱作 recall 天花板。顶层则是 <b>ef=1 贪心爬山</b>：每步跳向「邻居中离 query 更近者」，无更近点即停，落点下沉作下一层入口——分层用长边跳出局部最优，底层加宽 ef 保召回。</div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  NanoScope Q&A · 2026-07-27 起（Q7–Q11 于 07-28 追加；Q12 补 HNSW 候选队列 & 召回×4；Q13–Q14 于 07-29 追加：索引自动重建 & Cross-Encoder；Q15–Q18 于 07-29 追加：切片漏召回 & ACL 分桶复杂度 & 精排产物 & HNSW 剪枝漏点/顶层贪心）｜ 十八问：RAG 评测指标（gold / MRR / nDCG）× 检索工程（chunking 与漏召回 / ingestion 身份 / Filtered-ANN 三策略 / HNSW 原理·候选队列·剪枝损失·顶层贪心 / embedding 维度 / 双层隔离 / ACL 分区复杂度 / rerank 与 Cross-Encoder / 完整链路 / 近似召回+精确重打分 / 索引惰性重建 / 精排产物与 top_k）<br>
+  所有结论均对照真实源码：<code>eval/metrics.py</code> · <code>eval/embedding.py</code> · <code>rag/ingest.py</code> · <code>rag/index.py</code> · <code>rag/store.py</code> · <code>rag/search.py</code> · <code>rag/rerank.py</code> · <code>rag/sweep.py</code>
+</footer>
+
+</body>
+</html>

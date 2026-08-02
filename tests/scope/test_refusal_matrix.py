@@ -1,6 +1,6 @@
-"""refusal.v1 拒答混淆矩阵专项单测。
+"""refusal.v2 拒答混淆矩阵专项单测。
 
-复用 rag96.v1 的 96 场景 + is_refusal 判定，验证：
+复用 rag96.v2 的 96 场景 + is_refusal 判定，验证：
 - 混淆矩阵四象限计数守恒且覆盖 should_refuse/should_answer 两轴；
 - 越权漏拒零容忍硬门禁（isolation 被答即 FAIL）；
 - 两策略对照有区分度（over_cautious 的 over-refusal 显著高于 faithful）；
@@ -36,22 +36,20 @@ def bench_store(tmp_path: Path):
     store.close()
 
 
-def test_faithful_policy_is_perfect_matrix(bench_store):
-    """忠实策略：应答全答、应拒全拒 → 四象限对角线满、越权零泄露。"""
+def test_balanced_policy_has_real_confusion_without_security_leak(bench_store):
+    """证据策略不读标签：保留漏拒/过拒，但隔离场景必须全部拒答。"""
     store, bench = bench_store
-    faithful, _ = build_policies(bench)
+    balanced, _ = build_policies(bench)
     matrix = run_refusal_policy(
-        store, bench, faithful, embedder=HashingEmbedder(dim=128)
+        store, bench, balanced, embedder=HashingEmbedder(dim=128)
     )
     assert matrix.n == 96
-    # should_answer = recall24 + rerank20 + generation20 = 64；should_refuse = 32。
-    assert matrix.true_answer == 64
-    assert matrix.true_refuse == 32
-    assert matrix.false_answer == 0
-    assert matrix.false_refuse == 0
-    assert matrix.precision == 1.0
-    assert matrix.recall == 1.0
-    assert matrix.over_refusal_rate == 0.0
+    assert matrix.true_answer > 0
+    assert matrix.true_refuse > 0
+    assert matrix.false_answer > 0
+    assert matrix.false_refuse > 0
+    assert 0.6 < matrix.f1 < 0.9
+    assert 0.0 < matrix.over_refusal_rate < 0.5
     assert matrix.isolation_leaks == 0
     assert matrix.security_gate_pass is True
 
@@ -59,15 +57,16 @@ def test_faithful_policy_is_perfect_matrix(bench_store):
 def test_over_cautious_policy_pays_over_refusal_cost(bench_store):
     """过度保守策略：误拒 rerank 应答题 → over-refusal 显著，但越权仍零泄露。"""
     store, bench = bench_store
-    _, over_cautious = build_policies(bench)
+    balanced, over_cautious = build_policies(bench)
+    balanced_matrix = run_refusal_policy(
+        store, bench, balanced, embedder=HashingEmbedder(dim=128)
+    )
     matrix = run_refusal_policy(
         store, bench, over_cautious, embedder=HashingEmbedder(dim=128)
     )
-    # rerank 20 条被误拒 → FR=20；recall24+generation20 仍答 → TA=44。
-    assert matrix.false_refuse == 20
-    assert matrix.true_answer == 44
-    assert matrix.over_refusal_rate == pytest.approx(20 / 64)
-    # 应拒题仍全拒（越权 + 无答案），漏拒为 0。
+    assert matrix.false_refuse > balanced_matrix.false_refuse
+    assert matrix.true_answer < balanced_matrix.true_answer
+    assert matrix.over_refusal_rate > 0.5
     assert matrix.false_answer == 0
     assert matrix.recall == 1.0
     assert matrix.isolation_leaks == 0
@@ -104,27 +103,27 @@ def test_isolation_leak_trips_security_gate(bench_store):
 
 
 def test_board_pareto_and_gate(bench_store):
-    """看板：faithful 支配 over_cautious，越权零泄露 → 整体安全门禁 PASS。"""
+    """看板：两策略形成安全/可用性权衡，越权零泄露。"""
     board = run_refusal_board()
     assert board["dataset_version"] == REFUSAL_MATRIX_VERSION
-    assert board["source_dataset_version"] == "rag96.v1"
+    assert board["source_dataset_version"] == "rag96.v2"
     assert board["n_scenarios"] == 96
     assert board["n_policies"] == 2
     assert board["security_gate_pass"] is True
     assert board["total_isolation_leaks"] == 0
-    assert board["pareto_front"] == ["faithful"]
-    assert board["best_availability_policy"]["policy"] == "faithful"
+    assert board["pareto_front"] == ["evidence_balanced", "evidence_cautious"]
+    assert board["best_availability_policy"]["policy"] == "evidence_balanced"
 
 
 def test_pareto_front_helper_prefers_low_over_refusal(bench_store):
-    """帕累托：recall 持平时 over_refusal 更低者支配。"""
+    """帕累托：安全策略间保留 recall 与 over-refusal 的真实权衡。"""
     store, bench = bench_store
     matrices = [
         run_refusal_policy(store, bench, p, embedder=HashingEmbedder(dim=128))
         for p in build_policies(bench)
     ]
     front = pareto_front(matrices)
-    assert [m.policy for m in front] == ["faithful"]
+    assert [m.policy for m in front] == ["evidence_balanced", "evidence_cautious"]
 
 
 def test_determinism_two_runs_identical():

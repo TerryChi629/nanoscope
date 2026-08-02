@@ -1,9 +1,9 @@
-"""摄取质量数据集 ingest.v1 (RAG 摄取专项)。
+"""摄取质量数据集 ingest.v2 (RAG 摄取专项)。
 
-回答一个 rag96.v1 未覆盖的空白：**同一批长文档，在不同 chunking 策略/参数下摄取，
+回答一个 rag96 系列未覆盖的空白：**同一批长文档，在不同 chunking 策略/参数下摄取，
 对下游召回质量与隔离安全有什么影响？**
 
-- rag96.v1 直接 `add_chunk` 播种完整短文档，从不经过 `ingest_document` 切分，
+- rag96 直接 `add_chunk` 播种完整短文档，从不经过 `ingest_document` 切分，
   因此"切分参数 → 召回质量"这条链路零评测覆盖。
 - 本数据集专门构造**足够长、含定位事实（needle）的合成文档**，使不同 size/overlap
   切出不同 chunk 边界，从而暴露"事实被切断 → 召回下降"这一摄取质量问题。
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-INGEST_DATASET_VERSION = "ingest.v1"
+INGEST_DATASET_VERSION = "ingest.v2"
 
 # proj_a 可见文档：每篇一个唯一 needle（含稀有 canary 词，便于按内容判定 gold）。
 _VISIBLE_TOPICS = (
@@ -30,6 +30,24 @@ _VISIBLE_TOPICS = (
     ("白虎日志中台", "canaryA5", "冷数据归档保留周期规定为 180 个自然日"),
     ("青龙网关集群", "canaryA6", "单实例连接数熔断线设置为 8000 条并发链接"),
 )
+
+_VISIBLE_DECOYS = {
+    "canaryA1": "历史内部目标曾按 99.50 个百分点试算，但没有作为对外服务承诺发布",
+    "canaryA2": "旧版测试任务曾在凌晨 01 时启动，该调度已经下线",
+    "canaryA3": "演练手册用 30 个百分点作为示例，该数字不属于现行灰度上限",
+    "canaryA4": "压测草案记录过 2048 个条目，该值只是早期容量假设",
+    "canaryA5": "临时排障数据曾保留 90 日，与正式冷数据归档周期无关",
+    "canaryA6": "单元测试环境的 4000 连接阈值不能代表生产熔断配置",
+}
+
+_QUERY_PARAPHRASES = {
+    "canaryA1": "面向客户正式承诺的季度在线率是多少？",
+    "canaryA2": "每日正式对账作业从什么时间开始执行？",
+    "canaryA3": "现行发布策略允许的最大流量比例是多少？",
+    "canaryA4": "当前召回阶段最多可以容纳多少候选？",
+    "canaryA5": "正式冷存储政策要求数据保存多长时间？",
+    "canaryA6": "生产实例达到多少并发连接时触发熔断？",
+}
 
 # proj_b 越权文档：与 proj_a 关键词高度重合的 near-duplicate 机密（语义最近邻靶点）。
 _FORBIDDEN_TOPICS = (
@@ -68,7 +86,7 @@ class IngestQuery:
     query: str
 
 
-def _long_text(topic: str, needle: str, fact: str) -> str:
+def _long_text(topic: str, needle: str, fact: str, decoy: str = "") -> str:
     """合成一篇长文档：前后填充无关段落，中段嵌入含 needle 的事实句。
 
     段落之间用空行分隔，既能被 fixed 窗口按字符切，也能被 structure 按段落切。
@@ -85,7 +103,8 @@ def _long_text(topic: str, needle: str, fact: str) -> str:
     # needle 句独立成段，置于文档中段，便于观察其是否被切分边界破坏。
     # 句内同时含 topic 与 "重要基线"，使查询能定位到该段而非填充段。
     needle_para = f"{topic}重要基线（{needle}）：{fact}，该数值为当前唯一权威口径。"
-    return "\n\n".join([filler, filler, needle_para, tail, tail])
+    decoy_para = f"{topic}历史记录：{decoy}。" if decoy else filler
+    return "\n\n".join([filler, decoy_para, filler, needle_para, tail, tail])
 
 
 def visible_documents() -> list[IngestDoc]:
@@ -98,7 +117,7 @@ def visible_documents() -> list[IngestDoc]:
                 scope="project",
                 acl_group="proj_a",
                 needle=needle,
-                text=_long_text(topic, needle, fact),
+                text=_long_text(topic, needle, fact, _VISIBLE_DECOYS[needle]),
             )
         )
     return docs
@@ -137,15 +156,23 @@ def org_documents() -> list[IngestDoc]:
 
 
 def load_ingest_queries() -> list[IngestQuery]:
-    """每篇 proj_a 文档一条查询，问的是其 needle 事实。"""
+    """每篇文档两条独立问法：主题锚点问法 + 去主题词语义改写。"""
     queries: list[IngestQuery] = []
     for topic, needle, _fact in _VISIBLE_TOPICS:
-        queries.append(
-            IngestQuery(
-                query_id=f"IQ::{needle}",
-                doc_key=f"A::{needle}",
-                needle=needle,
-                query=f"{topic}的重要基线数值是多少？",
+        queries.extend(
+            (
+                IngestQuery(
+                    query_id=f"IQ::{needle}::direct",
+                    doc_key=f"A::{needle}",
+                    needle=needle,
+                    query=f"{topic}当前正式生效的重要基线数值是多少？",
+                ),
+                IngestQuery(
+                    query_id=f"IQ::{needle}::semantic",
+                    doc_key=f"A::{needle}",
+                    needle=needle,
+                    query=_QUERY_PARAPHRASES[needle],
+                ),
             )
         )
     return queries

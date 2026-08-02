@@ -180,6 +180,27 @@ def test_get_message_content_sync_returns_none_when_empty_text() -> None:
     assert result is None
 
 
+@pytest.mark.asyncio
+async def test_reply_context_does_not_pollute_original_user_text() -> None:
+    channel = _make_feishu_channel()
+    channel._get_message_content_sync = MagicMock(
+        return_value="[Reply to: task preview]"
+    )
+    channel._handle_message = AsyncMock()
+    event = _make_feishu_event(
+        content=json.dumps({"text": "确认创建 FT-ABCDEFGH"}),
+        parent_id="om_parent",
+    )
+
+    await channel._on_message(event)
+
+    kwargs = channel._handle_message.await_args.kwargs
+    assert kwargs["content"] == (
+        "[Reply to: task preview]\n确认创建 FT-ABCDEFGH"
+    )
+    assert kwargs["original_user_text"] == "确认创建 FT-ABCDEFGH"
+
+
 # ---------------------------------------------------------------------------
 # _reply_message_sync tests
 # ---------------------------------------------------------------------------

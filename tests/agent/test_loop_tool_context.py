@@ -244,6 +244,41 @@ async def test_process_message_captures_original_text_before_restore(
 
 
 @pytest.mark.asyncio
+async def test_process_message_prefers_channel_original_user_text(
+    tmp_path: Path,
+) -> None:
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=provider,
+        workspace=tmp_path,
+        model="test-model",
+    )
+    seen: list[str | None] = []
+
+    async def stop_after_capture(ctx) -> str:
+        seen.append(ctx.original_user_text)
+        raise RuntimeError("captured before restore")
+
+    loop._state_restore = stop_after_capture  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError, match="captured before restore"):
+        await loop._process_message(
+            InboundMessage(
+                channel="feishu",
+                sender_id="user",
+                chat_id="chat",
+                content="[Reply to: preview]\n确认创建 FT-ABCDEFGH",
+                original_user_text="确认创建 FT-ABCDEFGH",
+            ),
+            runtime=loop.llm_runtime(),
+        )
+
+    assert seen == ["确认创建 FT-ABCDEFGH"]
+
+
+@pytest.mark.asyncio
 async def test_subagent_system_turn_passes_parent_security_context_to_tools(
     tmp_path: Path,
 ) -> None:

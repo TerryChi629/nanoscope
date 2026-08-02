@@ -6,8 +6,8 @@ v1（`scale_dataset.py`，保留供对照）用手工 `_BURY_AT=[15,40,…]` **�
 
 1. **主题热度 Zipf 分布**：主题 t 的干扰生成强度 λ_t ∝ 1/(t+1)^s（s≈1），模拟真实 IM
    中少数话题高频、长尾话题低频。
-2. **干扰随 N 连续增长**：规模 N 时同主题 look-alike 干扰数以 λ_t · N 为期望做随机
-   舍入，随 N 增大且不再有手工阈值。gold 埋没是干扰密度自然累积的结果。
+2. **干扰随 N 连续增长**：规模 N 时同主题 look-alike 干扰数以 λ_t · N 为中心，
+   叠加每个 seed 的对数正态热度扰动，模拟不同时间窗的话题突发。
 3. **候选集与 gold rank 可观测**：每个 query 记录候选集大小、gold 实际 rank。
 4. **多种子 + 置信区间**：每档规模跑 R≥5 个种子，报告 Recall@K 均值 ± 标准差（95% CI）。
 
@@ -35,6 +35,7 @@ from nanoscope.eval.scale_dataset import (
 # density 选 0.02、s=1：热门主题(t=0) λ=0.02，长尾(t=7) λ=0.0025，随 N 连续增长。
 _DEFAULT_DENSITY = 0.02
 _DEFAULT_S = 1.0
+_DEFAULT_BURST_SIGMA = 0.45
 
 
 def zipf_lambda(t: int, density: float = _DEFAULT_DENSITY, s: float = _DEFAULT_S) -> float:
@@ -47,6 +48,7 @@ def build_at_scale_v2(
     seed: int,
     density: float = _DEFAULT_DENSITY,
     s: float = _DEFAULT_S,
+    burst_sigma: float = _DEFAULT_BURST_SIGMA,
 ) -> tuple[list[ScaleDoc], list[ScaleQuery]]:
     """在规模 N 下按 Zipf 连续增长合成语料 + 查询（无手工掩埋阈值）。
 
@@ -68,15 +70,22 @@ def build_at_scale_v2(
     # Zipf 连续增长：随机舍入保持 E[count]=λ_t·N，同时让不同 seed 真正扰动检索难度。
     ts = 1000  # 干扰起始 created_at，恒大于 gold。
     for t, (topic, _c, _q) in enumerate(_GOLD_SPECS):
-        expected = zipf_lambda(t, density, s) * n
+        # E[lognormal(-σ²/2, σ)] = 1，故多种子平均强度仍为 λ_t·N，
+        # 但单轮能出现真实话题突发，使 CI 反映 workload 变化而非计时噪声。
+        burst = rng.lognormvariate(-(burst_sigma ** 2) / 2, burst_sigma)
+        expected = zipf_lambda(t, density, s) * n * burst
         count = math.floor(expected)
         if rng.random() < expected - count:
             count += 1
         for r in range(count):
             if len(docs) >= n:
                 break
-            frame = rng.choice(_DISTRACTOR_FRAMES)
-            content = frame.format(noise=topic) + f"编号{rng.randint(1000, 999999)}"
+            if rng.random() < 0.08:
+                content = f"他人只是复述问题“{_q}”，没有提供可验证答案"
+            else:
+                frame = rng.choice(_DISTRACTOR_FRAMES)
+                content = frame.format(noise=topic)
+            content += f" 编号{rng.randint(1000, 999999)}"
             docs.append(ScaleDoc(id=f"dist-{t}-{r}", content=content, created_at=ts))
             ts += 1
 
@@ -151,6 +160,7 @@ def run_curve_v2(
     k: int = 5,
     density: float = _DEFAULT_DENSITY,
     s: float = _DEFAULT_S,
+    burst_sigma: float = _DEFAULT_BURST_SIGMA,
 ) -> list[ScalePointV2]:
     """在各规模上跑多种子 A/B，聚合 Recall@K 均值/方差/CI + gold rank 分布。"""
     points: list[ScalePointV2] = []
@@ -160,7 +170,7 @@ def run_curve_v2(
         all_ranks: list[int] = []
         all_sizes: list[int] = []
         for seed in seeds:
-            docs, qspecs = build_at_scale_v2(n, seed, density, s)
+            docs, qspecs = build_at_scale_v2(n, seed, density, s, burst_sigma)
             eval_docs = [Doc(id=d.id, content=d.content, created_at=d.created_at) for d in docs]
             queries = [
                 EvalQuery(query=q.query, gold_ids=frozenset(q.gold_ids)) for q in qspecs

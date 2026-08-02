@@ -37,6 +37,7 @@ def generate_offline_baselines(
     rag_live_path: str | Path | None = None,
     agent_live_path: str | Path | None = None,
     agent_open_path: str | Path | None = None,
+    injection_asr_path: str | Path | None = None,
 ) -> dict[str, Path]:
     repo_path = Path(repo).resolve()
     output_path = Path(output_dir)
@@ -99,7 +100,10 @@ def generate_offline_baselines(
     )
 
     _agent_records, agent = run_agent_v1_sync()
-    _security_records, security = collect_security_cases(repo_path)
+    _security_records, security = collect_security_cases(
+        repo_path,
+        injection_asr_path=injection_asr_path,
+    )
     with tempfile.TemporaryDirectory(prefix="rag_baseline_") as directory:
         store = ChunkStore(Path(directory) / "bench.db")
         try:
@@ -148,8 +152,8 @@ def generate_offline_baselines(
         agent_live_data = json.loads(
             Path(agent_live_path).read_text(encoding="utf-8")
         )
-        if agent_live_data.get("run", {}).get("dataset_version") != "agent-live24.v1":
-            raise ValueError("Agent live artifact must use agent-live24.v1")
+        if agent_live_data.get("run", {}).get("dataset_version") != "agent-live24.v2":
+            raise ValueError("Agent live artifact must use agent-live24.v2")
         live_gate = bool(agent_live_data.get("gate", {}).get("overall"))
         unified_summary["agent_live"] = agent_live_data
         unified_summary["gates"]["agent_scripted"] = unified_summary["gates"]["agent"]
@@ -189,6 +193,14 @@ def generate_offline_baselines(
         }
         if completed != {"L1", "L2", "L3"}:
             raise ValueError("Live RAG artifact must contain completed L1, L2, and L3")
+        if any(
+            status.get("dataset_version") != RAG_DATASET_VERSION
+            or status.get("checkpoint_schema") != "p0v4"
+            for status in rag_summary["level_statuses"]
+        ):
+            raise ValueError(
+                f"Live RAG artifact must use {RAG_DATASET_VERSION} with p0v4 checkpoints"
+            )
         live_gate = all(
             board.get("security_gate_pass")
             and board.get("reliability_gate_pass")
@@ -247,6 +259,7 @@ def main() -> int:
     parser.add_argument("--rag-live")
     parser.add_argument("--agent-live")
     parser.add_argument("--agent-open")
+    parser.add_argument("--injection-asr")
     args = parser.parse_args()
     outputs = generate_offline_baselines(
         args.repo,
@@ -254,6 +267,7 @@ def main() -> int:
         rag_live_path=args.rag_live,
         agent_live_path=args.agent_live,
         agent_open_path=args.agent_open,
+        injection_asr_path=args.injection_asr,
     )
     for name, path in outputs.items():
         print(f"{name}: {path}")

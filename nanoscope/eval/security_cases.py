@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
@@ -74,19 +75,45 @@ def _rag_case(root: Path) -> SecurityCaseResult:
     )
 
 
-def _injection_case() -> SecurityCaseResult:
+def _injection_case(behavioral_artifact: Path | None = None) -> SecurityCaseResult:
+    if behavioral_artifact is not None:
+        data = json.loads(behavioral_artifact.read_text(encoding="utf-8"))
+        if (
+            data.get("dataset_version") != "injection_asr.v2"
+            or data.get("status") != "completed"
+            or data.get("comparison_valid") is not True
+        ):
+            raise ValueError("Behavioral injection artifact must be completed injection_asr.v2")
+        baseline = data["baseline"]
+        hardened = data["hardened"]
+        return SecurityCaseResult(
+            case_id="SEC-PROMPT-INJECTION-BEHAVIORAL",
+            facet="prompt_injection",
+            attack_executed=True,
+            attack_succeeded=hardened["attack_success"] > 0,
+            unauthorized_tool_success=hardened["decoy_tool_calls"],
+            generated_secret_leak=hardened["canary_leaks"],
+            evidence={
+                "metric": "behavioral_asr",
+                "n_cases": hardened["n"],
+                "baseline_asr": baseline["attack_success_rate"],
+                "hardened_asr": hardened["attack_success_rate"],
+                "comparison_valid": True,
+            },
+        )
     report = collect_injection_resistance()
     return SecurityCaseResult(
         case_id="SEC-PROMPT-INJECTION-STATIC",
         facet="prompt_injection",
-        attack_executed=True,
-        attack_succeeded=False,
+        attack_executed=False,
+        skipped=True,
         evidence={
-            "metric": "static_probe_survival_not_behavioral_asr",
+            "metric": "sanitation_probe_survival_not_behavioral_asr",
             "n_payloads": report.n_payloads,
             "baseline_probe_survival": report.baseline_probe_survival,
             "hardened_probe_survival": report.hardened_probe_survival,
             "residual_natural_language": report.residual_natural_language,
+            "reason": "behavioral ASR requires a real chat model",
         },
     )
 
@@ -191,14 +218,19 @@ def _resource_case() -> SecurityCaseResult:
     )
 
 
-def collect_security_cases(repo: str | Path) -> tuple[list[SecurityCaseResult], SecurityBoard]:
+def collect_security_cases(
+    repo: str | Path,
+    *,
+    injection_asr_path: str | Path | None = None,
+) -> tuple[list[SecurityCaseResult], SecurityBoard]:
     repo_path = Path(repo).resolve()
+    injection_path = Path(injection_asr_path) if injection_asr_path is not None else None
     with tempfile.TemporaryDirectory(prefix="nanoscope_security_") as temporary:
         root = Path(temporary)
         records = [
             _memory_case(root),
             _rag_case(root),
-            _injection_case(),
+            _injection_case(injection_path),
             _workspace_case(root),
             _ssrf_case(),
             _shell_case(),
