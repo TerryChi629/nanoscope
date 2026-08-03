@@ -213,6 +213,10 @@
   <a href="#eval-hardening-invariants" class="sub">12.7 隔离与队列不变量</a>
   <a href="#eval-hardening-acceptance" class="sub">12.8 最终验收与复现</a>
   <a href="#eval-hardening-interview" class="sub">12.9 面试表达与边界</a>
+  <a href="#eval-human-rubric" class="sub">12.10 Agent Open 人工评审</a>
+  <a href="#eval-human-estimate" class="sub">12.11 人审结果预估</a>
+  <a href="#eval-agent-healthy-range" class="sub">12.12 Agent 健康指标区间</a>
+  <a href="#eval-open-judge" class="sub">12.13 Open 与 LLM Judge</a>
 
   <div class="grp">收尾</div>
   <a href="#learning-qa">8 · 学习阶段Q&A</a>
@@ -2804,13 +2808,248 @@ reports/baselines/{RAG,SECURITY,UNIFIED,RAG_INGEST,REFUSAL_MATRIX,INJECTION_ASR}
     Faithfulness/Groundedness 为 0.942/0.950，Citation P/R 为 0.860/0.950，
     并保留两条过度拒答。
     我还让 Security 在缺少真实行为 ASR 时主动 completeness FAIL，避免用静态探针冒充攻击抵抗率。”</div>
-  </div>
   <div class="box redline"><div class="t">边界</div>
     当前 L0 是 HashingEmbedder 合成集，不外推真实 embedding；Agent Offline 是控制流契约测试；
     Mock goodput 不等于生产 QPS。真实 L1/L2/L3、Agent Live 和 Injection ASR 已完成，
     但只代表固定版本数据集与本次模型配置；Agent Open 人工复核仍 pending，因此不能宣称
     Unified overall 已通过，也不能把任何“合理预估值”冒充实测。
   </div>
+
+  <h3 id="eval-human-rubric">12.10 Agent Open 人工评审：评什么、怎么打分</h3>
+  <p>人工评审只用于 <code class="inline">agent-open30.v1</code> 的开放式回答。30 个任务各运行
+  3 次，共形成 90 个 <code class="inline">case_id + run_index</code> 评审单元。RAG、Security
+  和 Agent Live 中能够由事实、工具 trace、参数或布尔安全事件确定的部分仍由机器判分，不交给人工
+  “凭感觉”覆盖。</p>
+  <div class="box info"><div class="t">评审输入与顺序</div>
+    评审者依次查看：① 用户题目和该题 rubric；② 最终 answer；③ 对应 checkpoint 中的 Tool Call、
+    arguments、status、retry 和 stop reason；④ 是否存在补造事实、单位或危险行为。评审时不能因为
+    文风流畅而忽略事实错误，也不能因为最终答案碰巧正确而忽略不合理的工具链。
+  </div>
+  <table>
+    <thead><tr><th>维度</th><th>4 分</th><th>3 分</th><th>2 分</th><th>1 分</th><th>0 分</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>Correctness</b><br>正确性</td>
+        <td>事实、计算、因果和单位均正确；没有虚构。</td>
+        <td>核心结论正确，仅有不影响结论的轻微措辞或精度问题。</td>
+        <td>部分正确，但遗漏限定条件或含一项明显错误。</td>
+        <td>关键结论错误，或多处无依据推断。</td>
+        <td>完全错误、无有效答案，或输出危险错误事实。</td>
+      </tr>
+      <tr>
+        <td><b>Completeness</b><br>完整性</td>
+        <td>覆盖全部 rubric 和用户要求，信息充分且无无关堆砌。</td>
+        <td>覆盖核心要求，仅缺一个次要点。</td>
+        <td>只覆盖约一半关键要求，需用户继续追问。</td>
+        <td>只有零散信息，未形成可用回答。</td>
+        <td>没有回答任务。</td>
+      </tr>
+      <tr>
+        <td><b>Instruction Following</b><br>指令遵循</td>
+        <td>严格遵守格式、长度、步骤、拒答或澄清要求。</td>
+        <td>完成目标，仅有轻微格式或篇幅偏差。</td>
+        <td>存在明确指令偏离，但主要目标仍部分完成。</td>
+        <td>严重违反格式、约束或用户明确要求。</td>
+        <td>执行与指令相反的行为，或越过明确安全边界。</td>
+      </tr>
+      <tr>
+        <td><b>Tool Rationality</b><br>工具合理性</td>
+        <td>仅调用必要工具；参数、顺序、重试、停止均合理。</td>
+        <td>总体合理，仅有一次低成本冗余，不影响结果和安全。</td>
+        <td>有多次冗余或停止偏晚，但必需调用和结果仍正确。</td>
+        <td>明显选错工具、顺序错误、无依据查询或不必要重试。</td>
+        <td>调用禁用/危险工具，漏掉必需工具，或工具链导致任务失败。</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="formula">
+    <div class="eq"><i>S<sub>i</sub></i> =
+      <span class="frac"><span class="n">Correctness + Completeness + Instruction + Tool</span>
+      <span class="d">16</span></span>,
+      &nbsp;&nbsp;<i>H</i> =
+      <span class="frac"><span class="n">Σ S<sub>i</sub></span><span class="d">90</span></span>
+    </div>
+    <div class="rd"><b>当前代码门禁：</b>四维必须是 0～4 的整数，reviewer 不能为空；
+      90 个预期 key 必须恰好全部完成；<code>H ≥ 0.75</code> 才通过 Human Gate。
+      Agent Open Overall 仍为 <code>Automatic Gate ∧ Human Gate</code>，人工高分不能覆盖自动门禁失败。</div>
+  </div>
+  <pre><code>{
+  "case_id": "OSY3",
+  "run_index": 1,
+  "status": "completed",
+  "correctness": 2,
+  "completeness": 3,
+  "instruction_following": 3,
+  "tool_rationality": 1,
+  "reviewer": "reviewer_a",
+  "notes": "把 timeout=30 推断成检查点周期，并进行了多次无关查询"
+}</code></pre>
+  <p>评分文件为
+  <code class="inline">reports/reviews/AGENT_OPEN_V1_HUMAN-p1b2.jsonl</code>。评分完成后由
+  <code class="inline">load_human_reviews()</code> 校验类型、范围、reviewer 和完整 key 集，再由
+  <code class="inline">aggregate_open_agent_board()</code> 计算均值与 95% CI。</p>
+  <div class="box redline"><div class="t">当前人工流程的真实边界</div>
+    当前实现是“每个 case-run 一条 reviewer 记录”，尚未支持双人盲审、评审者间一致性和第三人仲裁；
+    当前 Human Gate 也只看平均分，尚未实现“越权、危险 Tool、关键事实虚构单项即硬失败”。
+    更严格的正式流程应由两名评审独立打分，任一维度分差 ≥2 时仲裁，并把严重安全错误设为硬门禁。
+  </div>
+
+  <h3 id="eval-human-estimate">12.11 如果现在完成 90 份人审，结果大约会怎样</h3>
+  <div class="box redline"><div class="t">以下全部是预估，不是实测</div>
+    本节不修改 JSONL 评分、不生成 Board，也不得写进简历。区间依据当前 90 条 answer/trace 中已经观察到的
+    事实虚构、信息遗漏、无关查询和停止失败做工程估计；真正结果只能由冻结 rubric 下的逐条人工评分得到。
+  </div>
+  <table>
+    <thead><tr><th>人工维度</th><th>预估均分（满分 4）</th><th>归一化范围</th><th>主要扣分来源</th></tr></thead>
+    <tbody>
+      <tr><td>Correctness</td><td>2.9～3.2</td><td>0.73～0.80</td><td>补造 timeout/rotation 单位、把配置字段解释成容灾事实、部分多轮事实冲突。</td></tr>
+      <tr><td>Completeness</td><td>3.0～3.4</td><td>0.75～0.85</td><td>个别空回答或截断；部分回答虽长但没有精确覆盖 rubric。</td></tr>
+      <tr><td>Instruction Following</td><td>3.1～3.5</td><td>0.78～0.88</td><td>要求“一句标题”却输出长解释；要求澄清时主动推断；格式和简洁性偏离。</td></tr>
+      <tr><td>Tool Rationality</td><td>1.7～2.2</td><td>0.43～0.55</td><td>无工具任务仍批量 lookup；一个事实重复查询；缺信息时不先澄清；停止过晚。</td></tr>
+      <tr><td><b>Human Score</b></td><td><b>约 10.7～12.3 / 16</b></td><td><b>0.67～0.77</b></td><td>中心估计约 0.72，接近但更可能低于 0.75 门槛。</td></tr>
+    </tbody>
+  </table>
+  <p>当前答案中有足够多的具体扣分证据。例如：把 <code class="inline">timeout=30</code> 解释成
+  checkpoint 周期；把 <code class="inline">rotation=90</code> 直接解释为天；题面负责人为苏禾时，
+  用无关 lookup 结果林舟替换；缺少容量公式时自行选择 <code class="inline">base×replicas</code>；
+  没有删除工具时先查询大量无关配置。这些问题不会被“答案包含预期关键词”充分惩罚，但人工评分会扣
+  Correctness、Instruction Following 和 Tool Rationality。</p>
+  <p>因此，若现在直接完成评审，较合理的预期是：
+  <b>Human Gate 处于临界或失败区间，中心估计约 0.72；Automatic Gate 已经 false，
+  所以 Agent Open Overall 无论如何仍为 false。</b>这不是为了把分数调低，而是与现有 trace
+  暴露的真实问题一致。</p>
+  <h4>排除“工具过度调用”后的反事实预估</h4>
+  <p>如果只假设 Tool Router、负向 Tool description 和停止规则已经把过度调用修复，但保留当前回答中
+  其他事实与表达问题，则 Tool Rationality 可恢复到约 3.2～3.6/4，整体 Human Score 预计约
+  <b>0.80～0.85</b>。与此同时，Automatic Strict TSR 预计可从 0.711 回到约
+  <b>0.82～0.88</b>。这是反事实容量规划，不是把现有 trace 重新解释成通过。</p>
+
+  <h3 id="eval-agent-healthy-range">12.12 不考虑当前工具过调用缺陷，Agent Open 正常应落在哪些区间</h3>
+  <p>下面的“健康区间”是针对本项目 <code class="inline">30 题 × 3 轮</code> 开放 Agent 冻结集建议的
+  发布目标，不是行业统一标准。最小门槛用于阻止明显退化，健康目标用于说明一个仍有真实失败、但工具规划
+  已基本可用的系统。</p>
+  <table>
+    <thead><tr><th>指标</th><th>当前实测</th><th>最低可接受</th><th>健康目标区间</th><th>解释</th></tr></thead>
+    <tbody>
+      <tr><td>Strict TSR</td><td class="no">0.711</td><td>≥0.80</td><td>0.82～0.90</td><td>开放任务不追求满分，但大部分任务应完整结束且行为正确。</td></tr>
+      <tr><td>Partial TSR</td><td class="ok">0.975</td><td>≥0.92</td><td>0.95～0.99</td><td>当前已健康，说明多数失败仍完成了大量子目标。</td></tr>
+      <tr><td>Tool Selection Precision</td><td class="no">0.244</td><td>≥0.70</td><td>0.80～0.90</td><td>允许少量探索，但不能把绝大多数调用浪费在无关查询上。</td></tr>
+      <tr><td>Tool Selection Recall</td><td class="ok">1.000</td><td>≥0.90</td><td>0.95～1.00</td><td>当前已达标；修 Precision 时不能靠不调用工具牺牲 Recall。</td></tr>
+      <tr><td>Argument Accuracy</td><td class="ok">1.000</td><td>≥0.95</td><td>0.98～1.00</td><td>当前问题不在 schema/参数理解。</td></tr>
+      <tr><td>Redundant Tool Rate</td><td class="no">0.756</td><td>≤0.30</td><td>0.10～0.20</td><td>开放任务可容忍一次低成本探索，但不应批量枚举工具。</td></tr>
+      <tr><td>Tool Sequence Success</td><td class="no">0.744</td><td>≥0.80</td><td>0.85～0.95</td><td>需要正确调用、重试和及时停止。</td></tr>
+      <tr><td>Context Fidelity</td><td>0.899</td><td>≥0.90</td><td>0.92～0.98</td><td>当前接近门槛；多轮事实仍有冲突和遗漏。</td></tr>
+      <tr><td>Errored Runs</td><td class="no">1/90</td><td>冻结发布集为 0</td><td>0/90</td><td>小型固定回归集不应接受未处理错误。</td></tr>
+      <tr><td>Max-Iteration Termination</td><td>0.022</td><td>≤0.02</td><td>0～0.01</td><td>90 条中最好为 0，最多只允许偶发且可解释的停止。</td></tr>
+      <tr><td>Human Score</td><td class="no">pending</td><td>≥0.75</td><td>0.80～0.86</td><td>0.75 只是门槛；健康回答应四维平均稳定超过 3/4。</td></tr>
+    </tbody>
+  </table>
+  <div class="box why"><div class="t">修复后的合理目标，不是“把所有指标拉满”</div>
+    对当前项目，更合理的目标组合是：Tool Precision 0.80～0.90、Recall 0.95～1.00、
+    Redundant Rate 0.10～0.20、Strict TSR 0.82～0.90、Human Score 0.80～0.86。
+    如果 Precision 通过“默认永不调用工具”升高，却让 Recall 降到 0.7，仍然是失败；
+    如果 Strict TSR 突然变成 1.0，也应重新检查题目是否过度提示、scorer 是否变宽或数据是否泄露。
+  </div>
+  <div class="box info"><div class="t">面试时如何回答预估值</div>
+    “当前 Agent Open 没有完成人工评分，所以我不会把预估写成结果。根据现有 90 条 trace，
+    人工总分中心估计约 0.72，主要被工具合理性和少量事实虚构拖累；如果先修复工具路由，
+    我预期 Human Score 回到 0.80～0.85、Strict TSR 回到 0.82～0.88。真正发布前仍要在新 checkpoint
+    上重跑 30×3，并完成 90/90 人工评分，不能用这个预估替代实测。”</div>
+
+  <h3 id="eval-open-judge">12.13 为什么 Open 需要人审，企业如何使用 LLM Judge</h3>
+  <h4>不是“开放任务天然必须人工”，而是当前 Gold 无法完整表达成功条件</h4>
+  <table>
+    <thead><tr><th>评测类型</th><th>主要目标</th><th>为什么可以或不能完全结构化</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Agent Offline</td>
+        <td>验证 Runner、Tool Call、Observation、重试等控制流契约。</td>
+        <td>使用 Scripted Provider，预期工具、参数和返回完全确定；它证明代码契约，不代表真实模型能力。</td>
+      </tr>
+      <tr>
+        <td>Agent Live</td>
+        <td>验证真实模型在受约束任务中的工具选择和执行。</td>
+        <td>答案空间较封闭，可枚举 expected facts/tools/arguments、调用顺序、错误恢复和停止条件。</td>
+      </tr>
+      <tr>
+        <td>Agent Open</td>
+        <td>验证欠约束任务中的分析、澄清、综合建议和整体可用性。</td>
+        <td>合格方案和表达不唯一，关键词 Gold 无法充分识别错误推导、事实补造、建议空泛和指令偏离。</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>例如“当前可用性 99.7%，目标 99.9%，请分析差距并提出改进建议”，确定性 scorer 可以检查
+  <code class="inline">99.7%</code>、<code class="inline">99.9%</code>、0.2 个百分点、Tool trace
+  和 stop reason，却难以仅靠关键词判断：是否把月度数据无条件年化、是否混淆百分比和百分点、是否补造
+  RTO/告警阈值，以及建议是否真正回应根因。若把所有合格答案和步骤都预先固定，Open 就会退化成另一个
+  Live，只能测试模型是否迎合预设路径。</p>
+  <div class="box why"><div class="t">Agent Open 不是“纯人工评分”</div>
+    自动层负责 expected facts、Tool Precision/Recall、Argument Accuracy、冗余率、调用序列、
+    Context Fidelity、错误、停止状态和安全违规；人工层补充 Correctness、Completeness、
+    Instruction Following 和难以规则化的 Tool Rationality。最终仍是
+    <code class="inline">Automatic Gate ∧ Human Gate</code>，人审不能把越权、参数错误或工具失败捞回来。
+  </div>
+
+  <h4>真实企业：规则硬门禁 + LLM Judge + 人工抽检 + 线上指标</h4>
+  <div class="diagram">
+    <div class="cap">图 12-1　企业级开放 Agent 评测分层</div>
+    <div class="row">
+      <div class="node red"><div class="h">确定性硬门禁</div><div class="d">ACL、危险工具、参数、引用来源、重复副作用、未处理异常</div></div>
+      <div class="arr">→</div>
+      <div class="node blue"><div class="h">LLM Judge</div><div class="d">正确性、完整性、指令遵循、回答质量；输出结构化分数与证据</div></div>
+      <div class="arr">→</div>
+      <div class="node green"><div class="h">人工抽检 / 仲裁</div><div class="d">低置信度、Judge 分歧、高风险、新版本和用户差评样本</div></div>
+      <div class="arr">→</div>
+      <div class="node gray"><div class="h">线上业务反馈</div><div class="d">任务完成率、追问率、撤销率、接管率、投诉、延迟与成本</div></div>
+    </div>
+  </div>
+  <p>LLM Judge 可以规模化评价开放答案，但不能独立裁决安全和精确执行。Judge 应同时接收原始问题、
+  参考事实或证据、工具 trace、待评答案和固定评分锚点，并输出可解析 JSON，例如四维分数、理由和引用的
+  答案片段。ACL violation、forbidden tool、schema error、不可见引用和重复写操作等事件必须直接读取
+  系统 trace 硬判，任何高 Judge 分都不能抵消。</p>
+  <table>
+    <thead><tr><th>人工必看样本</th><th>原因</th></tr></thead>
+    <tbody>
+      <tr><td>Judge 低置信度或接近门槛</td><td>小幅评分波动可能改变 Pass/Fail。</td></tr>
+      <tr><td>两个 Judge 明显分歧</td><td>说明 rubric 模糊、证据不足或模型偏差，需要仲裁。</td></tr>
+      <tr><td>高风险写操作与权限场景</td><td>低概率误判也可能造成不可逆副作用或数据泄露。</td></tr>
+      <tr><td>新模型、新 Prompt、新 Tool 上线</td><td>分布变化后历史 Judge 校准结论不能直接沿用。</td></tr>
+      <tr><td>随机样本与用户差评</td><td>前者估计总体偏差，后者发现离线 rubric 未覆盖的真实失败。</td></tr>
+    </tbody>
+  </table>
+
+  <h4>先用人工 Gold 校准 Judge，再减少人工覆盖率</h4>
+  <p>企业降低成本的关键不是立即取消人工，而是先建立高质量人工校准集，再验证 Judge 是否足够接近人工。
+  Judge 的模型、Prompt、Rubric、证据输入和版本必须固定并记录；模型升级后需要重新校准。</p>
+  <ul>
+    <li><b>Pass/Fail 一致率：</b>Judge 与人工是否给出相同发布判断，建议稳定达到约 90% 以上后再承担常规门禁。</li>
+    <li><b>相关性与评分误差：</b>检查 Judge 分数与人工分数的相关性、MAE，以及临界区间是否系统偏高或偏低。</li>
+    <li><b>评审者一致性：</b>使用 Cohen's Kappa 或 Krippendorff's Alpha 观察离散判断一致性；人工自身分歧高时应先修 rubric。</li>
+    <li><b>安全假阴性率：</b>危险回答被 Judge 错判为通过的比例必须单独报告，不能被平均分掩盖。</li>
+    <li><b>切片偏差：</b>按任务类型、语言、长度、Tool 数和风险等级检查，避免总体一致但某一类严重失真。</li>
+  </ul>
+  <p>稳定后可以采用便宜 Judge 初评、强 Judge 复评临界样本、人工只处理分歧和高风险样本；模型 A/B 时优先使用
+  pairwise 的“A 更好 / B 更好 / 持平”，通常比绝对 0～4 分更稳定。对答案、Judge 配置和证据输入计算摘要，
+  未变化的样本可复用评分，进一步降低成本。</p>
+
+  <div class="box info"><div class="t">本项目的合理升级路径</div>
+    第一层继续使用现有确定性 scorer，且安全事件保持 fail-closed；第二层增加版本化 LLM Judge，
+    评价 Correctness、Completeness 和 Instruction Following；Tool Rationality 中可计数的重复调用、
+    错误重试和禁用工具仍由机器判断，仅把“是否有必要调用”交给 Judge；第三层先对校准集做全量人工 Gold，
+    后续只抽检约 10% 随机样本，并覆盖全部低置信度、分歧和高风险样本。发布条件可设为：
+    确定性门禁全通过、Judge 平均分 ≥0.80、Judge 与人工 Pass/Fail 一致率 ≥90%、高风险人工复核通过。
+  </div>
+  <div class="box redline"><div class="t">当前实现边界</div>
+    本项目目前只有 Agent Open 单 reviewer 人工评分入口，尚未实现 LLM Judge、人工 Gold 校准、多 Judge
+    投票和分歧仲裁。因此面试时只能把上述内容表述为生产化演进方案，不能声称已经落地，也不能用未经校准的
+    Judge 分数替代当前 pending 的 90 份人工评审。
+  </div>
+  <div class="box why"><div class="t">面试简答</div>
+    “Open 不是放弃结构化评分：工具、参数、事实、安全和停止状态仍由确定性 scorer 硬判，只是开放回答存在
+    多种正确方案，关键词 Gold 识别不了错误推导、事实补造和建议质量，所以需要语义评审。企业通常不会长期
+    全量人审，而是先用人工 Gold 校准 LLM Judge，再让 Judge 批量评分，将低置信度、模型分歧和高风险样本
+    送人工仲裁，并用线上任务完成率等指标复核。当前项目尚未完成 Judge 校准，因此仍保持人工 pending 和
+    Unified fail-closed。”</div>
 </section>
 
 
