@@ -83,6 +83,7 @@ class AgentRunSpec:
     goal_active_predicate: Callable[[], bool] | None = None
     goal_continue_message: GoalContinueMessage | None = None
     finalize_on_max_iterations: bool = True
+    tool_routing: Any | None = None
 
 
 @dataclass(slots=True)
@@ -104,6 +105,43 @@ class AgentRunner:
 
     def __init__(self) -> None:
         self.context_governor = ContextGovernor()
+
+    @staticmethod
+    def _latest_user_text(messages: list[dict[str, Any]]) -> str:
+        for message in reversed(messages):
+            if message.get("role") != "user":
+                continue
+            content = message.get("content")
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                return "\n".join(
+                    str(block.get("text", ""))
+                    for block in content
+                    if isinstance(block, dict) and block.get("type") == "text"
+                )
+        return ""
+
+    @classmethod
+    def _tool_definitions(
+        cls,
+        spec: AgentRunSpec,
+        messages: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        definitions = spec.tools.get_definitions()
+        config = spec.tool_routing
+        if config is None or not getattr(config, "enabled", False):
+            return definitions
+        from nanoscope.routing import ToolRouter
+
+        router = ToolRouter(
+            definitions,
+            strategy=getattr(config, "strategy", "hybrid_topk"),
+            top_k=getattr(config, "top_k", 6),
+            always_include=getattr(config, "always_include", ()),
+            allow_empty=getattr(config, "allow_empty", True),
+        )
+        return list(router.route(cls._latest_user_text(messages)).definitions)
 
     @staticmethod
     def _merge_message_content(left: Any, right: Any) -> str | list[dict[str, Any]]:
@@ -733,7 +771,7 @@ class AgentRunner:
         kwargs = self._build_request_kwargs(
             spec,
             messages,
-            tools=spec.tools.get_definitions(),
+            tools=self._tool_definitions(spec, messages),
         )
         wants_streaming = hook.wants_streaming()
         wants_progress_streaming = (
@@ -1031,7 +1069,7 @@ class AgentRunner:
         response: LLMResponse,
     ) -> dict[str, int]:
         try:
-            tools = spec.tools.get_definitions()
+            tools = self._tool_definitions(spec, messages)
         except Exception:
             tools = None
         prompt_tokens, _ = estimate_prompt_tokens_chain(

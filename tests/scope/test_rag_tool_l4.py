@@ -12,7 +12,7 @@ from nanobot.config.schema import Config
 from nanobot.providers.base import GenerationSettings, LLMResponse, ToolCallRequest
 from nanobot.utils.llm_runtime import LLMRuntime
 from nanoscope.eval.rag_bench import build_benchmark
-from nanoscope.rag import ChunkStore, StubReranker
+from nanoscope.rag import ChunkStore, PartitionedSearcher, StubReranker
 from nanoscope.rag.sweep import HashingEmbedder
 
 
@@ -41,6 +41,16 @@ class RagToolProvider:
             message["content"] for message in messages if message.get("role") == "tool"
         )
         return LLMResponse(content=f"可见证据如下：{self.tool_content}")
+
+
+class CountingEmbedder(HashingEmbedder):
+    def __init__(self):
+        super().__init__(dim=128)
+        self.batch_sizes: list[int] = []
+
+    def embed(self, texts):
+        self.batch_sizes.append(len(texts))
+        return super().embed(texts)
 
 
 @pytest.fixture
@@ -112,3 +122,34 @@ async def test_l4_runner_rag_tool_never_returns_forbidden_chunks(rag_tool):
     assert "B组机密项目2025年预算为3000万元" not in provider.tool_content
     assert "B组机密项目2025年预算为3000万元" not in (result.final_content or "")
     assert all(str(forbidden_id) not in provider.tool_content for forbidden_id in bench.forbidden_ids)
+
+
+@pytest.mark.asyncio
+async def test_rag_tool_reuses_prebuilt_partitioned_index(tmp_path: Path):
+    store = ChunkStore(tmp_path / "indexed.db")
+    bench = build_benchmark(store)
+    embedder = CountingEmbedder()
+    searcher = PartitionedSearcher(store, embedder, use_ann=True)
+    embedder.batch_sizes.clear()
+    tool = DocumentSearchTool(
+        store,
+        embedder=embedder,
+        reranker=StubReranker(),
+        vector_searcher=searcher,
+    )
+    context = RequestContext(
+        channel="feishu",
+        chat_id="alice",
+        session_key="feishu:alice",
+        tenant_id=bench.asker.tenant_id,
+        principal_id=bench.asker.principal_id,
+        audience_type=bench.asker.audience_type,
+        roles=bench.asker.roles,
+    )
+
+    with request_context(context):
+        result = await tool.execute("量子加密预算")
+
+    assert "<memory>" in str(result)
+    assert embedder.batch_sizes == [1]
+    store.close()

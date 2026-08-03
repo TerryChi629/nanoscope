@@ -139,6 +139,41 @@ class MultiUserConfig(Base):
         return self
 
 
+class ToolRoutingConfig(Base):
+    """Query-aware tool disclosure; disabled preserves the full-tool baseline."""
+
+    enabled: bool = False
+    strategy: Literal["all_tools", "bm25_topk", "hybrid_topk"] = "hybrid_topk"
+    top_k: int = Field(
+        default=6,
+        ge=1,
+        le=64,
+        validation_alias=AliasChoices("topK", "top_k"),
+        serialization_alias="topK",
+    )
+    always_include: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("alwaysInclude", "always_include"),
+        serialization_alias="alwaysInclude",
+    )
+    allow_empty: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("allowEmpty", "allow_empty"),
+        serialization_alias="allowEmpty",
+    )
+
+
+class MemoryRankingConfig(Base):
+    """Optional relevance/freshness/diversity ranking after memory authorization."""
+
+    enabled: bool = False
+    relevance_weight: float = Field(default=0.7, ge=0.0)
+    freshness_weight: float = Field(default=0.3, ge=0.0)
+    redundancy_weight: float = Field(default=0.2, ge=0.0)
+    half_life_days: float = Field(default=30.0, gt=0.0)
+    candidate_k: int = Field(default=50, ge=1, le=500)
+
+
 class InlineFallbackConfig(Base):
     """One inline fallback model configuration."""
 
@@ -224,6 +259,16 @@ class AgentDefaults(Base):
         validation_alias=AliasChoices("multiUser", "multi_user"),
         serialization_alias="multiUser",
     )  # NanoScope 多用户隔离内核 (PRD §5/§7)
+    tool_routing: ToolRoutingConfig = Field(
+        default_factory=ToolRoutingConfig,
+        validation_alias=AliasChoices("toolRouting", "tool_routing"),
+        serialization_alias="toolRouting",
+    )
+    memory_ranking: MemoryRankingConfig = Field(
+        default_factory=MemoryRankingConfig,
+        validation_alias=AliasChoices("memoryRanking", "memory_ranking"),
+        serialization_alias="memoryRanking",
+    )
 
 
 class AgentsConfig(Base):

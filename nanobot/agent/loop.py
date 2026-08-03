@@ -288,6 +288,8 @@ class AgentLoop:
         restart_mode: str = "auto",
         local_trigger_store: Any | None = None,
         multi_user: Any | None = None,
+        tool_routing: Any | None = None,
+        memory_ranking: Any | None = None,
     ):
         from nanobot.config.schema import MultiUserConfig, ToolsConfig
         from nanoscope.identity import IdentityResolver
@@ -357,6 +359,9 @@ class AgentLoop:
         self.context = ContextBuilder(workspace, timezone=timezone, disabled_skills=disabled_skills)
         # NanoScope (PRD §5, M1): 多用户隔离配置 + 身份解析器。
         self.multi_user = multi_user or MultiUserConfig()
+        self.tool_routing = tool_routing or defaults.tool_routing
+        self.memory_ranking = memory_ranking or defaults.memory_ranking
+        self.memory_ranker = None
         self._identity_resolver = IdentityResolver() if self.multi_user.enabled else None
         # NanoScope (PRD §6, M2/M3): 结构化长期记忆 Repository（唯一动态写入口）。
         self.memory_repository = None
@@ -367,6 +372,15 @@ class AgentLoop:
             # NanoScope (PRD §7, M5): 闭合 Dream 后门 + 停注 USER.md（个人记忆改由 SQLite 承载）。
             self.context.multi_user_isolation = True
             self.context.memory.multi_user_isolation = True
+            if self.memory_ranking.enabled:
+                from nanoscope.memory.ranking import MemoryRanker
+
+                self.memory_ranker = MemoryRanker(
+                    relevance_weight=self.memory_ranking.relevance_weight,
+                    freshness_weight=self.memory_ranking.freshness_weight,
+                    redundancy_weight=self.memory_ranking.redundancy_weight,
+                    half_life_days=self.memory_ranking.half_life_days,
+                )
         self.sessions = session_manager or SessionManager(workspace)
         self.tools = ToolRegistry()
         # One file-read/write tracker per logical session. The tool registry is
@@ -504,6 +518,8 @@ class AgentLoop:
             consolidation_ratio=defaults.consolidation_ratio,
             tools_config=config.tools,
             multi_user=defaults.multi_user,
+            tool_routing=defaults.tool_routing,
+            memory_ranking=defaults.memory_ranking,
             model_presets=preset_helpers.configured_model_presets(config),
             model_preset=defaults.model_preset,
             restart_mode=config.gateway.restart_mode,
@@ -758,7 +774,12 @@ class AgentLoop:
             return ""
         # M7 (PRD §14): 传 query 让可见集合内走 BM25 相关性排序；隔离仍由
         # search_visible 的授权 WHERE 强制，BM25 只排序不决定可见性。
-        records = self.memory_repository.search_visible(ctx, query=query)
+        records = self.memory_repository.search_visible(
+            ctx,
+            query=query,
+            ranker=self.memory_ranker,
+            candidate_k=self.memory_ranking.candidate_k,
+        )
         if not records:
             return ""
         # NanoScope (PRD_v4 §M12, 修 H2)：召回记忆是不可信用户数据，包进显式
@@ -1087,6 +1108,7 @@ class AgentLoop:
                 ),
                 goal_active_predicate=lambda: sustained_goal_active(session.metadata) if session is not None else False,
                 goal_continue_message=_goal_continue,
+                tool_routing=self.tool_routing,
                 finalize_on_max_iterations=turn_continuation.should_finalize_on_max_iterations(
                     pending_queue_available=pending_queue is not None and session is not None,
                     session_metadata=session_metadata,

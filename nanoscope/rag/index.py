@@ -62,6 +62,20 @@ def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     return dot / (na * nb)
 
 
+def _chunk_tie_key(chunk: DocChunkRecord) -> tuple:
+    """Stable semantic ordering before the random UUID fallback."""
+
+    return (
+        chunk.tenant_id,
+        chunk.scope,
+        chunk.owner_id or "",
+        chunk.acl_group or "",
+        chunk.content,
+        chunk.chunk_index,
+        chunk.id,
+    )
+
+
 def _brute_topk(
     query_vec: Sequence[float],
     chunks: Sequence[DocChunkRecord],
@@ -76,7 +90,7 @@ def _brute_topk(
         for c, v in zip(chunks, vecs)
     ]
     scored = [(c, s) for c, s in scored if s > min_score]
-    scored.sort(key=lambda cs: (-cs[1], cs[0].id))
+    scored.sort(key=lambda item: (-item[1], _chunk_tie_key(item[0])))
     return scored[:top_k]
 
 
@@ -373,7 +387,7 @@ class PartitionedSearcher:
             hits = _corpus_topk(corpus, q, top_k)
             merged.extend(hits)
             scored.update(c.id for c in corpus.chunks)
-        merged.sort(key=lambda cs: (-cs[1], cs[0].id))
+        merged.sort(key=lambda item: (-item[1], _chunk_tie_key(item[0])))
         results = [c for c, _ in merged[:top_k]]
         if any(c.tenant_id != ctx.tenant_id for c in results):
             raise RuntimeError("partitioned search tenant isolation violation")

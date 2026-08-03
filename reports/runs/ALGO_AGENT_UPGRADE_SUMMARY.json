@@ -1,0 +1,110 @@
+{
+  "agent": {
+    "dataset_version": "agent-live24.v2",
+    "gate": {
+      "complete": true,
+      "minimum_strict_tsr": 0.8,
+      "overall": true,
+      "strict_tsr_pass": true
+    },
+    "metrics": {
+      "latency_p95_ms": {
+        "absolute": -6046.4370410190895,
+        "after": 5592.455166974105,
+        "before": 11638.892207993194,
+        "relative": -0.5195027957099391
+      },
+      "prompt_tokens": {
+        "absolute": -18186,
+        "after": 25991,
+        "before": 44177,
+        "relative": -0.41166217715100617
+      },
+      "redundant_tool_rate": {
+        "absolute": -0.5166666666666666,
+        "after": 0.08333333333333333,
+        "before": 0.6,
+        "relative": -0.861111111111111
+      },
+      "strict_tsr": {
+        "absolute": 0.04166666666666663,
+        "after": 0.875,
+        "before": 0.8333333333333334,
+        "relative": 0.049999999999999954
+      },
+      "tokens_per_success": {
+        "absolute": -433.93809523809523,
+        "after": 1305.7619047619048,
+        "before": 1739.7,
+        "relative": -0.2494327155475629
+      },
+      "tool_selection_precision": {
+        "absolute": 0.5166666666666666,
+        "after": 0.9166666666666666,
+        "before": 0.4,
+        "relative": 1.2916666666666665
+      },
+      "tool_selection_recall": {
+        "absolute": 0.0,
+        "after": 1.0,
+        "before": 1.0,
+        "relative": 0.0
+      }
+    },
+    "routing": {
+      "allowEmpty": true,
+      "alwaysInclude": [],
+      "enabled": true,
+      "strategy": "hybrid_topk",
+      "topK": 2
+    }
+  },
+  "artifact_type": "algo_agent_upgrade_summary",
+  "limitations": [
+    "Agent A/B is one real-model run per configuration, not a confidence interval.",
+    "Fusion test contains 12 queries from whole semantic clusters.",
+    "HNSW showed no stable latency gain on the current small corpus."
+  ],
+  "rag_fusion": {
+    "candidate_brier": 0.06965259035516332,
+    "candidate_ece": 0.0459135011848326,
+    "dataset_version": "rag96.v2",
+    "metrics": {
+      "mrr": {
+        "absolute": 0.23611111111111116,
+        "after": 1.0,
+        "before": 0.7638888888888888,
+        "relative": 0.3090909090909092
+      },
+      "ndcg_at_k": {
+        "absolute": 0.17450823305146435,
+        "after": 0.9476924633508351,
+        "before": 0.7731842302993708,
+        "relative": 0.2257007142837046
+      },
+      "recall_at_k": {
+        "absolute": 0.0,
+        "after": 0.9583333333333334,
+        "before": 0.9583333333333334,
+        "relative": 0.0
+      }
+    },
+    "security": {
+      "authorization": "ChunkStore.visible_chunks before ranking",
+      "candidate_touch": 0,
+      "exposure": 0
+    },
+    "split": {
+      "dev_queries": 12,
+      "method": "sha256 semantic-cluster 60/20/20",
+      "test_queries": 12,
+      "train_queries": 40
+    }
+  },
+  "schema_version": "1.0",
+  "sources": {
+    "agent_baseline": "reports/runs/AGENT_LIVE_UPGRADE_BASELINE.json",
+    "agent_routed": "reports/runs/AGENT_LIVE_UPGRADE_ROUTED_ABSTAIN.json",
+    "fusion": "reports/runs/RAG_FUSION_CALIBRATION_V2.json"
+  }
+}

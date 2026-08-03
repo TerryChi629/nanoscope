@@ -1,0 +1,51 @@
+{
+  "artifact_type": "agent_live",
+  "board": {
+    "_type": "agent_board",
+    "argument_accuracy": 1.0,
+    "cached_tokens": 38784,
+    "completion_tokens": 8269,
+    "context_fidelity": 0.6666666666666666,
+    "cost_per_success": null,
+    "cost_total": null,
+    "error_recovery_rate": 1.0,
+    "latency_p50_ms": 3296.4963749982417,
+    "latency_p95_ms": 11638.892207993194,
+    "max_iteration_termination_rate": 0.0,
+    "n_eligible": 24,
+    "n_errored": 0,
+    "n_skipped": 0,
+    "n_success": 20,
+    "n_total": 24,
+    "partial_tsr": 0.96875,
+    "prompt_tokens": 44177,
+    "redundant_tool_rate": 0.6,
+    "retry_rate": 0.0,
+    "strict_tsr": 0.8333333333333334,
+    "tokens_per_success": 1739.7,
+    "tool_selection_precision": 0.4,
+    "tool_selection_recall": 1.0,
+    "tool_sequence_success_rate": 0.875,
+    "usage_estimated_rate": 0.0
+  },
+  "gate": {
+    "complete": true,
+    "minimum_strict_tsr": 0.8,
+    "overall": true,
+    "strict_tsr_pass": true
+  },
+  "run": {
+    "credential_env_names": [
+      "DEEPSEEK_API_KEY"
+    ],
+    "dataset_sha256": "b5bac44cfd37ed33e36e25071699e297fc2187eda03374a622cfdbbd10de6979",
+    "dataset_version": "agent-live24.v2",
+    "model": "deepseek-v4-flash",
+    "provider": "deepseek",
+    "started_at": "2026-08-03T12:35:14.275532+00:00",
+    "tool_routing": {
+      "enabled": false
+    }
+  },
+  "schema_version": "1.0"
+}

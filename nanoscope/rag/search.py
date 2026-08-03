@@ -16,6 +16,8 @@ from collections.abc import Sequence
 from nanoscope.eval.embedding import Embedder
 from nanoscope.eval.retrieval import Bm25Retriever, Doc, VectorRetriever, rrf_fuse
 from nanoscope.identity import SecurityContext
+from nanoscope.rag.calibration import PlattCalibrator
+from nanoscope.rag.fusion import LinearFusionModel, reciprocal_rank_features
 from nanoscope.rag.index import PartitionedSearcher, PreFilterSearcher
 from nanoscope.rag.rerank import Reranker, StubReranker
 from nanoscope.rag.store import ChunkStore, DocChunkRecord
@@ -31,6 +33,9 @@ def doc_search_visible(
     reranker: Reranker | None = None,
     fanout: int = 20,
     vector_searcher: PartitionedSearcher | None = None,
+    fusion_model: LinearFusionModel | None = None,
+    calibrator: PlattCalibrator | None = None,
+    confidence_threshold: float | None = None,
 ) -> list[DocChunkRecord]:
     """权限感知文档检索：授权 WHERE 召回前过滤 → BM25+向量 RRF 融合 → rerank → top_k。
 
@@ -72,7 +77,27 @@ def doc_search_visible(
     cand_texts = [by_id[cid].content for cid in cand_ids]
     order = rr.rerank(query, cand_texts)
     reranked_ids = [cand_ids[i] for i in order]
-    return [by_id[cid] for cid in reranked_ids[:top_k]]
+    if fusion_model is None:
+        return [by_id[cid] for cid in reranked_ids[:top_k]]
+
+    feature_rows = reciprocal_rank_features(
+        cand_ids,
+        bm25_ranking=bm25_ranking,
+        dense_ranking=vec_ranking,
+        reranker_ranking=reranked_ids,
+    )
+    ranked_ids = fusion_model.rank(feature_rows)
+    if confidence_threshold is not None and ranked_ids:
+        features_by_id = dict(feature_rows)
+        top_score = fusion_model.score(features_by_id[ranked_ids[0]])
+        confidence = (
+            calibrator.predict(top_score)
+            if calibrator is not None
+            else fusion_model.probability(features_by_id[ranked_ids[0]])
+        )
+        if confidence < confidence_threshold:
+            return []
+    return [by_id[cid] for cid in ranked_ids[:top_k]]
 
 
 def forbidden_doc_exposure(

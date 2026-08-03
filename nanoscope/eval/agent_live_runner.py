@@ -17,7 +17,7 @@ from typing import Any
 from nanobot.agent.runner import AgentRunner, AgentRunSpec
 from nanobot.agent.tools.base import Tool, ToolResult
 from nanobot.agent.tools.registry import ToolRegistry
-from nanobot.config.schema import AgentDefaults
+from nanobot.config.schema import AgentDefaults, ToolRoutingConfig
 from nanobot.providers.base import GenerationSettings
 from nanobot.providers.openai_compat_provider import OpenAICompatProvider
 from nanobot.utils.llm_runtime import LLMRuntime
@@ -29,6 +29,9 @@ from nanoscope.eval.agent_live_dataset import (
 )
 from nanoscope.eval.artifacts import atomic_write_json, atomic_write_jsonl
 
+_DEFAULT_AGENT_LIVE_CHECKPOINT = (
+    "reports/checkpoints/agent_live/agent-live24.v2.jsonl"
+)
 _LOOKUP_VALUES: dict[str, object] = {
     "region": "华东",
     "owner": "林舟",
@@ -224,6 +227,7 @@ async def run_live_agent_task(
     model: str,
     conversation_messages: list[dict[str, Any]] | None = None,
     system_prompt: str | None = None,
+    tool_routing: ToolRoutingConfig | None = None,
 ) -> AgentCaseResult:
     """Execute one constrained task through the real AgentRunner and ToolRegistry."""
     tools = LiveToolHarness()
@@ -259,6 +263,7 @@ async def run_live_agent_task(
             max_iterations=6,
             max_tool_result_chars=AgentDefaults().max_tool_result_chars,
             provider_retry_mode="standard",
+            tool_routing=tool_routing,
         )
     )
     latency_ms = (time.perf_counter() - started) * 1000
@@ -366,6 +371,7 @@ def write_agent_live_artifact(
     credential_env_names: tuple[str, ...],
     secret_values: tuple[str, ...] = (),
     dataset_sha256: str | None = None,
+    tool_routing: ToolRoutingConfig | None = None,
 ) -> None:
     """Write a sanitized summary; secret_values exists only for negative testing."""
     del secret_values
@@ -381,6 +387,11 @@ def write_agent_live_artifact(
                 "dataset_version": dataset_version,
                 "dataset_sha256": dataset_sha256,
                 "credential_env_names": list(sorted(credential_env_names)),
+                "tool_routing": (
+                    tool_routing.model_dump(mode="json", by_alias=True)
+                    if tool_routing is not None
+                    else {"enabled": False}
+                ),
             },
             "gate": {
                 "complete": board.n_skipped == 0 and board.n_errored == 0,
@@ -403,13 +414,19 @@ async def run_agent_live_v1(
     model: str,
     checkpoint_path: str | Path,
     resume: bool,
+    tool_routing: ToolRoutingConfig | None = None,
 ) -> tuple[list[AgentCaseResult], AgentBoard]:
     tasks = load_agent_live_v1()
     completed = _load_agent_checkpoint(checkpoint_path) if resume else {}
     for task in tasks:
         if task.id in completed:
             continue
-        record = await run_live_agent_task(task, provider=provider, model=model)
+        record = await run_live_agent_task(
+            task,
+            provider=provider,
+            model=model,
+            tool_routing=tool_routing,
+        )
         completed[task.id] = asdict(record)
         atomic_write_jsonl(
             checkpoint_path,
@@ -451,11 +468,27 @@ async def _async_main(args: argparse.Namespace) -> int:
         default_model=model,
     )
     provider.generation = GenerationSettings(temperature=0.0, max_tokens=1024)
+    tool_routing = (
+        ToolRoutingConfig(
+            enabled=True,
+            strategy=args.tool_routing,
+            top_k=args.tool_top_k,
+        )
+        if args.tool_routing != "off"
+        else None
+    )
+    checkpoint = args.checkpoint
+    if tool_routing is not None and checkpoint == _DEFAULT_AGENT_LIVE_CHECKPOINT:
+        checkpoint = (
+            "reports/checkpoints/agent_live/"
+            f"agent-live24.v2-{args.tool_routing}-k{args.tool_top_k}.jsonl"
+        )
     _records, board = await run_agent_live_v1(
         provider=provider,
         model=model,
-        checkpoint_path=args.checkpoint,
+        checkpoint_path=checkpoint,
         resume=args.resume,
+        tool_routing=tool_routing,
     )
     write_agent_live_artifact(
         args.out,
@@ -469,6 +502,7 @@ async def _async_main(args: argparse.Namespace) -> int:
             ).read_bytes()
         ).hexdigest(),
         credential_env_names=("DEEPSEEK_API_KEY",),
+        tool_routing=tool_routing,
     )
     print(
         f"Agent live: {board.n_success}/{board.n_eligible}, "
@@ -477,19 +511,22 @@ async def _async_main(args: argparse.Namespace) -> int:
         f"{board.tool_selection_recall:.3f}, P95={board.latency_p95_ms:.2f}ms"
     )
     print(f"summary: {args.out}")
-    print(f"checkpoint: {args.checkpoint}")
+    print(f"checkpoint: {checkpoint}")
     return 0 if board.n_errored == 0 else 1
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default="reports/baselines/AGENT_LIVE_V1.json")
-    parser.add_argument(
-        "--checkpoint",
-        default="reports/checkpoints/agent_live/agent-live24.v2.jsonl",
-    )
+    parser.add_argument("--checkpoint", default=_DEFAULT_AGENT_LIVE_CHECKPOINT)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--model")
+    parser.add_argument(
+        "--tool-routing",
+        choices=("off", "bm25_topk", "hybrid_topk"),
+        default="off",
+    )
+    parser.add_argument("--tool-top-k", type=int, default=3)
     return asyncio.run(_async_main(parser.parse_args(argv)))
 
 

@@ -18,6 +18,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from nanoscope.identity import AUDIENCE_DM, SecurityContext
 
@@ -197,6 +198,9 @@ class Repository:
         ctx: SecurityContext,
         query: str | None = None,
         top_k: int = 20,
+        *,
+        ranker: Any | None = None,
+        candidate_k: int | None = None,
     ) -> list[MemoryRecord]:
         """在 ctx 可见范围内检索记忆。授权谓词在此内部强制（PRD §6）。
 
@@ -211,6 +215,7 @@ class Repository:
         """
         where, params = self._visibility_where(ctx)
         match = _build_trigram_match(query) if (query and self._fts_enabled) else None
+        limit = max(top_k, candidate_k or top_k) if ranker is not None else top_k
 
         if match is not None:
             # BM25 排序：主表(授权 WHERE) JOIN 影子倒排(MATCH)，按 bm25 升序（越小越相关）。
@@ -220,16 +225,16 @@ class Repository:
                 "FROM memories m JOIN memories_fts f ON m.id = f.id "
                 f"WHERE ({where}) AND f.memories_fts MATCH ? "
                 "ORDER BY bm25(f.memories_fts) LIMIT ?",
-                (*params, match, top_k),
+                (*params, match, limit),
             ).fetchall()
         else:
             rows = self._conn.execute(
                 "SELECT id, tenant_id, scope, owner_id, audience_id, content, "
                 "source_type, source_ref, created_at "
                 f"FROM memories WHERE {where} ORDER BY created_at DESC LIMIT ?",
-                (*params, top_k),
+                (*params, limit),
             ).fetchall()
-        return [
+        records = [
             MemoryRecord(
                 id=r["id"],
                 tenant_id=r["tenant_id"],
@@ -243,3 +248,6 @@ class Repository:
             )
             for r in rows
         ]
+        if ranker is not None and query:
+            return ranker.rank(query, records, top_k=top_k)
+        return records[:top_k]

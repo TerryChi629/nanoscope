@@ -24,6 +24,8 @@ M14 硬化后的检索器，从"短记忆条目"延伸到"长文档 chunk"。卖
 
 from __future__ import annotations
 
+from nanoscope.rag.calibration import PlattCalibrator
+from nanoscope.rag.fusion import FusionExample, LinearFusionModel
 from nanoscope.rag.index import (
     PartitionedSearcher,
     PostFilterSearcher,
@@ -59,5 +61,8 @@ __all__ = [
     "StubReranker",
     "SiliconFlowReranker",
     "doc_search_visible",
+    "FusionExample",
+    "LinearFusionModel",
+    "PlattCalibrator",
     "forbidden_doc_exposure",
 ]

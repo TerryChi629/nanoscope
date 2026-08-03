@@ -850,6 +850,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--fail-on-skip", action="store_true")
     parser.add_argument("--max-workers", type=int, default=1)
     parser.add_argument("--requests-per-second", type=float, default=2.0)
+    parser.add_argument(
+        "--vector-index",
+        choices=("query", "partitioned", "hnsw"),
+        default="partitioned",
+    )
+    parser.add_argument("--hnsw-m", type=int, default=16)
+    parser.add_argument("--hnsw-ef-construction", type=int, default=200)
+    parser.add_argument("--hnsw-ef-search", type=int, default=50)
     args = parser.parse_args(argv)
 
     requested = tuple(item.strip() for item in args.levels.split(",") if item.strip())
@@ -891,10 +899,29 @@ def main(argv: Sequence[str] | None = None) -> int:
                     spec.name,
                     requests_per_second=args.requests_per_second,
                 )
-                vector_searcher = PartitionedSearcher(store, embedder)
+                vector_searcher = (
+                    PartitionedSearcher(
+                        store,
+                        embedder,
+                        use_ann=args.vector_index == "hnsw",
+                        m=args.hnsw_m,
+                        ef_construction=args.hnsw_ef_construction,
+                        ef_search=args.hnsw_ef_search,
+                    )
+                    if args.vector_index != "query"
+                    else None
+                )
                 print(f"[{spec.name}] 开始：{label}")
+                index_suffix = ""
+                if args.vector_index == "query":
+                    index_suffix = "_query"
+                elif args.vector_index == "hnsw":
+                    index_suffix = (
+                        f"_hnsw_m{args.hnsw_m}_ef{args.hnsw_ef_search}"
+                    )
                 checkpoint = checkpoint_dir / (
-                    f"{RAG_DATASET_VERSION}_p0v4_{spec.name}_k{args.top_k}.jsonl"
+                    f"{RAG_DATASET_VERSION}_p0v4_{spec.name}_k{args.top_k}"
+                    f"{index_suffix}.jsonl"
                 )
                 raw_records = run_scenarios_resumable(
                     level=spec.name,
@@ -935,6 +962,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "checkpoint": str(checkpoint),
                         "n_records": len(raw_records),
                         "models": _component_models(embedder, reranker, chat),
+                        "vector_index": {
+                            "strategy": args.vector_index,
+                            "m": args.hnsw_m if args.vector_index == "hnsw" else None,
+                            "ef_construction": (
+                                args.hnsw_ef_construction
+                                if args.vector_index == "hnsw"
+                                else None
+                            ),
+                            "ef_search": (
+                                args.hnsw_ef_search
+                                if args.vector_index == "hnsw"
+                                else None
+                            ),
+                        },
                         "credential_env_names": list(spec.required_env),
                     }
                 )

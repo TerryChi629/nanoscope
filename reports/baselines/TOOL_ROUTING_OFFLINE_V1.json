@@ -1,0 +1,45 @@
+{
+  "artifact_type": "tool_routing_offline",
+  "boards": [
+    {
+      "disclosure_reduction": 0.0,
+      "n_cases": 12,
+      "n_missed": 0,
+      "precision": 0.11666666666666667,
+      "recall": 1.0,
+      "strategy": "all_tools",
+      "top_k": 10
+    },
+    {
+      "disclosure_reduction": 0.825,
+      "n_cases": 12,
+      "n_missed": 0,
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "strategy": "bm25_topk",
+      "top_k": 2
+    },
+    {
+      "disclosure_reduction": 0.8083333333333333,
+      "n_cases": 12,
+      "n_missed": 1,
+      "precision": 0.5652173913043478,
+      "recall": 0.9285714285714286,
+      "strategy": "hybrid_topk",
+      "top_k": 2
+    },
+    {
+      "disclosure_reduction": 0.75,
+      "n_cases": 12,
+      "n_missed": 0,
+      "precision": 0.4666666666666667,
+      "recall": 1.0,
+      "strategy": "hybrid_topk",
+      "top_k": 3
+    }
+  ],
+  "dataset_version": "tool-routing12.v1",
+  "n_cases": 12,
+  "n_tools": 10,
+  "schema_version": "1.0"
+}

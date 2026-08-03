@@ -1,0 +1,99 @@
+{
+  "artifact_type": "rag_fusion_calibration",
+  "calibrator": {
+    "intercept": -1.4883684493443328,
+    "slope": 0.6377222188892265
+  },
+  "dataset_version": "rag96.v2",
+  "model": {
+    "bias": -3.380732785240505,
+    "feature_names": [
+      "bm25_rr",
+      "dense_rr",
+      "reranker_rr",
+      "agreement"
+    ],
+    "weights": [
+      0.6126393120484661,
+      1.222340201074383,
+      1.1841028387635681,
+      0.6048323857379899
+    ]
+  },
+  "schema_version": "1.0",
+  "security": {
+    "authorization": "ChunkStore.visible_chunks before ranking",
+    "candidate_touch": 0,
+    "exposure": 0
+  },
+  "split": {
+    "dev_queries": 12,
+    "method": "sha256 semantic-cluster 60/20/20",
+    "test_queries": 12,
+    "train_queries": 40
+  },
+  "test": {
+    "baseline": {
+      "mrr": 0.7638888888888888,
+      "ndcg_at_k": 0.7731842302993708,
+      "recall_at_k": 0.9583333333333334
+    },
+    "candidate_brier": 0.06965259035516332,
+    "candidate_ece": 0.0459135011848326,
+    "learned": {
+      "mrr": 1.0,
+      "ndcg_at_k": 0.9476924633508351,
+      "recall_at_k": 0.9583333333333334
+    },
+    "query_risk_coverage": [
+      [
+        0.08333333333333333,
+        0.0
+      ],
+      [
+        0.16666666666666666,
+        0.0
+      ],
+      [
+        0.25,
+        0.0
+      ],
+      [
+        0.3333333333333333,
+        0.0
+      ],
+      [
+        0.4166666666666667,
+        0.0
+      ],
+      [
+        0.5,
+        0.0
+      ],
+      [
+        0.5833333333333334,
+        0.0
+      ],
+      [
+        0.6666666666666666,
+        0.0
+      ],
+      [
+        0.75,
+        0.0
+      ],
+      [
+        0.8333333333333334,
+        0.0
+      ],
+      [
+        0.9166666666666666,
+        0.0
+      ],
+      [
+        1.0,
+        0.0
+      ]
+    ]
+  }
+}
