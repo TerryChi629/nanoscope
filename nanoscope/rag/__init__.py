@@ -31,7 +31,14 @@ from nanoscope.rag.index import (
     SearchOutcome,
     hnswlib_available,
 )
-from nanoscope.rag.ingest import chunk_by_structure, chunk_fixed_window, ingest_document
+from nanoscope.rag.ingest import (
+    ChunkSpan,
+    chunk_by_structure,
+    chunk_by_structure_spans,
+    chunk_fixed_window,
+    chunk_fixed_window_spans,
+    ingest_document,
+)
 from nanoscope.rag.rerank import SiliconFlowReranker, StubReranker
 from nanoscope.rag.search import doc_search_visible, forbidden_doc_exposure
 from nanoscope.rag.store import (
@@ -48,8 +55,11 @@ __all__ = [
     "SCOPE_USER",
     "SCOPE_ORG",
     "SCOPE_PROJECT",
+    "ChunkSpan",
     "chunk_fixed_window",
+    "chunk_fixed_window_spans",
     "chunk_by_structure",
+    "chunk_by_structure_spans",
     "ingest_document",
     "PreFilterSearcher",
     "PostFilterSearcher",

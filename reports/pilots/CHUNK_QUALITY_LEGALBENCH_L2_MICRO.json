@@ -1,0 +1,260 @@
+{
+  "benchmarks": [
+    "contractnli",
+    "cuad",
+    "maud",
+    "privacy_qa"
+  ],
+  "cases_per_benchmark": 1,
+  "configs": [
+    {
+      "boundary_intrusion_rate": 0.5,
+      "by_benchmark": {
+        "contractnli": {
+          "boundary_intrusion_rate": 0.0,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.1835,
+          "evidence_precision": 0.1835,
+          "evidence_recall": 1.0,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 2000.0,
+          "retrieved_duplication_ratio": 0.0
+        },
+        "cuad": {
+          "boundary_intrusion_rate": 0.0,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.1215,
+          "evidence_precision": 0.1215,
+          "evidence_recall": 1.0,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 2000.0,
+          "retrieved_duplication_ratio": 0.0
+        },
+        "maud": {
+          "boundary_intrusion_rate": 1.0,
+          "complete_evidence_rate": 0.0,
+          "evidence_iou": 0.0,
+          "evidence_precision": 0.0,
+          "evidence_recall": 0.0,
+          "mean_min_cover_chunks": 2.0,
+          "retrieved_char_count": 2000.0,
+          "retrieved_duplication_ratio": 0.0
+        },
+        "privacy_qa": {
+          "boundary_intrusion_rate": 1.0,
+          "complete_evidence_rate": 0.0,
+          "evidence_iou": 0.0797498045347928,
+          "evidence_precision": 0.102,
+          "evidence_recall": 0.2677165354330709,
+          "mean_min_cover_chunks": 2.0,
+          "retrieved_char_count": 2000.0,
+          "retrieved_duplication_ratio": 0.0
+        }
+      },
+      "complete_evidence_rate": 0.5,
+      "corpus_duplication_ratio": 0.0,
+      "evidence_iou": 0.0961874511336982,
+      "evidence_precision": 0.10175,
+      "evidence_recall": 0.5669291338582677,
+      "label": "fixed:400:0",
+      "mean_min_cover_chunks": 1.5,
+      "mean_retrieved_char_count": 2000.0,
+      "mean_retrieved_duplication_ratio": 0.0,
+      "n_chunks": 1061,
+      "overlap": 0,
+      "size": 400,
+      "strategy": "fixed"
+    },
+    {
+      "boundary_intrusion_rate": 0.29166666666666663,
+      "by_benchmark": {
+        "contractnli": {
+          "boundary_intrusion_rate": 0.0,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.09175,
+          "evidence_precision": 0.09175,
+          "evidence_recall": 1.0,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 4000.0,
+          "retrieved_duplication_ratio": 0.0
+        },
+        "cuad": {
+          "boundary_intrusion_rate": 0.0,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.0,
+          "evidence_precision": 0.0,
+          "evidence_recall": 0.0,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 4000.0,
+          "retrieved_duplication_ratio": 0.0
+        },
+        "maud": {
+          "boundary_intrusion_rate": 0.5,
+          "complete_evidence_rate": 0.5,
+          "evidence_iou": 0.0,
+          "evidence_precision": 0.0,
+          "evidence_recall": 0.0,
+          "mean_min_cover_chunks": 1.5,
+          "retrieved_char_count": 4000.0,
+          "retrieved_duplication_ratio": 0.0
+        },
+        "privacy_qa": {
+          "boundary_intrusion_rate": 0.6666666666666666,
+          "complete_evidence_rate": 0.3333333333333333,
+          "evidence_iou": 0.04922219642442535,
+          "evidence_precision": 0.05642800106467927,
+          "evidence_recall": 0.2782152230971129,
+          "mean_min_cover_chunks": 1.6666666666666667,
+          "retrieved_char_count": 3757.0,
+          "retrieved_duplication_ratio": 0.0
+        }
+      },
+      "complete_evidence_rate": 0.7083333333333334,
+      "corpus_duplication_ratio": 0.0,
+      "evidence_iou": 0.03524304910610634,
+      "evidence_precision": 0.037044500266169816,
+      "evidence_recall": 0.3195538057742782,
+      "label": "fixed:800:0",
+      "mean_min_cover_chunks": 1.2916666666666667,
+      "mean_retrieved_char_count": 3939.25,
+      "mean_retrieved_duplication_ratio": 0.0,
+      "n_chunks": 532,
+      "overlap": 0,
+      "size": 800,
+      "strategy": "fixed"
+    },
+    {
+      "boundary_intrusion_rate": 0.125,
+      "by_benchmark": {
+        "contractnli": {
+          "boundary_intrusion_rate": 0.0,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.04778645833333333,
+          "evidence_precision": 0.04778645833333333,
+          "evidence_recall": 1.0,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 7680.0,
+          "retrieved_duplication_ratio": 0.04
+        },
+        "cuad": {
+          "boundary_intrusion_rate": 0.0,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.0,
+          "evidence_precision": 0.0,
+          "evidence_recall": 0.0,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 7110.0,
+          "retrieved_duplication_ratio": 0.04306864064602961
+        },
+        "maud": {
+          "boundary_intrusion_rate": 0.5,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.030740967544396817,
+          "evidence_precision": 0.031375,
+          "evidence_recall": 0.6033653846153846,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 8000.0,
+          "retrieved_duplication_ratio": 0.0
+        },
+        "privacy_qa": {
+          "boundary_intrusion_rate": 0.0,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.06145113524185587,
+          "evidence_precision": 0.0635204081632653,
+          "evidence_recall": 0.6535433070866141,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 7840.0,
+          "retrieved_duplication_ratio": 0.02
+        }
+      },
+      "complete_evidence_rate": 1.0,
+      "corpus_duplication_ratio": 0.09907521289680091,
+      "evidence_iou": 0.0349946402798965,
+      "evidence_precision": 0.03567046662414966,
+      "evidence_recall": 0.5642271729254997,
+      "label": "fixed:1600:160",
+      "mean_min_cover_chunks": 1.0,
+      "mean_retrieved_char_count": 7657.5,
+      "mean_retrieved_duplication_ratio": 0.025767160161507405,
+      "n_chunks": 295,
+      "overlap": 160,
+      "size": 1600,
+      "strategy": "fixed"
+    },
+    {
+      "boundary_intrusion_rate": 0.16666666666666666,
+      "by_benchmark": {
+        "contractnli": {
+          "boundary_intrusion_rate": 0.0,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.09502848265147591,
+          "evidence_precision": 0.09502848265147591,
+          "evidence_recall": 1.0,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 3862.0,
+          "retrieved_duplication_ratio": 0.0
+        },
+        "cuad": {
+          "boundary_intrusion_rate": 0.0,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.0,
+          "evidence_precision": 0.0,
+          "evidence_recall": 0.0,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 382.0,
+          "retrieved_duplication_ratio": 0.0
+        },
+        "maud": {
+          "boundary_intrusion_rate": 0.0,
+          "complete_evidence_rate": 1.0,
+          "evidence_iou": 0.0,
+          "evidence_precision": 0.0,
+          "evidence_recall": 0.0,
+          "mean_min_cover_chunks": 1.0,
+          "retrieved_char_count": 3127.0,
+          "retrieved_duplication_ratio": 0.0
+        },
+        "privacy_qa": {
+          "boundary_intrusion_rate": 0.6666666666666666,
+          "complete_evidence_rate": 0.3333333333333333,
+          "evidence_iou": 0.04922219642442535,
+          "evidence_precision": 0.05642800106467927,
+          "evidence_recall": 0.2782152230971129,
+          "mean_min_cover_chunks": 1.6666666666666667,
+          "retrieved_char_count": 3757.0,
+          "retrieved_duplication_ratio": 0.0
+        }
+      },
+      "complete_evidence_rate": 0.8333333333333334,
+      "corpus_duplication_ratio": 0.0,
+      "evidence_iou": 0.03606266976897532,
+      "evidence_precision": 0.03786412092903879,
+      "evidence_recall": 0.3195538057742782,
+      "label": "structure:800:0",
+      "mean_min_cover_chunks": 1.1666666666666667,
+      "mean_retrieved_char_count": 2782.0,
+      "mean_retrieved_duplication_ratio": 0.0,
+      "n_chunks": 856,
+      "overlap": 0,
+      "size": 800,
+      "strategy": "structure"
+    }
+  ],
+  "dataset_source_fingerprint": "983757bc398697343e5c75bd4438c91802d68f497201df10c3b6896966875e14",
+  "dataset_version": "legalbenchrag-mini.v1",
+  "embedder": "GlmEmbedder",
+  "fanout": 20,
+  "level": "L2",
+  "metric_unit": "unicode_codepoint",
+  "n_cases": 4,
+  "n_documents": 4,
+  "pareto_front": [
+    "fixed:400:0",
+    "fixed:1600:160",
+    "structure:800:0"
+  ],
+  "quality_gate": null,
+  "quality_gate_reason": "v1 仅建立可复现基线，暂不设置无依据阈值",
+  "reranker": "siliconflow_bge_reranker_v2_m3",
+  "top_k": 5
+}

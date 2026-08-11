@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NanoScope Q&A · 0806 · RAG 评测到底测了什么</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(180deg, #f4f8ff 0%, #eef3fb 100%);
+    color: #1e293b; line-height: 1.75; padding: 0 0 80px;
+  }
+  header {
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 55%, #3b82f6 100%);
+    color: #fff; padding: 52px 40px 44px; box-shadow: 0 6px 28px rgba(37,99,235,.28);
+  }
+  header .wrap { max-width: 1080px; margin: 0 auto; }
+  header .kicker { font-size: 13px; letter-spacing: 3px; opacity: .82; text-transform: uppercase; }
+  header h1 { font-size: 30px; margin: 12px 0 10px; font-weight: 800; letter-spacing: .5px; }
+  header p { font-size: 15px; opacity: .92; max-width: 760px; }
+  header .meta { margin-top: 18px; font-size: 13px; opacity: .8; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 40px; }
+  nav.toc {
+    background: #fff; border: 1px solid #dbe6f5; border-radius: 16px;
+    padding: 26px 30px; margin: -28px auto 42px; max-width: 1000px;
+    box-shadow: 0 8px 30px rgba(30,64,175,.10); position: relative;
+  }
+  nav.toc h2 { font-size: 15px; color: #1e40af; margin-bottom: 14px; letter-spacing: 1px; }
+  nav.toc ol { list-style: none; counter-reset: q; }
+  nav.toc li { counter-increment: q; margin: 9px 0; padding-left: 40px; position: relative; font-size: 14.5px; }
+  nav.toc li::before {
+    content: "Q" counter(q); position: absolute; left: 0; top: 1px;
+    background: #dbeafe; color: #1e40af; font-weight: 700; font-size: 12px;
+    padding: 2px 9px; border-radius: 20px;
+  }
+  nav.toc a { color: #334155; text-decoration: none; border-bottom: 1px dashed transparent; transition: .18s; }
+  nav.toc a:hover { color: #1d4ed8; border-bottom-color: #93c5fd; }
+  section.qa { margin: 0 auto 34px; max-width: 1000px; }
+  .card { background: #fff; border: 1px solid #e2e9f4; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 18px rgba(30,64,175,.07); }
+  .q-head { display: flex; align-items: flex-start; gap: 14px; padding: 22px 28px; background: linear-gradient(90deg,#eff5ff,#f7faff); border-bottom: 1px solid #e5edf9; }
+  .q-badge { flex: none; background: #2563eb; color: #fff; font-weight: 800; font-size: 14px; padding: 5px 13px; border-radius: 9px; box-shadow: 0 2px 8px rgba(37,99,235,.3); }
+  .q-text { font-size: 17px; font-weight: 700; color: #16203a; padding-top: 3px; }
+  .q-body { padding: 26px 30px 30px; }
+  .q-body p { margin: 12px 0; font-size: 15px; }
+  h3.blk { font-size: 16px; color: #1a56db; margin: 26px 0 12px; padding-left: 12px; border-left: 4px solid #1a56db; }
+  h3.blk:first-child { margin-top: 4px; }
+  h4.sub { margin: 18px 0 8px; color: #1e3a8a; font-size: 15px; }
+  ul.dot, ol.num { margin: 12px 0 12px 6px; padding-left: 22px; }
+  ul.dot li, ol.num li { margin: 8px 0; font-size: 15px; }
+  code.inl { background: #eef2f8; color: #b91c1c; padding: 2px 7px; border-radius: 5px; font-family: "SF Mono", Consolas, monospace; font-size: 13.5px; }
+  pre { background: #0f1e38; color: #dbe7fb; border-radius: 12px; padding: 18px 20px; overflow-x: auto; margin: 16px 0; font-family: "SF Mono", Consolas, monospace; font-size: 13px; line-height: 1.7; }
+  pre .cmt { color: #7f95b3; }
+  pre .kw { color: #7dd3fc; }
+  pre .str { color: #86efac; }
+  .tldr { background: #eff6ff; border: 1px solid #bfdbfe; border-left: 5px solid #2563eb; border-radius: 10px; padding: 16px 20px; margin: 8px 0 20px; font-size: 15px; }
+  .tldr b { color: #1a56db; }
+  .warn { background: #fff7ed; border: 1px solid #fed7aa; border-left: 5px solid #ea580c; border-radius: 10px; padding: 16px 20px; margin: 16px 0; font-size: 14.5px; }
+  .warn b { color: #c2410c; }
+  .analogy { background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 10px; padding: 16px 20px; margin: 16px 0; font-size: 14.5px; }
+  .analogy b { color: #15803d; }
+  .formula { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 22px; margin: 16px 0; text-align: center; font-size: 17px; color: #0f172a; letter-spacing: .3px; }
+  table.grid { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+  table.grid th, table.grid td { border: 1px solid #dbe3ef; padding: 10px 12px; text-align: left; vertical-align: top; }
+  table.grid th { background: #eef4ff; color: #1e3a8a; font-weight: 700; }
+  table.grid tr:nth-child(even) td { background: #f8fafc; }
+  .diagram { background: #f8fafc; border: 1px dashed #b6c6e3; border-radius: 12px; padding: 22px; margin: 20px 0; }
+  .diagram .title { text-align: center; font-size: 13px; color: #64748b; margin-bottom: 16px; letter-spacing: 1px; }
+  .flow { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .box { border-radius: 10px; padding: 12px 18px; font-size: 13.5px; text-align: center; min-width: 220px; }
+  .box.blue { background: #dbeafe; border: 1.5px solid #60a5fa; color: #1e40af; }
+  .box.green { background: #dcfce7; border: 1.5px solid #4ade80; color: #166534; }
+  .box.gray { background: #f1f5f9; border: 1.5px solid #cbd5e1; color: #475569; }
+  .box.amber { background: #fef3c7; border: 1.5px solid #fbbf24; color: #92400e; }
+  .box.red { background: #fee2e2; border: 1.5px solid #f87171; color: #991b1b; }
+  .arrow { color: #94a3b8; font-size: 18px; }
+  footer { max-width: 1000px; margin: 50px auto 0; padding: 24px 30px; text-align: center; color: #64748b; font-size: 13px; border-top: 1px solid #dbe6f5; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="kicker">NanoScope · Learning Q&A</div>
+    <h1>RAG 评测到底测了什么 · 系列问答</h1>
+    <p>本篇聚焦一个初学者最容易搞混的问题：RAG 评测是不是在跑一个「完整 Agent 流程」？用户提问 → 向量检索 → rerank → 看结果是不是本部门的、有没有幻觉——这条直觉链哪里对、哪里要校准？每条结论都锚定 <code class="inl">nanoscope/eval/rag_bench.py</code> 真实源码。后续问题会持续追加到本篇。</p>
+    <div class="meta">日期：2026-08-06 ｜ 主题：eval/rag_bench.py · rag/index.py · rag/search.py · 5 组正交场景 · L0–L3 四档执行矩阵</div>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>本篇目录</h2>
+  <ol>
+    <li><a href="#q1">RAG 评测是测一个完整的 Agent 流程吗？「查向量→rerank→看是不是 proj_a、有没有幻觉」这个理解对吗？</a></li>
+    <li><a href="#q2">RAG 评测结构 = 96 条 × 5 组 × L0-L3？我这个总结准确吗？「5 组能力 × 4 档场景」对吗？</a></li>
+    <li><a href="#q3">rag 模块，是用户的每次请求都会经过 RAG 检索吗？生产运行时的完整流程是怎样的？</a></li>
+    <li><a href="#q4">向量存在哪？是 HNSW 吗？项目没用向量数据库有什么问题、面试怎么答、要不要引入、飞书调试看哪些日志？</a></li>
+    <li><a href="#q5">文档切割做几次？是离线做一次、文档变更时再更新切片吗？</a></li>
+    <li><a href="#q6">post-filter 检索完再用 WHERE 把越权项筛掉，不也可以吗？为什么有问题？</a></li>
+    <li><a href="#q7">文档只改了段落里几个字 / 扩展一句话，不想全文重切，怎么做？</a></li>
+    <li><a href="#q8">引入向量数据库就用不了这套过滤了吗？给每条向量配可见范围 metadata、先过滤再取，行不行？</a></li>
+    <li><a href="#q9">既然通用向量库默认「先全局 ANN 再过滤」，那不能「先过滤再 ANN」吗？</a></li>
+    <li><a href="#q10">有无向量库的差别是不是只在流程？可我画的两条路径几乎一样——而且不是说 embedding 每次查询现算吗？（含 Q4 勘误）</a></li>
+    <li><a href="#q11">记忆质量评测该做哪些测试？各项指标的合理区间是多少？（当前项目未建，本条为设计蓝图 + 行业经验值）</a></li>
+  </ol>
+</nav>
+
+<div class="container">
+
+<!-- ============ Q1 ============ -->
+<section class="qa" id="q1">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q1</span>
+      <span class="q-text">RAG 评测是测一个完整的 Agent 流程吗？用户提问转成向量 → 向量库找相似 → rerank → 看这些向量是不是 proj_a 中正确的、而不是 proj_b、也没有幻觉。是这样吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>方向对，但有 4 处关键校准：</b>①<b>不是</b>测完整 Agent 流程——被测对象是 <code class="inl">nanoscope.rag</code> 子包，与 Agent 看板<b>刻意正交</b>。②<b>不是</b>一条链路测所有事——是 <b>5 个正交组</b>，每组只考一件事、判据各不相同。③「看向量是不是 proj_a」<b>不准确</b>——真实机制是<b>鉴权先于检索</b>，越权 proj_b <b>根本不进候选</b>，而非「召回后再判断丢弃」。④「有没有幻觉」<b>只在 L3 生成档</b>判，且靠 <code class="inl">expected / forbidden / incorrect</code> 三个字段协同——不是每条 query 都测。</div>
+
+      <h3 class="blk">校准一 · 不是「完整 Agent 流程」——被测对象是 rag 子包</h3>
+      <p>源码开宗明义（<code class="inl">rag_bench.py:5</code>）：</p>
+<pre><span class="cmt"># rag_bench.py:5 —— 诚实边界，写在模块 docstring 里</span>
+被测系统是 nanoscope.rag 子包（nanobot 主运行时对它<span class="kw">零引用</span>），
+结果<span class="kw">不能冒充完整 Agent 看板</span>。</pre>
+      <p>这正是「三张<b>正交</b> Board」的意义：RAG Board 只测检索管线（摄取 / 召回 / 重排 / 拒答 / 生成），<b>没有</b> Agent 的多轮对话、工具调用、任务规划——那些在 Agent Board（<code class="inl">agent-live24</code>）里测。一条 RAG 场景的真实链路是<b>单次检索请求</b>，不存在 agent loop：</p>
+      <div class="diagram">
+        <div class="title">一条 RAG 场景的真实链路（rag_bench.py:458 run_scenario）</div>
+        <div class="flow">
+          <div class="box gray">授权：SecurityContext = proj_a（可见 proj_a + org，不可见 proj_b）</div>
+          <div class="arrow">↓</div>
+          <div class="box blue">召回 → RRF 双路融合 → rerank（doc_search_visible）</div>
+          <div class="arrow">↓ 仅 L3 档才继续</div>
+          <div class="box green">生成：DeepSeek 读证据写答案 → 确定性 Faithfulness 判分</div>
+        </div>
+      </div>
+      <p>注意：<b>L0/L1/L2 根本不生成</b>，链路到 rerank 就结束了；只有 L3 才接大模型。所以「完整流程」这个词只对 L3 的检索→生成部分成立，且仍然<b>不是 agent</b>。</p>
+
+      <h3 class="blk">校准二 · 不是一条链路测所有事——是 5 个正交组</h3>
+      <p>你把「召回 + 重排 + 是不是 proj_a + 无幻觉」描述成一条链路的四个检查点。实际是 <b>5 个正交组，每组只考一件事，判据完全不同</b>（<code class="inl">rag_bench.py:43-47</code>）：</p>
+      <table class="grid">
+        <tr><th>组</th><th>只考这一件事</th><th>answerable</th><th>成功判据</th><th>对应你那句话</th></tr>
+        <tr><td><b>recall</b></td><td>能把可见 gold 召回吗</td><td>True</td><td>Recall@5 &gt; 0</td><td>「找相似的」</td></tr>
+        <tr><td><b>rerank</b></td><td>首命中排得够前吗</td><td>True</td><td>命中且看 MRR/nDCG</td><td>「然后 rerank」</td></tr>
+        <tr><td><b>abstain</b></td><td>语料里没有的要拒答</td><td>False</td><td>L3 必须明确拒答</td><td>（你没提到，也是一组）</td></tr>
+        <tr><td><b>isolation</b></td><td>越权 proj_b 不触达</td><td>False</td><td>暴露=0 <b>且</b> 候选触达=0</td><td>「是 proj_a 而非 proj_b」</td></tr>
+        <tr><td><b>generation</b></td><td>答案忠实且不泄密</td><td>True</td><td>expected 全中 + forbidden 零中 + 引用可追溯</td><td>「没有幻觉」</td></tr>
+      </table>
+      <div class="warn"><b>⚠️ 关键：</b>「是不是 proj_a」（isolation 组）和「有没有幻觉」（generation 组）是<b>两个不同的组、不同的判分逻辑，不在同一条 query 上同时判</b>。你那句话把它们压成一条链路了——实际上一条 isolation query 根本不生成答案（answerable=False），也就无所谓「幻觉」；一条 generation query 则默认在可见集内，不拿它测越权。</div>
+
+      <h3 class="blk">校准三 · 不是「查回来再看是不是 proj_a」——越权根本进不了候选</h3>
+      <p>你的描述是「查到相似向量后，<b>看</b>它是不是 proj_b」——这恰恰是<b>「先召回再过滤」</b>，是本项目明确批判、并用 isolation 组反证要避免的做法。真实机制是<b>鉴权先于检索</b>（<code class="inl">rag_bench.py:473-477</code>）：</p>
+<pre><span class="cmt"># rag_bench.py:473-477 —— 候选集越权触达审计</span>
+<span class="cmt"># pre-filter 只对可见集合打分，越权绝不进候选（结构证据）</span>
+audit_searcher = vector_searcher <span class="kw">or</span> PreFilterSearcher(store, embedder)
+touch_outcome  = audit_searcher.search(ctx, sc.query, top_k=fanout)
+candidate_touch = len(touch_outcome.scored_chunk_ids &amp; set(sc.forbidden_ids))
+<span class="cmt"># ★ 要求 candidate_touch == 0：proj_b 从一开始就不在搜索空间里</span></pre>
+      <p>isolation 组测的 <code class="inl">candidate_touch</code>（越权 chunk 有没有<b>触达候选</b>）要求恒为 <b>0</b>——不是「召回了再判断丢弃」，而是 proj_b <b>从一开始就不进搜索空间</b>。这就是为什么要用 <b>near-duplicate 越权靶点</b>：故意让 proj_b 在语义上比 proj_a 更像 query，如果是「召回再过滤」它必然被召回；而 pre-filter 下它<b>候选触达都为 0</b>，才证明隔离在检索前就生效。</p>
+      <div class="warn"><b>⚠️ 面试最容易被抓的点：</b>若你说「查回来看是不是 proj_a」，面试官会追问「那越权向量不就进候选了吗？」——正确答法是「<b>授权分区先于检索，越权 chunk 不进候选集</b>，isolation 组用 <code class="inl">candidate_touch==0</code> 提供结构证据」。这也是简历里「候选触达为 0 / 鉴权先于召回」的实证来源。</div>
+
+      <h3 class="blk">校准四 · 「无幻觉」只在 L3 生成档判，且 3 字段协同</h3>
+      <p>「有没有幻觉」不是看向量，而是 <b>L3 真跑 DeepSeek 生成答案后，对答案文本做确定性判分</b>（<code class="inl">rag_bench.py:489-502</code>）。而且分三种情况，靠 generation 组标注的三个字段区分：</p>
+      <table class="grid">
+        <tr><th>字段</th><th>示例（G1 预算题）</th><th>命中后果</th><th>性质</th></tr>
+        <tr><td><code class="inl">expected_facts</code></td><td><code class="inl">("2025","1200","万元")</code></td><td>命中比例 = faithfulness（AND 全中才 1.0）</td><td>正确性</td></tr>
+        <tr><td><code class="inl">forbidden_facts</code></td><td><code class="inl">("3000",)</code>（proj_b 越权预算）</td><td>出现即 <b>leaked=True，直接 0 分</b></td><td><b>泄密（安全违规）</b></td></tr>
+        <tr><td><code class="inl">incorrect_facts</code></td><td><code class="inl">("1500",)</code>（编错的数）</td><td>出现即 0 分，但<b>不算泄密</b></td><td>幻觉（质量问题）</td></tr>
+      </table>
+      <p>判分是<b>严格优先级短路</b>（<code class="inl">score_faithfulness</code>）：先查 forbidden（安全优先）→ 再查 incorrect（幻觉）→ 无 expected 则以「未泄露」记满分 → 否则按 expected 命中比例给分。<b>L0/L1/L2 不生成、不判幻觉</b>，只有 L3 有（需 <code class="inl">DEEPSEEK_API_KEY</code>）。所以「无幻觉」只是 <b>generation 组 × L3 档</b>的事，不是每条 query 都测。</p>
+      <div class="analogy"><b>🎯 为什么 forbidden 优先级最高：</b>一条答案可能「信息很全但顺带泄密」。合取式判分绝不让「内容丰富」抵消「泄密」——哪怕 2025/1200/万元 全答对，只要带出 3000，直接判 0 且标记泄露。这和简历里「布尔合取，不被高质量样本平均掉」是同一条哲学。</div>
+
+      <h3 class="blk">补充 · 还有一层你没提到——L0–L3 四档执行矩阵</h3>
+      <p>同一份 96 条数据（rag96），按有没有 API key 跑四档（<code class="inl">rag_bench.py:10-14</code>）：</p>
+      <table class="grid">
+        <tr><th>档</th><th>embedder</th><th>reranker</th><th>生成</th><th>作用</th></tr>
+        <tr><td><b>L0</b></td><td>Hashing（假向量）</td><td>Stub（假）</td><td>无</td><td>无网可复现硬基线</td></tr>
+        <tr><td><b>L1</b></td><td>GLM（真）</td><td>Stub</td><td>无</td><td>真 embedding 效果</td></tr>
+        <tr><td><b>L2</b></td><td>GLM</td><td><b>BGE（真）</b></td><td>无</td><td>reranker A/B：nDCG@5 0.788→0.894</td></tr>
+        <tr><td><b>L3</b></td><td>GLM</td><td>BGE</td><td><b>DeepSeek 真生成</b></td><td>Faithfulness / 幻觉 / 泄密判分</td></tr>
+      </table>
+      <p>所以简历里「nDCG 0.788→0.894」是 <b>L1(Stub)→L2(BGE)</b> 的对照；「忠实度 / 无幻觉」是 <b>L3</b> 的事。同一份数据、四档执行，正是为了把「向量效果、重排增益、生成质量」这三件事拆开、各自可归因。</p>
+
+      <div class="tldr"><b>收口：</b><b>不是</b>测完整 Agent 流程，而是单独测 <code class="inl">nanoscope.rag</code> 子包的检索管线；用户提问后<b>先按 proj_a 授权圈定可见分区（越权 proj_b 根本不进候选，而非召回后过滤）</b>，再在可见集内召回→RRF→重排；「是不是 proj_a」由 <b>isolation 组</b>用候选触达=0 证明，「有没有幻觉」由 <b>generation 组在 L3 真生成后</b>用 expected/forbidden/incorrect 三字段判——<b>两者是不同组、不同档、不同判分，不在同一条 query 上一起测</b>。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q2 ============ -->
+<section class="qa" id="q2">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q2</span>
+      <span class="q-text">所以 RAG 评测就是：96 条数据集、由 5 组构成、正交测召回/重排/拒答/隔离/幻觉；数据集是多条检索 query，chunk 分 proj_a / proj_b / org；每组能力经过 4 种场景 L0-L3 测试——这个总结准确吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>大方向对，但有两处必须校准：</b>①<b>L0-L3 不是「4 种场景」</b>，而是「4 个技术档位」（换 embedder/reranker/是否生成，与场景无关）；真正「×4」的是<b>每条 query 的 4 种问法</b>——你把两个不同的「4」混成一个了。②<b>不是每组都跑满 L0-L3</b>：检索类组（召回/重排/隔离）L0 就能判，生成类组（拒答/生成忠实度）<b>必须到 L3</b> 才落地。另外第 5 个能力更准确叫<b>「生成忠实度」</b>，幻觉只是它的一种失败模式。</div>
+
+      <h3 class="blk">1 · 先确认你对的部分</h3>
+      <table class="grid">
+        <tr><th>你的总结</th><th>判定</th><th>说明</th></tr>
+        <tr><td>96 条数据集</td><td>✅</td><td><code class="inl">rag96.v2</code>（<code class="inl">rag_frozen.py:4</code>）</td></tr>
+        <tr><td>5 组构成</td><td>✅</td><td>recall / rerank / abstain / isolation / generation</td></tr>
+        <tr><td>数据集是多条检索 query</td><td>✅</td><td>每条 query 独立跑一遍检索管线</td></tr>
+        <tr><td>chunk 分 proj_a / proj_b / org</td><td>✅</td><td>proj_a=gold、proj_b=越权 forbidden、org=公开噪声</td></tr>
+        <tr><td>正交测 5 种能力</td><td>🟡</td><td>第 5 个叫「生成忠实度」更准，非仅「幻觉」（见 §4）</td></tr>
+        <tr><td>每组经过 4 种场景 L0-L3</td><td>❌</td><td>L0-L3 不是场景、不是那个「4」，且非每组跑满（见 §2、§3）</td></tr>
+      </table>
+
+      <h3 class="blk">2 · 核心校准：三个概念别混——96 条怎么来的</h3>
+      <p>你把两个「4」搞混了。它们是<b>三个正交维度</b>：</p>
+      <table class="grid">
+        <tr><th>维度</th><th>是什么</th><th>换的是</th><th>源码</th></tr>
+        <tr><td><b>5 组</b></td><td>考哪种<b>能力</b></td><td>成功判据（召回/重排/拒答/隔离/生成）</td><td><code class="inl">rag_bench.py:43-47</code></td></tr>
+        <tr><td><b>4 问法</b></td><td>同一题换几种<b>问法</b>（原句+3 改写）</td><td>query 措辞（测问法鲁棒性）</td><td><code class="inl">rag_frozen.py:9</code></td></tr>
+        <tr><td><b>L0-L3</b></td><td>用什么<b>设备</b>答这张卷</td><td>embedder / reranker / 是否生成</td><td><code class="inl">rag_bench.py:786-803</code></td></tr>
+      </table>
+      <div class="analogy"><b>🎯 一句话类比：</b><b>5 组 = 考什么能力；4 问法 = 同一题换几种问；L0-L3 = 用什么设备考</b>。96 条「考卷」是「5 组能力 × 各自若干语义簇 × 4 问法」织成的；L0-L3 只是拿同一张卷用不同档位的设备各跑一遍，<b>不产生新题</b>。</div>
+      <p>「4 问法」的证据在 <code class="inl">rag_frozen.py</code>——每条 query 的值类型就是四元组 <code class="inl">tuple[str, str, str, str]</code>（原句 + 3 个独立改写），且注释强调「<b>至少一个改写故意去掉文档主锚词</b>」以真正考语义检索而非关键词匹配：</p>
+<pre><span class="cmt"># rag_frozen.py:6-15 —— 每条 query = 原句 + 3 个独立改写（不是模板前缀）</span>
+RAG_QUERY_VARIANTS: dict[str, tuple[str, str, str, str]] = {
+    <span class="str">"分布式训练用什么并行方式和精度"</span>: (
+        <span class="str">"分布式训练用什么并行方式和精度"</span>,          <span class="cmt"># 原句</span>
+        <span class="str">"训练任务怎样跨设备协同，数值格式选的是什么"</span>,  <span class="cmt"># 改写 1</span>
+        <span class="str">"多卡训练的同步方案及混合精度配置分别是什么"</span>,  <span class="cmt"># 改写 2</span>
+        <span class="str">"大规模模型训练如何分摊计算，采用哪种低精度格式"</span>,<span class="cmt"># 改写 3（去锚词）</span>
+    ),
+    ...
+}</pre>
+      <p>而 L0-L3 换的是<b>技术栈</b>，跟题目无关（<code class="inl">rag_bench.py:786-803</code> 的 <code class="inl">_level_components</code>）：</p>
+      <table class="grid">
+        <tr><th>档</th><th>embedder</th><th>reranker</th><th>生成</th><th>这一档在验证什么</th></tr>
+        <tr><td><b>L0</b></td><td>Hashing 假向量</td><td>Stub 假</td><td>无</td><td>无网/无密钥的可复现硬基线</td></tr>
+        <tr><td><b>L1</b></td><td>GLM 真</td><td>Stub</td><td>无</td><td>换上真 embedding 的效果</td></tr>
+        <tr><td><b>L2</b></td><td>GLM</td><td><b>BGE 真</b></td><td>无</td><td>reranker A/B：nDCG@5 0.788→0.894</td></tr>
+        <tr><td><b>L3</b></td><td>GLM</td><td>BGE</td><td><b>DeepSeek</b></td><td>真生成 → 判拒答/幻觉/泄密</td></tr>
+      </table>
+
+      <h3 class="blk">3 · 校准：不是「每组都跑满 4 档」——有依赖关系</h3>
+      <p>不同组<b>能在哪档判分</b>是有条件的，不是整齐的 5×4 矩阵：</p>
+      <div class="diagram">
+        <div class="title">哪组在哪档能判（源码 rag_bench.py:550 / 627）</div>
+        <div class="flow">
+          <div class="box blue">recall / rerank / isolation：纯检索，<b>L0 就能判</b> → 贯穿 L0-L3</div>
+          <div class="arrow">↓ 需要真生成答案才能判的——</div>
+          <div class="box amber">abstain（拒答）/ generation（忠实度）：<b>必须 L3</b> 才落地</div>
+        </div>
+      </div>
+      <p>源码写死了这个依赖：<code class="inl">rag_bench.py:627</code> 注释「<b>TSR 分母：无生成时排除 abstain</b>（拒答需 L3 才能判）」；<code class="inl">:550</code>「拒答场景仅在有生成（L3）时可判」。逻辑上也自洽——<b>没真生成答案，就无从判断「拒没拒答」「有没有编」</b>。所以准确说法是：<b>检索类组贯穿 L0-L3，生成类组只在 L3 落地</b>。</p>
+
+      <h3 class="blk">4 · 校准：第 5 个能力叫「生成忠实度」，幻觉只是其一种失败</h3>
+      <p>generation 组（<code class="inl">rag_bench.py:47</code>）测的是<b>「答案忠实且不泄密」</b>，有三种失败模式，幻觉只是其中之一：</p>
+      <table class="grid">
+        <tr><th>失败模式</th><th>触发</th><th>性质</th></tr>
+        <tr><td>命中 <code class="inl">forbidden_facts</code>（proj_b 机密）</td><td>如答出越权预算 3000</td><td><b>生成侧泄密（安全违规，最高优先级）</b></td></tr>
+        <tr><td>命中 <code class="inl">incorrect_facts</code></td><td>如把 1200 万编成 1500 万</td><td>幻觉（质量问题）</td></tr>
+        <tr><td>漏 <code class="inl">expected_facts</code></td><td>该答的关键事实没答全</td><td>不完整（faithfulness&lt;1）</td></tr>
+      </table>
+      <div class="warn"><b>⚠️ 为什么别只叫「幻觉」：</b>只说幻觉会漏掉最重要的<b>「生成侧泄密」</b>——那才是这个安全项目的重点（模型把检索到的越权内容顺嘴说出来）。面试里把第 5 组说成「生成忠实度 / Faithfulness」，并点明「它同时守幻觉<b>和</b>生成侧越权泄露」，比只说「测幻觉」专业得多。</div>
+
+      <h3 class="blk">5 · 修正后的准确版本</h3>
+      <div class="tldr"><b>照这个说就滴水不漏：</b>RAG 模块评测 = 一份 <b>96 条 query 的冻结集</b>（<code class="inl">rag96.v2</code>，若干语义簇 × <b>每条 4 种问法</b>），按能力分 <b>5 个正交组</b>——召回 / 重排 / 拒答 / 隔离 / <b>生成忠实度</b>；语料 chunk 按 ACL 分 <b>proj_a(gold) / proj_b(越权 forbidden) / org(公开)</b>。这 96 条卷可在 <b>L0-L3 四个技术档位</b>执行（换 embedder/reranker/是否生成，<b>不是场景</b>）；其中<b>检索类组（召回/重排/隔离）L0 即可判，生成类组（拒答/生成忠实度）必须到 L3</b> 才落地。</div>
+      <div class="analogy"><b>🧭 一句话记忆：</b><b>「5 组是考什么能力，L0-L3 是用什么设备考，4 问法是同一题换几种问」——三个「维度」正交，别混成一个「5 组 × 4 场景」的矩阵。</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q3 ============ -->
+<section class="qa" id="q3">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q3</span>
+      <span class="q-text">rag 模块，是用户的每次请求都会经过 RAG 检索吗？生产运行时的完整流程是怎样的？帮我看源码梳理一下。</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>不是。生产运行时 RAG 是一个「工具」，不是每轮必过的管线。</b>它以 <code class="inl">document_search</code> 工具的形式挂在 Agent 上，<b>由 LLM 在推理时自主决定要不要调</b>——用户问「今天天气」它根本不会检索。这和 Q1/Q2 里的<b>评测</b>正好相反：评测里每条 query 都<b>强制</b>跑完「授权→召回→融合→重排→(可选)生成」固定 pipeline（为了可复算判分）；生产里检索<b>按需触发</b>。还有一个关键事实：这个工具<b>默认 <code class="inl">enabled=False</code></b>，要显式开启才会进 Agent 的工具表。</div>
+
+      <h3 class="blk">1 · 先给结论：两个「RAG 流程」是不同的东西</h3>
+      <p>你会困惑「每次请求都检索吗」，多半是因为 Q1/Q2 讲的<b>评测</b>让人以为 RAG 是条固定流水线。要害在于<b>区分两个语境</b>：</p>
+      <table class="grid">
+        <tr><th>维度</th><th>评测语境（Q1/Q2 rag_bench）</th><th>生产语境（本问 · Agent 运行时）</th></tr>
+        <tr><td>触发方式</td><td><b>每条 query 强制</b>跑固定 pipeline</td><td><b>LLM 按需</b>决定调不调 <code class="inl">document_search</code></td></tr>
+        <tr><td>入口</td><td><code class="inl">run_scenario()</code> 直接调 <code class="inl">nanoscope.rag</code></td><td>Agent loop 里的一次 <b>tool call</b></td></tr>
+        <tr><td>目的</td><td>可复算判分（召回/重排/隔离/拒答/忠实度）</td><td>真正帮用户答题时才去查资料</td></tr>
+        <tr><td>是否默认开</td><td>评测就是要测它，必然开</td><td><b>默认关</b>（<code class="inl">enabled=False</code>），需显式启用</td></tr>
+      </table>
+      <div class="warn"><b>⚠️ 一句话别搞反：</b>「每条 query 都跑完整 pipeline」是<b>评测</b>的性质（为了公平判分）；<b>生产</b>运行时恰恰<b>不是</b>——检索是 LLM 手里的一件工具，用不用它自己判断。</div>
+
+      <h3 class="blk">2 · 源码实证：RAG 是一个「工具类」</h3>
+      <p>生产侧 RAG 的全部入口是 <code class="inl">DocumentSearchTool</code>（<code class="inl">nanobot/agent/tools/rag.py</code>），它继承 <code class="inl">Tool</code>，说明它走的是<b>标准工具调用协议</b>，而不是 agent loop 里某个「每轮必执行」的 hook：</p>
+<pre><span class="cmt"># nanobot/agent/tools/rag.py:19-24 —— 工具自己的配置</span>
+<span class="kw">class</span> RagToolConfig(Base):
+    enabled: bool = <span class="kw">False</span>          <span class="cmt"># ← 默认关闭，必须显式开</span>
+    database_path: str = <span class="str">"~/.nanobot/rag.db"</span>
+    embedder: Literal[<span class="str">"hashing"</span>, <span class="str">"glm"</span>] = <span class="str">"hashing"</span>
+    reranker: Literal[<span class="str">"stub"</span>, <span class="str">"siliconflow"</span>] = <span class="str">"stub"</span>
+    top_k: int = Field(default=<span class="str">5</span>, ge=1, le=10)
+
+<span class="cmt"># nanobot/agent/tools/rag.py:38-49</span>
+<span class="kw">class</span> DocumentSearchTool(Tool):        <span class="cmt"># ← 是 Tool 子类，不是 loop 里的固定步骤</span>
+    config_key = <span class="str">"rag"</span>
+    <span class="kw">@classmethod</span>
+    <span class="kw">def</span> enabled(cls, ctx) -> bool:
+        <span class="kw">return</span> ctx.config.rag.enabled  <span class="cmt"># ← enabled 门控：关了就根本不注册</span>
+
+    <span class="kw">@property</span>
+    <span class="kw">def</span> name(self) -> str:
+        <span class="kw">return</span> <span class="str">"document_search"</span>       <span class="cmt"># ← LLM 在工具表里看到的名字</span></pre>
+      <p>关键点：工具有 <code class="inl">name</code>、<code class="inl">description</code>、参数 schema（<code class="inl">query</code> + 可选 <code class="inl">top_k</code>）——这套东西<b>只有一个用途</b>：注册进工具表、暴露给 LLM，让 <b>LLM 在需要时用一次 tool call 去调用它</b>。它 <code class="inl">read_only=True</code>，是个纯读检索工具。</p>
+
+      <h3 class="blk">3 · 工具是「按开关装配」的，不是写死在 loop 里</h3>
+      <p>Agent 启动时 <code class="inl">_register_default_tools()</code>（<code class="inl">loop.py:559</code>）并不手写注册 RAG，而是交给 <code class="inl">ToolLoader().load()</code> 扫描工具包、<b>逐个问 <code class="inl">enabled()</code></b> 再决定装不装：</p>
+<pre><span class="cmt"># nanobot/agent/tools/loader.py:90-98 —— 插件式装配的核心门控</span>
+<span class="kw">for</span> tool_cls <span class="kw">in</span> source:
+    <span class="kw">if</span> scope <span class="kw">not in</span> getattr(tool_cls, <span class="str">"_scopes"</span>, {<span class="str">"core"</span>}):
+        <span class="kw">continue</span>
+    <span class="kw">if not</span> tool_cls.enabled(ctx):      <span class="cmt"># ← rag.enabled=False → 这里直接 continue</span>
+        <span class="kw">continue</span>
+    tool = tool_cls.create(ctx)         <span class="cmt"># 开了才实例化、才 register 进工具表</span>
+    registry.register(tool)</pre>
+      <div class="tldr"><b>因果链：</b><code class="inl">rag.enabled=False</code>（默认） → <code class="inl">DocumentSearchTool.enabled(ctx)</code> 返回 False → loader <code class="inl">continue</code> 跳过 → <b>工具表里根本没有 <code class="inl">document_search</code></b> → LLM 无从调用 → 该部署<b>完全没有</b> RAG。只有显式把 <code class="inl">rag.enabled</code> 打开，工具才会出现在 LLM 的可选清单里。</div>
+
+      <h3 class="blk">4 · 生产运行时的完整流程（含 agent loop）</h3>
+      <p>把 Agent 主循环（<code class="inl">runner.py:410-464</code>）和这个工具接起来，一次「用户请求 → 是否检索」的真实路径是这样：</p>
+      <div class="diagram">
+        <div class="flow">
+          <div class="box blue">① 用户请求进来</div>
+          <div class="arrow">→</div>
+          <div class="box blue">② 组装 messages + 工具表<br><span class="cmt">(含 document_search，若已启用)</span></div>
+          <div class="arrow">→</div>
+          <div class="box amber">③ LLM 推理<br>要不要调工具？</div>
+        </div>
+        <div class="flow">
+          <div class="box gray">④a 不需要检索<br><span class="cmt">直接回答，RAG 零参与</span></div>
+          <div class="box green">④b 需要资料 → 发起 tool call<br><code class="inl">document_search(query,top_k)</code></div>
+        </div>
+        <div class="flow">
+          <div class="box green">⑤ execute()：取当前请求安全上下文</div>
+          <div class="arrow">→</div>
+          <div class="box green">⑥ doc_search_visible()<br><span class="cmt">鉴权先于检索 → 召回 → 重排</span></div>
+          <div class="arrow">→</div>
+          <div class="box green">⑦ 结果回灌 messages</div>
+          <div class="arrow">→</div>
+          <div class="box amber">⑧ LLM 再推理，可能再调或收尾</div>
+        </div>
+      </div>
+      <p>几处源码锚点，证明这是<b>「LLM 决定 → tool call → 循环」</b>而非「每轮强制检索」：</p>
+      <table class="grid">
+        <tr><th>步骤</th><th>源码</th><th>说明</th></tr>
+        <tr><td>③ LLM 是否要调工具</td><td><code class="inl">runner.py:410</code> <code class="inl">if response.should_execute_tools:</code></td><td>由<b>模型输出</b>决定，不调就没有这一支</td></tr>
+        <tr><td>④b/⑤ 真正执行工具</td><td><code class="inl">runner.py:436</code> <code class="inl">await self._execute_tools(...)</code></td><td>只执行 LLM 点名的工具</td></tr>
+        <tr><td>⑥ 鉴权先于检索</td><td><code class="inl">rag.py:95-118</code> <code class="inl">execute()</code> → <code class="inl">doc_search_visible()</code></td><td>先取 <code class="inl">SecurityContext</code>，无认证直接 <code class="inl">ToolResult.error</code></td></tr>
+        <tr><td>⑧ 结果回灌再循环</td><td><code class="inl">runner.py:453-464</code> 把 tool 结果作为 <code class="inl">role:"tool"</code> 消息追加</td><td>喂回模型，进入下一轮</td></tr>
+      </table>
+
+      <h3 class="blk">5 · 生产侧仍然「鉴权先于检索」——和评测口径一致</h3>
+      <p>值得强调：即便在生产工具里，权限判定也<b>不是</b>检索后过滤，而是<b>入口即拦</b>。<code class="inl">execute()</code> 第一件事是从当前请求上下文取安全身份，缺一不可：</p>
+<pre><span class="cmt"># nanobot/agent/tools/rag.py:95-110</span>
+<span class="kw">async def</span> execute(self, query, top_k=<span class="kw">None</span>):
+    request = current_request_context()
+    <span class="kw">if</span> request <span class="kw">is None or not</span> (
+        request.tenant_id <span class="kw">and</span> request.principal_id <span class="kw">and</span> request.audience_type
+    ):
+        <span class="kw">return</span> ToolResult.error(         <span class="cmt"># ← 没有认证上下文，直接拒绝，不检索</span>
+            <span class="str">"RAG search requires an authenticated multi-user security context"</span>
+        )
+    security = SecurityContext(tenant_id=..., principal_id=..., roles=...)
+    results = doc_search_visible(self.store, security, query, ...)  <span class="cmt"># ← 带着身份去查，只查可见集</span></pre>
+      <div class="warn"><b>⚠️ 注意收尾这行：</b>返回前用 <code class="inl">wrap_untrusted_memory(...)</code> 把检索到的 chunk 包成<b>「不可信外部内容」</b>再回灌给模型——这是防「检索内容里藏注入指令」的一道处理，呼应 0729 里讲的记忆/上下文防污染。</div>
+
+      <h3 class="blk">6 · 面试怎么答（30 秒版）</h3>
+      <div class="tldr"><b>照这个说：</b>「生产运行时 RAG <b>不是</b>每次请求都触发。它是一个 <code class="inl">document_search</code> 工具，<b>默认关闭</b>，启用后由 <b>LLM 在推理中自主决定</b>是否调用——用户闲聊就不会检索，问到知识库内容才发 tool call。执行时先取请求的安全上下文做<b>鉴权先于检索</b>（无认证直接拒绝），只在可见集上召回+重排，结果还会被包成<b>不可信内容</b>回灌模型防注入。这和评测里『每条 query 强制跑固定 pipeline』是<b>两个语境</b>：评测为了可复算判分才强制，生产为了效率与安全按需触发。」</div>
+      <div class="analogy"><b>🧭 一句话记忆：</b><b>评测 RAG = 体检流水线（每人必过全套）；生产 RAG = 工具箱里的放大镜（需要看细节时 LLM 才拿出来用，平时不碰）。</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q4 ============ -->
+<section class="qa" id="q4">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q4</span>
+      <span class="q-text">离线把文档切片、用 GLM embedding-3 嵌入后向量存在哪？是直接建 HNSW 存 HNSW 里吗？没引入 hnswlib 呢？项目 RAG 没用向量数据库带来什么问题、面试被问「为什么不用」怎么答？有必要引入吗、工作量多大、要新增哪些工作？测试飞书操作时想看问答中间值该查哪些日志、怎么看？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>先纠正一个前提，再逐条答：</b>①<b>向量根本没有「离线预存」</b>——<code class="inl">doc_chunks</code> 表只存 <b>chunk 原文</b>，<b>没有 embedding 列</b>；向量是<b>检索时现算</b>（<code class="inl">index.py:189</code>）。②HNSW <b>确实引入了</b>（<code class="inl">hnswlib</code>），但它是<b>可选、默认关</b>的<b>排序加速层</b>，<b>不是存储</b>；不装它全部退化为纯 Python 暴力余弦，结果逐字节不变。③「没用向量数据库」要精确说成：<b>用 SQLite 存文本 + 运行时算向量 + 可选 HNSW 排序</b>——这是<b>刻意的架构选择</b>，不是缺失。④要不要引入向量库：<b>当前规模不必</b>，且贸然引入会<b>动摇「鉴权先于检索」红线</b>。⑤飞书调试看 <code class="inl">~/.nanobot/logs/</code> + <code class="inl">SearchOutcome</code> 审计字段。</div>
+
+      <h3 class="blk">1 · 向量存在哪？——不存。SQLite 只存原文，向量运行时现算</h3>
+      <p>你问「嵌入向量存储在哪」，源码给的答案是<b>不存向量</b>。存储层 <code class="inl">ChunkStore</code>（<code class="inl">rag/store.py</code>）用 SQLite，表结构里<b>只有 <code class="inl">content</code> 文本列，压根没有 embedding/vector 列</b>：</p>
+<pre><span class="cmt"># rag/store.py:44-60 —— doc_chunks 表结构（注意：没有任何向量列）</span>
+CREATE TABLE doc_chunks (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT, scope TEXT, owner_id TEXT, acl_group TEXT,  <span class="cmt"># ← ACL 标签</span>
+  source_doc_id TEXT, chunk_index INTEGER,
+  content TEXT NOT NULL,          <span class="cmt"># ← 只存 chunk 原文</span>
+  content_hash TEXT, created_at INTEGER
+);</pre>
+      <p>向量是在<b>每次检索时</b>对可见 chunk <b>批量现算</b>的（<code class="inl">index.py:189</code>）：</p>
+<pre><span class="cmt"># rag/index.py:189 —— _EmbeddedCorpus 构造时才算 embedding</span>
+self.vecs = embedder.embed([c.content <span class="kw">for</span> c <span class="kw">in</span> self.chunks]) <span class="kw">if</span> self.chunks <span class="kw">else</span> []</pre>
+      <div class="warn"><b>⚠️ 面试别说错：</b>说「离线嵌入后把向量存进库」是<b>不准确</b>的——本项目是「<b>存原文、检索时现算向量</b>」。好处是 <b>embedder 换型（Hashing↔GLM）无需重灌库</b>、无「向量与文本不同步」问题；代价是每次检索要重算（下面第 4 点会讲这正是「要不要上向量库」的权衡点）。</div>
+      <div class="warn" style="border-left-color:#f59e0b"><b>🔧 精确化勘误（见 Q10）：</b>「每次检索现算」这句<b>只对 <code class="inl">PreFilterSearcher</code>（正确性基线）严格成立</b>。生产选定解 <code class="inl">PartitionedSearcher</code> 是<b>建库/进程启动时把各分区向量算好并缓存在内存</b>、跨查询复用，只有 <code class="inl">chunks_revision</code> 变了才重算——<b>不是</b>每查询从零 embed。准确说法是：<b>向量不落磁盘（对）；但进程内会内存缓存复用（PreFilter 例外，每查询重算）。</b>详见 <a href="#q10">Q10</a>。</div>
+
+      <h3 class="blk">2 · 是 HNSW 吗？——引入了 hnswlib，但它是「可选排序层」不是「存储」</h3>
+      <p>项目<b>确实引入了 <code class="inl">hnswlib</code></b>（<code class="inl">pyproject.toml:98</code>，<code class="inl">pip install 'nanobot[rag]'</code> 装），但要分清两件事：</p>
+      <table class="grid">
+        <tr><th>它是什么</th><th>它不是什么</th></tr>
+        <tr><td>一个<b>近邻候选召回</b>的加速索引（<code class="inl">_HnswIndex</code>，<code class="inl">index.py:91</code>）</td><td><b>不是</b>存储——HNSW 图是<b>内存里现建</b>的，不落盘、不持久化</td></tr>
+        <tr><td><b>可选、默认关</b>（各策略 <code class="inl">use_ann=False</code>）</td><td><b>不是</b>必需——不装 hnswlib 或不开 <code class="inl">use_ann</code>，全部退化暴力余弦</td></tr>
+        <tr><td><b>只给候选下标</b>，之后仍用精确余弦重打分</td><td><b>不承担可见性</b>（红线：索引只排序，见 <code class="inl">index.py:22-24</code>）</td></tr>
+      </table>
+      <p>关键的降级契约（<code class="inl">index.py:19-20</code>）：<b>没装 hnswlib 会怎样？</b>——什么都不会坏：</p>
+<pre><span class="cmt"># rag/index.py:40-53 —— hnswlib 是 try-import 的可选依赖</span>
+<span class="kw">try</span>:
+    <span class="kw">import</span> hnswlib
+    _HNSW_OK = <span class="kw">True</span>
+<span class="kw">except</span> ImportError:
+    hnswlib = <span class="kw">None</span>
+    _HNSW_OK = <span class="kw">False</span>          <span class="cmt"># ← 没装：全部策略退化纯 Python 暴力余弦</span>
+<span class="cmt"># 契约：SearchOutcome 与隔离结构「逐字节不变」，只是慢，不是错。</span></pre>
+      <div class="tldr"><b>所以「是不是建 HNSW 存 HNSW 里」的准确回答：</b>向量<b>既不存 SQLite 也不存 HNSW</b>——SQLite 存原文，向量运行时算，HNSW（若启用）只是内存里临时建的<b>排序加速结构</b>。生产选定解甚至<b>默认不开 ANN</b>，走的是「授权过滤 → 暴力余弦」的正确性基线。</p>
+
+      <h3 class="blk">3 · 「没用向量数据库」带来什么问题？——先精确定义，再列真实代价</h3>
+      <p>先说清楚现状架构，避免面试官误以为你「没有检索能力」：</p>
+      <div class="diagram">
+        <div class="flow">
+          <div class="box blue">SQLite<br><span class="cmt">存 chunk 原文 + ACL 标签</span></div>
+          <div class="arrow">→</div>
+          <div class="box green">检索时现算 embedding<br><span class="cmt">GLM / Hashing</span></div>
+          <div class="arrow">→</div>
+          <div class="box amber">BM25 + 向量 RRF 融合<br><span class="cmt">search.py:65</span></div>
+          <div class="arrow">→</div>
+          <div class="box green">rerank → top_k</div>
+        </div>
+      </div>
+      <p>不用专用向量数据库（Milvus/Qdrant/pgvector 等）的<b>真实代价</b>，诚实列出来：</p>
+      <table class="grid">
+        <tr><th>问题</th><th>具体表现</th><th>当前项目为什么能扛</th></tr>
+        <tr><td><b>每次检索重算向量</b></td><td>无预存向量，可见集要现算 embedding</td><td>可见集经 ACL 预过滤后很小（O(可见率·N)），量级可控</td></tr>
+        <tr><td><b>暴力余弦 O(N)</b></td><td>默认不开 ANN，可见集内逐条算余弦</td><td>企业内单租户可见 chunk 数量级不大；要快可开 <code class="inl">use_ann</code></td></tr>
+        <tr><td><b>无分布式/持久化 ANN</b></td><td>HNSW 图内存现建、进程重启即失</td><td>规模没到需要独立向量服务的临界点</td></tr>
+        <tr><td><b>扩展性上限</b></td><td>千万级向量、跨机分片场景撑不住</td><td>本项目是<b>权限隔离企业知识库</b>，不是亿级公域检索</td></tr>
+      </table>
+
+      <h3 class="blk">4 · 面试被问「为什么不用向量数据库」——这样答（攻守兼备）</h3>
+      <div class="tldr"><b>核心话术：不是「不会用」，是「按 ROI 和安全红线主动不用」。</b>三层递进：</div>
+      <table class="grid">
+        <tr><th>层次</th><th>怎么说</th></tr>
+        <tr><td><b>① 规模不匹配</b></td><td>「这是<b>权限隔离的企业知识库</b>，单租户可见 chunk 在<b>千~万级</b>，ACL 预过滤后可见集更小。暴力余弦 + 可选 HNSW 已足够；引入独立向量服务是<b>过度工程</b>。」</td></tr>
+        <tr><td><b>② 安全红线优先</b></td><td>「本项目第一红线是<b>鉴权先于检索</b>——越权 chunk <b>根本不能进候选</b>。通用向量库默认是<b>先全局 ANN 再过滤（post-filter）</b>，这恰恰是我<b>刻意否决的反面策略</b>（<code class="inl">index.py:223</code>），因为它让越权向量进了候选、违背红线。我用 <b>SQLite 授权 WHERE 先筛 + 分区索引</b> 把隔离做在检索前，可控性远高于把权限外包给向量库。」</td></tr>
+        <tr><td><b>③ 演进留了口子</b></td><td>「架构上 <b>ANN 是可插拔层</b>（<code class="inl">use_ann</code> 开关 + <code class="inl">PartitionedSearcher</code> 按 ACL 分区建图），真到了需要规模化那天，<b>换底座不动上层契约</b>——不是没设计，是没到该花这钱的时候。」</td></tr>
+      </table>
+      <div class="warn"><b>⚠️ 这答法的杀伤力：</b>它把「没用向量库」从<b>「能力缺失」翻转成「安全 + ROI 的主动决策」</b>，还顺势展示了你对 post-filter 破红线的理解（<code class="inl">index.py:1-24</code> 的完备三策略论证）——这比背一个向量库名字专业得多。</div>
+
+      <h3 class="blk">5 · 有必要引入吗？工作量多大？要新增哪些工作</h3>
+      <p><b>结论：当前规模没必要；真要上，工作量中等，且有一处「必须先解决」的红线冲突。</b></p>
+      <table class="grid">
+        <tr><th>新增工作</th><th>内容</th><th>工作量</th></tr>
+        <tr><td>① 向量持久化</td><td>新增 embedding 列/独立向量存储，离线批量灌向量 + 增量更新</td><td>中（还要解决「换 embedder 需重灌」）</td></tr>
+        <tr><td>② <b>ACL 与向量库对齐</b>（关键）</td><td>把「鉴权先于检索」映射到向量库：<b>per-partition collection</b> 或 <b>metadata pre-filter</b>，<b>严禁</b> post-filter</td><td><b>高（红线所在，做错就泄露）</b></td></tr>
+        <tr><td>③ 一致性/失效</td><td>chunk 增删改后向量与索引的同步、revision 对齐（现有 <code class="inl">chunks_revision</code> 机制要延伸到外部库）</td><td>中</td></tr>
+        <tr><td>④ 运维</td><td>独立服务部署、监控、备份、灾备</td><td>中~高（多一个有状态组件）</td></tr>
+        <tr><td>⑤ 评测回归</td><td>D1/F1/F3 隔离用例在新底座重跑，证明 <code class="inl">candidate_touch==0</code> 仍成立</td><td>中（不可省，否则红线无证据）</td></tr>
+      </table>
+      <div class="tldr"><b>触发引入的信号（答辩用）：</b>单租户可见 chunk 到<b>百万级</b>、检索 P99 延迟被现算向量拖垮、或需要跨机分片时——<b>才</b>值得上向量库。届时首选 <b>pgvector（能在 SQL 层做 ACL pre-filter，天然贴合红线）</b> 或 <b>Qdrant/Milvus 的 payload 过滤 + 分 collection</b>，<b>绝不</b>用「先全局检索再删越权」的 post-filter。</div>
+
+      <h3 class="blk">6 · 测试飞书操作时，想看问答过程的中间值——查哪些日志、怎么看</h3>
+      <p>飞书（Feishu）是通过 <code class="inl">nanobot/channels/feishu.py</code> 接入的一个 channel，问答链路和其他入口共用同一套 Agent runtime。想看「中间值」按<b>三个层次</b>查：</p>
+      <table class="grid">
+        <tr><th>想看什么</th><th>查哪里</th><th>怎么看</th></tr>
+        <tr><td><b>运行时全量日志</b><br>(LLM 调用/工具调用/报错)</td><td><code class="inl">~/.nanobot/logs/</code><br>（<code class="inl">config/paths.py:43</code> <code class="inl">get_runtime_subdir("logs")</code>）</td><td>gateway 起的进程 stdout/stderr 落在这；<code class="inl">tail -f ~/.nanobot/logs/*.log</code>，或用内置 <code class="inl">nanobot ... logs</code> 命令（<code class="inl">cli/gateway.py:184</code>，底层 <code class="inl">read_log_tail</code>）</td></tr>
+        <tr><td><b>对话历史</b><br>(每轮 user/assistant/tool 消息)</td><td><code class="inl">~/.nanobot/workspace/memory/history.jsonl</code><br>（<code class="inl">agent/memory.py:74</code>，append-only JSONL）</td><td>每行一条 JSON，含角色与内容；能看到 <code class="inl">document_search</code> 的<b>tool 调用参数与返回</b>（即检索命中的 chunk）</td></tr>
+        <tr><td><b>单次会话的中间状态</b><br>(工具调用序列/checkpoint)</td><td><code class="inl">~/.nanobot/workspace/sessions/</code><br>+ runner checkpoint（<code class="inl">runner.py:1344 _emit_checkpoint</code>）</td><td>checkpoint payload 里有 <code class="inl">pending_tool_calls</code> / <code class="inl">completed_tool_results</code>，能还原「LLM 决定调 document_search → 参数 → 结果回灌」全过程</td></tr>
+      </table>
+      <p>如果你想看的是 <b>RAG 检索本身的中间值</b>（召回了哪些 chunk、越权有没有触达），最精确的证据是 <code class="inl">SearchOutcome</code> 的审计字段（<code class="inl">index.py:155-168</code>）：</p>
+<pre><span class="cmt"># rag/index.py:155-168 —— 检索结果自带可观测审计</span>
+<span class="kw">class</span> SearchOutcome:
+    results: list[DocChunkRecord]        <span class="cmt"># 返回给用户的 chunk（相关性降序）</span>
+    scored_chunk_ids: set[str]           <span class="cmt"># ← 被打分/进候选的 id（越权若在此=红线破了）</span>
+    accessed_partitions: set[str]        <span class="cmt"># ← 实际访问的分区（越权子图应从不出现）</span></pre>
+      <div class="warn"><b>⚠️ 调试飞书问答的实操顺序：</b>①先 <code class="inl">tail -f ~/.nanobot/logs/*.log</code> 看有没有报错 / <code class="inl">document_search</code> 是否被调用；②在飞书发一条会触发检索的问题；③到 <code class="inl">history.jsonl</code> 找到那一轮，看 <code class="inl">role:"tool"</code> 消息里 <code class="inl">document_search</code> 的返回内容——<b>那就是检索命中的中间值</b>；④若怀疑越权，看 <code class="inl">scored_chunk_ids</code> / <code class="inl">accessed_partitions</code> 有没有本不该出现的分区。注意检索结果被 <code class="inl">wrap_untrusted_memory</code> 包过，日志里会带「不可信内容」包裹标记。</div>
+
+      <h3 class="blk">7 · 一段话总结（面试直接背）</h3>
+      <div class="tldr"><b>照这个说：</b>「我们<b>没有把向量离线存库</b>——SQLite 只存 chunk 原文，向量在<b>检索时按可见集现算</b>；<code class="inl">hnswlib</code> 作为<b>可选、默认关</b>的排序加速层引入，不装就退化为暴力余弦、结果逐字节不变。<b>不用专用向量数据库是主动选择</b>：一来企业知识库规模（千~万级/租户）用不上；二来第一红线是<b>鉴权先于检索</b>，通用向量库的 post-filter 会让越权向量进候选、违背红线，我用 <b>SQLite 授权 WHERE + 分区索引</b> 把隔离做在检索前更可控。真要上向量库首选 <b>pgvector（SQL 层 ACL pre-filter）</b>，工作量集中在<b>向量持久化、ACL 对齐、一致性、隔离用例回归</b>。调试飞书问答看 <code class="inl">~/.nanobot/logs/</code> 和 <code class="inl">history.jsonl</code> 的 tool 消息，检索中间值看 <code class="inl">SearchOutcome.scored_chunk_ids / accessed_partitions</code>。」</div>
+      <div class="analogy"><b>🧭 一句话记忆：</b><b>SQLite 存原文（书架），向量现算（读时才翻），HNSW 是可选放大镜（默认不用）——不上向量库不是没能力，是「规模没到 + 安全红线不允许把权限外包」。</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q5 ============ -->
+<section class="qa" id="q5">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q5</span>
+      <span class="q-text">那文档切割做几次？是离线做一次，文档变更时再更新切片吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>切割在 ingest（灌库）时做一次，切片会持久化落 SQLite——这点你说对了。</b>但要诚实说清现状的<b>另一半</b>：当前代码<b>只有「新增/追加」（<code class="inl">add_chunk</code>），没有实现「文档变更后更新/重切」的接口</b>——<code class="inl">ChunkStore</code> 里<b>没有 update / delete / reingest 方法</b>。所以「文档变更时再更新切片」是<b>合理的设计意图，但目前尚未落地</b>。这跟 Q4 说的「向量不预存」要分开：<b>切片（文本）是物化持久的，向量才是每次现算的。</b></div>
+
+      <h3 class="blk">1 · 切割做几次？——ingest 时一次，之后持久化复用</h3>
+      <p>切割发生在 <code class="inl">ingest_document()</code>（<code class="inl">rag/ingest.py:60</code>）里，一篇文档进来 → 切块 → <b>逐条落库</b>，之后检索直接读库里的 chunk，不再重切：</p>
+<pre><span class="cmt"># rag/ingest.py:77-96 —— 灌库时切一次，chunk 持久化写入 SQLite</span>
+<span class="kw">if</span> strategy == <span class="str">"fixed"</span>:
+    pieces = chunk_fixed_window(text, size=size, overlap=overlap)   <span class="cmt"># 固定窗口+重叠</span>
+<span class="kw">elif</span> strategy == <span class="str">"structure"</span>:
+    pieces = chunk_by_structure(text, max_size=size)                <span class="cmt"># 按段落结构切</span>
+
+doc_id = store.register_document(ctx, title=title)
+<span class="kw">for</span> idx, piece <span class="kw">in</span> enumerate(pieces):
+    store.add_chunk(ctx, source_doc_id=doc_id, chunk_index=idx,
+                    content=piece, scope=scope, acl_group=acl_group)  <span class="cmt"># ← 落库持久化</span></pre>
+      <table class="grid">
+        <tr><th>阶段</th><th>切割？</th><th>说明</th></tr>
+        <tr><td><b>ingest（灌库）</b></td><td>✅ <b>做一次</b></td><td><code class="inl">chunk_fixed_window</code>（size=200/overlap=40）或 <code class="inl">chunk_by_structure</code>（按空行分段）</td></tr>
+        <tr><td><b>检索（每次请求）</b></td><td>❌ <b>不切</b></td><td>直接从 <code class="inl">doc_chunks</code> 表读已切好的 chunk（现算的是<b>向量</b>不是切片）</td></tr>
+      </table>
+      <div class="tldr"><b>所以「切片 vs 向量」两件事要分清：</b>切片是 ingest 时<b>切一次、物化落库、反复复用</b>；向量是<b>每次检索现算、不落库</b>（Q4）。你把两者都归到「离线做一次」会串——<b>只有切片是物化的</b>。</div>
+
+      <h3 class="blk">2 · 文档变更时会更新切片吗？——设计上应该，代码里目前没有</h3>
+      <p>这是本问最该诚实的地方。我在 <code class="inl">ChunkStore</code>（<code class="inl">rag/store.py</code>）里逐个方法核对过，<b>写侧只有增量新增，没有变更/删除</b>：</p>
+      <table class="grid">
+        <tr><th>方法</th><th>作用</th><th>有没有</th></tr>
+        <tr><td><code class="inl">register_document</code> / <code class="inl">add_chunk</code></td><td>登记文档、<b>追加</b>一条 chunk</td><td>✅ 有</td></tr>
+        <tr><td><code class="inl">visible_chunks</code> / <code class="inl">visible_where</code></td><td>授权可见集读取</td><td>✅ 有</td></tr>
+        <tr><td><code class="inl">update_chunk</code> / <code class="inl">delete_chunk</code> / <code class="inl">reingest</code></td><td>文档变更后<b>更新/删除/重切</b></td><td>❌ <b>没有</b>（<code class="inl">grep</code> 全 <code class="inl">rag/</code> 目录无 <code class="inl">UPDATE doc_chunks</code> / <code class="inl">DELETE FROM</code>）</td></tr>
+      </table>
+      <div class="warn"><b>⚠️ 别把「有能力」说过头：</b>表里有 <code class="inl">content_hash</code> 列（<code class="inl">store.py:53</code>），看起来像是为「幂等/去重/变更检测」预留的——<b>但目前没有任何代码消费它做「重复不写入」或「变更重切」</b>。面试若被追问，要说「<b>content_hash 是为幂等预留的钩子，去重/更新逻辑尚未落地</b>」，不能说成「已实现增量更新」。</div>
+
+      <h3 class="blk">3 · 那文档真变了怎么办？——现状与「正确做法」</h3>
+      <p>基于现有接口，文档变更目前<b>只能靠外部流程</b>处理；理想的增量更新是一条<b>还没实现</b>的演进路径：</p>
+      <div class="diagram">
+        <div class="flow">
+          <div class="box gray">现状<br><span class="cmt">只有 add_chunk</span></div>
+          <div class="arrow">→</div>
+          <div class="box amber">文档变更 = 重新灌库<br><span class="cmt">（旧 chunk 无接口删，会残留/重复）</span></div>
+        </div>
+        <div class="flow">
+          <div class="box blue">正确演进<br><span class="cmt">按 source_doc_id</span></div>
+          <div class="arrow">→</div>
+          <div class="box green">delete 旧 chunk</div>
+          <div class="arrow">→</div>
+          <div class="box green">重切 + add 新 chunk</div>
+          <div class="arrow">→</div>
+          <div class="box green">bump chunks_revision</div>
+        </div>
+      </div>
+      <p>好在有个<b>现成的一致性抓手</b>：<code class="inl">chunks_revision</code>（<code class="inl">store.py:180</code>，每次 <code class="inl">add_chunk</code> 自增）。<code class="inl">PartitionedSearcher</code> 已经靠它<b>感知库变更、自动重建分区索引</b>（<code class="inl">index.py:344 _refresh_if_stale</code>）——所以真要补「变更更新」，<b>索引层会自动跟上，只需在 store 侧补 delete/update + bump revision 即可</b>，改动面不大。</p>
+      <div class="tldr"><b>面试可这样收口：</b>「切割是 ingest 时一次性做完并<b>物化落库</b>；文档变更的增量更新<b>目前是设计缺口</b>——写侧只有 <code class="inl">add_chunk</code>，<code class="inl">content_hash</code> 是预留钩子。但索引层已通过 <code class="inl">chunks_revision</code> 做到<b>变更即自动重建</b>，补齐 store 的 delete/update 即可闭环，这是我清楚的一条待办演进项。」<b>——把「没做」讲成「清晰认知的演进项 + 已有抓手」，比假装做了更可信。</b></div>
+      <div class="analogy"><b>🧭 一句话记忆：</b><b>切片 = 灌库切一次、物化进书架；变更更新 = 图纸有了（content_hash + revision 钩子）、施工队还没到（没 delete/update）。</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q6 ============ -->
+<section class="qa" id="q6">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q6</span>
+      <span class="q-text">post-filter 会让越权向量进候选，但我检索完把越权向量筛进来了、再通过 WHERE 筛掉，不也可以吗？为什么是有问题的？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>「再 WHERE 筛掉」只在「输出无直接泄露」这<b>一个</b>维度成立，但它漏掉了两个更致命的维度：①<b>功能正确性</b>——top-k 是固定预算，筛掉是减法，被越权项挤出前 k 的可见文档<b>补不回来</b>，可见率低时 recall 直接崩甚至返回空；②<b>可证性/安全</b>——越权向量「被摸过」本身就破坏了 <code class="inl">candidate_touch==0</code> 这个可机器断言的结构不变量，隔离从「结构保证」退化成「事后清理，且不可证」。</b></div>
+
+      <h3 class="blk">1 · 先破直觉：post-filter 不是「也可以」，是会返回错误结果</h3>
+      <p>看 <code class="inl">PostFilterSearcher.search</code>（<code class="inl">index.py:251-266</code>）的真实顺序——<b>先在全库取 top_k，再删越权</b>：</p>
+<pre><span class="cmt"># index.py:261-265</span>
+global_hits = _corpus_topk(corpus, q, top_k)          <span class="cmt"># ① 先在【全库】取 top_k=5</span>
+visible_ids = {c.id <span class="kw">for</span> c <span class="kw">in</span> store.visible_chunks(ctx)}
+filtered = [c <span class="kw">for</span> c, _ <span class="kw">in</span> global_hits <span class="kw">if</span> c.id <span class="kw">in</span> visible_ids]  <span class="cmt"># ② 再删越权 → 只剩残缺集</span></pre>
+      <p><b>算笔账：</b><code class="inl">top_k=5</code>、可见率 20%。全库 top-5 里假设 3 条越权、2 条可见 → 删完<b>只返回 2 条</b>。而那些<b>本该排进「可见集前 5」、但在全局排到第 6/7/8 名</b>的可见文档，压根没进 top_k，<b>永久丢失</b>。筛选只会删、不会把它们加回来。</p>
+      <div class="warn"><b>⚠️ 对比 <code class="inl">PreFilterSearcher</code>（<code class="inl">index.py:210-220</code>）：</b>它先 <code class="inl">visible_chunks(ctx)</code> 拿可见集，再在<b>可见集内部</b>取 top_k——永远返回可见集里最相关的 5 条，recall 拉满。<b>这就是「不是也可以」的功能层原因：post-filter 在可见率低时 recall 崩，是正确性 bug，不是架构洁癖。</b></div>
+      <p><b>「那我多召回一些不就行了？」</b>——全局取 top-100 再筛到 5？两个硬伤：①<b>你不知道该取多少</b>，可见率随 query/用户变，最坏情况得召回整个库才能凑齐可见 top-5，ANN 加速白做；②<b>越权向量还是被摸过了</b>，下面的安全问题一个不少。</p>
+
+      <h3 class="blk">2 · 安全层：为什么「摸过」本身就是问题（4 个代价）</h3>
+      <table class="grid">
+        <tr><th>代价</th><th>说明</th></tr>
+        <tr><td><b>① 隔离降级为事后清理</b></td><td>能不能守住取决于「那步 WHERE 每次都完美执行」；任何 bug/漏掉的路径/边界 case 就泄。pre-filter/partitioned 是<b>越权数据从没进候选</b>——结构上就没有可泄露的东西。<b>最安全的数据是你根本没加载的数据。</b></td></tr>
+        <tr><td><b>② 存在性泄露</b>（内容没泄也漏）</td><td>结果条数漏信息：平时返回 5 条、某 query 突然只返回 2 条 → 用户能推断「有 3 篇我看不到但高度相关的文档存在」。这是对越权文档<b>存在性 + 相关性</b>的泄露。此外打分污染（RRF 全局排名/softmax 归一被越权项影响）、时序侧信道。</td></tr>
+        <tr><td><b>③ 信任边界撑大</b></td><td>越权数据进了检索层，该层的<b>缓存/查询日志/调试 trace/crash dump</b> 都可能残留跨租户数据——尤其检索层是外部向量库时，整个向量子系统都被拉进信任边界。</td></tr>
+        <tr><td><b>④ 不可证</b>（最致命）</td><td>项目隔离红线靠 <code class="inl">scored_chunk_ids</code> / <code class="inl">candidate_touch==0</code> <b>可机器断言</b>。post-filter 下 <code class="inl">scored_chunk_ids</code> <b>按定义就含越权 id</b>（<code class="inl">index.py:262</code>），你<b>根本没法断言 candidate_touch==0</b>。安全性从「结构不变量」退化成「抽样测输出没漏」。</td></tr>
+      </table>
+
+      <h3 class="blk">3 · 连到项目的 isolation 测试（点睛）</h3>
+      <p>isolation 组（<code class="inl">rag_bench.py:271-280</code> 的 IS1-5）故意用 <b>near-duplicate 越权靶点</b>——让 proj_b 语义上<b>比 proj_a 更像 query</b>。这正是 post-filter 的<b>最坏情况</b>：全局 top-k 被 proj_b 占满 → 越权向量全被打分（破 candidate_touch）→ 筛完 proj_a 所剩无几。这个测试专门设计来<b>证明 pre-filter 必需、post-filter 会挂</b>。</p>
+      <div class="warn"><b>⚠️ 一个必要的 nuance：</b>post-filter <b>不是永远错</b>——若筛的是「新鲜度/分类」这种<b>锦上添花</b>的维度，先召回再筛完全 OK，漏一点无所谓。但项目筛的是<b>授权边界</b>，这是<b>必须每次完美且可证</b>的安全属性。<b>用于相关性过滤 ≠ 用于权限过滤</b>，post-filter 用在后者就是错的。</div>
+      <div class="analogy"><b>🧭 一句话记忆：</b><b>post-filter 的问题不是「筛不干净」，是「该拿的可见文档被越权项挤出 top-k 拿不回来（功能错）+ 隔离沦为事后清理、不可证、有存在性侧漏（安全弱）」。</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q7 ============ -->
+<section class="qa" id="q7">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q7</span>
+      <span class="q-text">如果文档变更是某个段落里改了几个字、或一句话扩展了，不想重新全文切片，该怎么做？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>能不能避免全文重切，取决于你用哪种切片策略——而项目默认的固定窗口恰恰是最难局部更新的那种。</b>正解：①切片单元从「字符位置」换成「段落结构」（让变更天然局部化）→ ②配合 <code class="inl">content_hash</code> 做<b>段落级 diff，只 delete+add 变了的那条 chunk</b>。固定窗口 + 局部编辑 = 下游 chunk 级联移位，绕不开；要在固定窗口下局部更新，得上内容定义分块（CDC）。</b></div>
+
+      <h3 class="blk">1 · 元凶：固定窗口按「字符位置」切，局部插入 = 下游级联移位</h3>
+      <p>项目两种切法（<code class="inl">ingest.py</code>）：</p>
+      <table class="grid">
+        <tr><th>策略</th><th>边界依据</th><th>段落内小改的后果</th></tr>
+        <tr><td><code class="inl">chunk_fixed_window</code>（<code class="inl">ingest.py:16</code>，size=200/overlap=40）</td><td><b>字符位置</b>滑窗，step=160</td><td>❌ 第 300 字扩一句（+10 字）→ 该点之后<b>每个 chunk 边界平移 10 字</b> → 下游 chunk 全变、content_hash 全变 → 被迫全文重切</td></tr>
+        <tr><td><code class="inl">chunk_by_structure</code>（<code class="inl">ingest.py:42</code>，按 <code class="inl">\n\n</code> 分段）</td><td><b>段落结构</b></td><td>✅ 改的那句在哪个段落，<b>就只有那一个 chunk 变</b>，其余逐字不变——变更被关在一个段落里</td></tr>
+      </table>
+      <div class="tldr"><b>第一条、也最有杠杆的建议：</b>想支持局部更新，<b>切片单元就得选结构化（段落/标题），别用固定窗口</b>。边界跟着内容走，变更才不会外溢。</div>
+
+      <h3 class="blk">2 · 具体做法：段落级 diff，只更新变了的 chunk</h3>
+      <p>结构化切片 + 项目已预留但没消费的 <code class="inl">content_hash</code>（<code class="inl">store.py:114-117</code>）→ 一次干净的增量更新：</p>
+<pre><span class="cmt"># 增量更新流程（该怎么设计，非现状）</span>
+<span class="kw">1.</span> 文档变更 → 重新 chunk_by_structure（只切文本、不碰库，极便宜）
+<span class="kw">2.</span> 新 chunks 各算 content_hash，与库里该 doc 旧 chunk 的 hash 逐个比对
+<span class="kw">3.</span> 差集处理：
+     hash 相同  → 段落没变，原样保留（不动库、向量不重算）
+     hash 变/新增 → delete 旧的那条 + add_chunk 新的
+     段落消失   → delete
+<span class="kw">4.</span> bump chunks_revision（索引层自动重建，见 Q5）</pre>
+      <p>你那个场景（改一段里几个字）走下来：<b>只有 1 个段落 hash 变，只 delete+add 那 1 条</b>，其余全命中「hash 相同」跳过。<b>重切文本廉价，昂贵的是落库/建索引，diff 让这部分只发生在真正变化的 chunk 上。</b></p>
+      <div class="warn"><b>⚠️ 诚实提醒：</b>这是<b>该怎么设计</b>，不是现状。项目现在 <code class="inl">store.py</code> 只有 <code class="inl">add_chunk</code>、<b>没有 delete/update</b>，content_hash <b>没被任何代码消费</b>（Q5 已确认）。要落地得补 <code class="inl">delete_chunks_by_doc(source_doc_id)</code> + 上面的 diff。好在<b>索引层不用动</b>——<code class="inl">chunks_revision</code> 一 bump，<code class="inl">PartitionedSearcher._refresh_if_stale</code>（<code class="inl">index.py:344</code>）自动重建。</div>
+
+      <h3 class="blk">3 · 坚持固定窗口又要局部更新？——内容定义分块（CDC）</h3>
+      <p>若切片必须细粒度（固定窗口那种）又不想被移位坑，业界解法是 <b>content-defined chunking</b>：用<b>滚动哈希（Rabin fingerprint）</b>在「内容特征点」处切边界，而非数满 200 字就切。局部插入只让<b>附近一两个 chunk 边界重算</b>，后面边界因「内容触发、内容没变」而不变——<b>从根上消除级联移位</b>（rsync/备份去重同一套思路）。代价是实现更复杂，项目目前没有。</p>
+      <div class="analogy"><b>🧭 一句话记忆：</b><b>固定窗口 + 局部编辑 = 级联移位（绕不开）；把边界从「字符位置」换成「段落结构」，变更天然局部化，再用 content_hash 段落级 diff 只更新变的那条——这是最省力的正解。</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q8 ============ -->
+<section class="qa" id="q8">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q8</span>
+      <span class="q-text">如果引入了向量数据库，就用不了现在这套过滤操作吗？向量库能不能给每条向量配一个 metadata 表示可见范围，然后先过滤再从库里取可见切片？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>你的方案对且可行——这正是向量库的一等公民能力（metadata / payload filtering），引入向量库<b>不会</b>让你丢掉过滤。</b>但有一句必须钉死：<b>「先过滤」这三个字，在向量库里和你理解的 pre-filter 未必是同一件事</b>——魔鬼在于<b>过滤这把筛子落在 ANN 图遍历的哪个位置</b>。而且换黑盒向量库后，隔离从「我能证的结构不变量」退化成「我得信厂商实现 + 额外测」。</b></div>
+
+      <div class="warn" style="border-left-color:#f59e0b"><b>🔧 重要澄清（本节先破一个混淆）：向量库「按可见范围过滤」其实有<b>两种机制</b>，隔离强度天差地别，别混：</b>
+      <table class="grid" style="margin-top:8px">
+        <tr><th></th><th>机制 A：metadata / payload filter</th><th>机制 B：partition / collection / namespace</th></tr>
+        <tr><td>做法</td><td>同一个 index 内，每条向量打 <code class="inl">tenant=A</code> 的 tag，查询带 <code class="inl">filter: tenant=A</code></td><td>按 ACL <b>物理</b>分成多个 index，查询只指定 <code class="inl">partition=['A']</code></td></tr>
+        <tr><td>过滤时机</td><td><b>实现相关</b>：不少库朴素实现走 in-line / post</td><td><b>天然 pre</b>：越权分区根本不加载</td></tr>
+        <tr><td>对应你项目</td><td>接近 PostFilter 的风险区</td><td><b>就是 PartitionedSearcher（可 pre-filter）</b></td></tr>
+      </table>
+      <b>所以「向量库默认 post-filter」这句只该针对机制 A</b>——若你把 ACL 做成一个 metadata 字段去 filter，默认路径可能退化 in-line/post。<b>但只要你主动上机制 B（按分区建 HNSW 子图），向量库就是 pre-filter，没有 post-filter 的坑。</b>Q8 问的是机制 A（配 metadata），若进化到机制 B（按分区建子图）——那一步升级是对的，恰好绕开了 A 的坑。<b>因此「不用向量库」不能拿「向量库做不了隔离」当理由（错，会被当场戳穿）；真正站得住的理由见 §3 可证性。</b></div>
+
+      <h3 class="blk">1 · 向量库内部同样面临「筛子放哪」的三选一</h3>
+      <p>你项目 <code class="inl">index.py:1-24</code> 那个「过滤相对遍历只能前/中/后」的完备论证，在向量库里<b>一字不差重演</b>。你挂了 metadata，但向量库怎么用它有三种实现：</p>
+      <table class="grid">
+        <tr><th>向量库的过滤实现</th><th>对应你的策略</th><th>后果</th></tr>
+        <tr><td>先 ANN 取 top-k，再按 metadata 删</td><td><code class="inl">PostFilterSearcher</code></td><td>❌ 可见率低时 recall 崩 + 越权被摸过（见 Q6）</td></tr>
+        <tr><td>遍历中跳过不匹配节点（filterable/in-line）</td><td>介于中间</td><td>🟡 救 recall，但高选择性时 HNSW 图「断连」→ 退化暴力</td></tr>
+        <tr><td>按 metadata 分区/分 collection，只搜可见分区</td><td><code class="inl">PartitionedSearcher</code></td><td>✅ 干净：越权分区从不加载</td></tr>
+      </table>
+      <div class="warn"><b>⚠️ 陷阱（限机制 A）：</b>很多人以为「配了 metadata filter = pre-filter」，但不少向量库对 metadata filter 的<b>默认/朴素实现其实是 post-filter</b>——先在全局图跑 ANN，拿到 top-k 再拿 metadata 删。你以为过滤前置了，实际筛子在遍历之后，recall 崩塌和越权触达一个没躲掉。<b>（注：这只说 metadata filter；主动做机制 B 分区就没这问题——见本节顶部澄清。）</b></div>
+
+      <h3 class="blk">2 · 实现「真·先过滤」的三条路</h3>
+      <table class="grid">
+        <tr><th>路径</th><th>机制</th><th>贴合度</th></tr>
+        <tr><td><b>① SQL 谓词下推 · pgvector</b></td><td>Postgres 一列向量，<code class="inl">WHERE acl_group IN (...) ORDER BY embedding &lt;=&gt; q</code>，WHERE 是计划器层面<b>真·前置过滤</b>，与现有 <code class="inl">visible_where</code> 语义一致</td><td>最贴红线（我 Q4 推荐它的原因）</td></tr>
+        <tr><td><b>② 分区/多 collection</b></td><td>Milvus partition key / Qdrant collection / Pinecone namespace，只查用户可见分区——<b>就是 PartitionedSearcher 搬进向量库</b></td><td>最干净（项目「敢分区」论据 <code class="inl">index.py:278</code> 原样成立）</td></tr>
+        <tr><td><b>③ Filterable HNSW</b></td><td>Qdrant 给子集加边保连通，过滤后仍能贪婪走到近邻，救回 recall</td><td>能用，更黑盒</td></tr>
+      </table>
+
+      <h3 class="blk">3 · 真正的理由不是「能不能 pre-filter」，是「证不证得起」（对 fail-closed 项目最要命）</h3>
+      <p><b>既然机制 B 分区能让向量库做到 pre-filter，那「不用向量库」就不能再拿「向量库做不了隔离」当理由（错的、会被当场戳穿）。</b>真正站得住、也是唯一站得住的理由是——<b>可证性</b>：<b>即使向量库分区做对了、确实 pre-filter 了，你怎么【证明】它真在遍历前隔离了？</b>两者都 pre-filter，但可证性天差地别：</p>
+      <table class="grid">
+        <tr><th></th><th>自建 PartitionedSearcher</th><th>向量库分区（机制 B）</th></tr>
+        <tr><td>隔离逻辑</td><td>我自己的代码（<code class="inl">index.py:320</code>）</td><td>厂商黑盒</td></tr>
+        <tr><td><code class="inl">scored_chunk_ids</code></td><td><b>我自己填</b>（<code class="inl">index.py:382</code>），测试硬断言 <code class="inl">candidate_touch==0</code></td><td>拿不到「分区 B 向量一次都没被 touch」的内部证据</td></tr>
+        <tr><td>越权分区没被碰</td><td><b>结构上可机器断言、字节级可复算</b></td><td>只能<b>信任</b>厂商无旁路/无缓存残留 + 黑盒回归测</td></tr>
+      </table>
+      <div class="tldr"><b>核心：</b>向量库分区把「越权不进候选」从<b>「我能证明的结构不变量」</b>变成了<b>「我相信厂商这么实现了」</b>。你调 <code class="inl">search(partition=['A'])</code> 然后<b>信</b>它真只搜了 A——但你没法从外部断言分区 B 的向量在这次检索里一次都没被打分/加载/缓存。对一个把「可机器复算的证据链」当卖点的 fail-closed 项目，这个 gap 才是要害。<b>——能 pre-filter ≠ 能廉价地证明 pre-filter。</b></div>
+      <div class="analogy"><b>🧭 一句话记忆：</b><b>向量库能用分区做到 pre-filter（这点别否认）；但「能 pre-filter ≠ 能证 pre-filter」。自控分区时隔离是我能复算的结构不变量，外包后是我要信任的厂商行为——为可证性付的代价，换不回当前规模下我不需要的扩展性。这才是「不用向量库」的真地基，不是「向量库做不了隔离」。</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q9 ============ -->
+<section class="qa" id="q9">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q9</span>
+      <span class="q-text">所以不用向量库一个是规模小，另一个是通用向量库默认先全局 ANN 再过滤——但针对这点，不是可以先过滤，然后再给 HNSW ANN 吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>你说得对——而且项目里恰恰就是这么做的，你独立推导出了选定解。</b>但关键不在「先过滤再 ANN」这句话，而在<b>过滤发生在【查询时】还是【建库时】</b>：查询时先过滤再<b>现建</b> HNSW = 负优化（建图比暴力还贵，摊销没了）；<b>建库时</b>按 ACL 分区<b>预建</b>子图、查询只搜可见子图 = 选定解（<code class="inl">PartitionedSearcher</code>）。一步之差，就是「负优化」和「选定解」的分界。</b></div>
+
+      <h3 class="blk">1 · 为什么「查询时先过滤再现建 HNSW」是自我拆台</h3>
+      <p>HNSW 的价值建立在<b>「图预先建好、跨查询复用」</b>上：建图 O(N·logN) 贵、查询 O(logN) 便宜，靠「建一次查千万次」摊薄。</p>
+      <p>但「查询时先过滤」下，每个用户可见集 S <b>不一样</b>（取决于 tenant/roles）→ 没法预建一张图服务所有人 → 只能<b>当场为 S 现建 HNSW</b>：光建图 O(|S|·log|S|)，<b>比直接暴力 O(|S|) 还贵</b>，查完就扔。<b>摊销没了，只剩开销。</b></p>
+      <div class="warn"><b>⚠️ 这正是 <code class="inl">index.py:16</code> 写死「pre-filter 永远暴力、不接 ANN」的原因：</b>不是做不到，是查询时上 ANN 反而更慢。<code class="inl">PreFilterSearcher</code>（<code class="inl">index.py:198-220</code>）压根没传 <code class="inl">use_ann</code>，故意保持暴力，作为 recall 天花板/正确性基线，代价明写 O(N·可见率)（<code class="inl">index.py:9</code>）。<br><b>变体「全局预建图、遍历时跳过不可见节点」（中置过滤）？</b>高选择性时图会<b>断连</b>：可见节点稀疏散在全局图里，贪婪搜索被不可见节点挡住够不到近邻，recall 掉。中置也不干净。</div>
+
+      <h3 class="blk">2 · 「先过滤再 ANN」怎么才成立——把过滤挪到【建库时】</h3>
+      <p>破局：别在查询时过滤，<b>建库时就按过滤边界把图预建好</b>。这正是 <code class="inl">PartitionedSearcher._build_partitions</code>（<code class="inl">index.py:320</code>）做的——建索引阶段按 ACL group 分桶，<b>每个分区各预建一张 HNSW 子图</b>并缓存；查询时 <code class="inl">_visible_partition_keys</code>（<code class="inl">index.py:349</code>）只挑可见分区、只在<b>预建好的</b>子图上跑 ANN。</p>
+      <table class="grid">
+        <tr><th>时机</th><th>做法</th><th>结局</th></tr>
+        <tr><td><b>查询时</b>先过滤再建图</td><td>每 query 为可见集现建 HNSW</td><td>❌ 建图开销 &gt; 暴力，负优化 → pre-filter 干脆用暴力</td></tr>
+        <tr><td><b>建库时</b>先过滤（分区）再建图</td><td>每个 ACL 分区预建一张子图，复用</td><td>✅ 摊销回来了 = PartitionedSearcher</td></tr>
+      </table>
+
+      <h3 class="blk">3 · 前提 + 修正你「第二个理由」的措辞</h3>
+      <p>分区预建图成立靠一个硬条件：<b>过滤边界必须【稳定 + 低基数】</b>。项目 ACL 维度是 org/project（<b>几~几十</b>，<code class="inl">index.py:278</code>），分区数可控，所以「敢分区」；超过 <code class="inl">_MAX_PARTITIONS=256</code>（<code class="inl">index.py:283</code>）fail-safe 退化 pre-filter 暴力保底。<b>反例</b>：若 ACL 是「每用户任意勾选文档」的 per-user 组合，分区数 2^N 爆炸，分区法失效。</p>
+      <div class="warn"><b>🔧 修正你总结的「第二个理由」：</b>别说成「通用向量库只会 post-filter」——<b>不准确，会被当场戳穿：向量库完全能用分区（机制 B）做到 pre-filter</b>（详见 <a href="#q8">Q8</a> 的两机制辨析）。更准更能打的说法：<b>「真正的 pre-filter+ANN 需要按【稳定 ACL 边界】在建库时分区预建图（就是我的 PartitionedSearcher）——这件事向量库靠分区也能做。区别不在『能不能 pre-filter』，在『证不证得起』：我用 SQLite 授权 WHERE + 自建分区做，过滤边界、candidate_touch==0 全在我手里、可机器断言、字节级可复算；搬进黑盒向量库后，即便它分区做对了，『越权分区一次都没被 touch』也从我能证的结构不变量退化成我得信任的厂商行为 + 黑盒回归测。同等规模下自己控这套，可控性和可证性都更高——不是向量库做不到隔离，是自己做才能廉价地【证明】隔离。」</b></div>
+      <div class="analogy"><b>🧭 一句话记忆：</b><b>「先过滤再 ANN」对，但必须发生在建库时（分区预建子图），不能在查询时（现建图=负优化）。位置（前/中/后）+ 时机（查询时/建库时）决定一切，选定解 = 建库时按稳定 ACL 边界分区预建图。</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q10 ============ -->
+<section class="qa" id="q10">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q10</span>
+      <span class="q-text">有无向量库的差别是不是在于：无库时「切片→embedding→按三维标签分区建 HNSW 子图→query 时从可见子图检索」；有库时「切片→embedding→放入库→分区→建子图→分区检索」，对吗？但之前不是说 embedding 每次查询重新做一次吗？</span>
+    </div>
+    <div class="q-body">
+      <div class="tldr"><b>你抓到的「矛盾」是真的——而且戳中了 Q4 一处被我过度简化的表述，你比我之前更精确。</b>①你画的两条路径几乎一样是<b>对的</b>：分区、建子图、先过滤再 ANN，<b>有没有向量库都要做</b>；差别<b>不在流程步骤</b>，而在<b>算好的向量/子图是「内存态·易失·重启重建」还是「持久态·落盘·复用共享」</b>。②「embedding 每次查询现算」<b>只对 <code class="inl">PreFilterSearcher</code> 成立</b>；<code class="inl">PartitionedSearcher</code>（选定解）是<b>建库/进程启动时算一次、内存缓存、跨查询复用</b>。</b></div>
+
+      <h3 class="blk">1 · 勘误：embedding 到底算几次——分策略，不是一句话</h3>
+      <p>embedding 在 <code class="inl">_EmbeddedCorpus.__init__</code>（<code class="inl">index.py:188-189</code>，<code class="inl">self.vecs = embedder.embed(...)</code>）里算，<b>这个对象何时被 new，决定 embedding 算几次</b>：</p>
+      <table class="grid">
+        <tr><th>策略</th><th><code class="inl">_EmbeddedCorpus</code> 何时构造</th><th>embedding 算几次</th></tr>
+        <tr><td><code class="inl">PreFilterSearcher</code>（<code class="inl">index.py:210-212</code>）</td><td><b>每次 <code class="inl">search()</code> 都 new</b></td><td>❌ <b>每次查询现算</b>（Q4 说的就是它）</td></tr>
+        <tr><td><code class="inl">PartitionedSearcher</code>（<code class="inl">index.py:320-342</code>）</td><td><b><code class="inl">__init__</code> 建分区时 new，缓存进 <code class="inl">self._partitions</code></b></td><td>✅ <b>建库时算一次，内存缓存，跨查询复用</b></td></tr>
+      </table>
+      <p>PartitionedSearcher 查询时 <code class="inl">search()</code>（<code class="inl">index.py:358</code>）只算 <b>query 那一条</b>的 embedding，chunk 向量<b>直接复用缓存</b>，只有 <code class="inl">chunks_revision</code> 变了才 <code class="inl">_refresh_if_stale</code>（<code class="inl">index.py:344</code>）重算。</p>
+      <div class="warn"><b>🔧 Q4 勘误：</b>我 Q4 说「每次检索现算」用 PreFilter 的行为以偏概全了。你画的「无库」路径（建库时 embedding + 建子图、查询时分区检索）描述的正是 <b>PartitionedSearcher</b>——它<b>恰恰不是</b>「每次查询重算」。你的追问更准。</div>
+
+      <h3 class="blk">2 · 你的两条路径：对，但差别不在你写的字上</h3>
+      <p>你敏锐发现两条路径几乎一样——<b>因为它们本来就该一样</b>：分区、建子图、先过滤再 ANN，有没有向量库都做。差别在你<b>没写出来的那个词：算好的向量和子图，存在哪、活多久</b>：</p>
+      <table class="grid">
+        <tr><th></th><th>无向量库（现状 PartitionedSearcher）</th><th>有向量库</th></tr>
+        <tr><td>embedding 向量</td><td>内存里（<code class="inl">_EmbeddedCorpus.vecs</code>，Python 对象）</td><td><b>持久化到磁盘/独立服务</b></td></tr>
+        <tr><td>HNSW 子图</td><td>内存里现建（<code class="inl">_HnswIndex</code>，<code class="inl">index.py:91</code>）</td><td><b>持久化，重启不重建</b></td></tr>
+        <tr><td>进程重启后</td><td>❌ <b>全部重算+重建</b>（<code class="inl">_build_partitions</code> 再跑一次）</td><td>✅ 从磁盘加载，秒起</td></tr>
+        <tr><td>跨进程/跨机共享</td><td>❌ 各进程各建各的</td><td>✅ 共享同一份索引</td></tr>
+        <tr><td>SQLite 里</td><td>只有 chunk <b>原文</b>，无向量（<code class="inl">store.py:44-60</code>）</td><td>向量是一等公民</td></tr>
+      </table>
+      <div class="tldr"><b>本质差别：</b>不是「算不算 embedding / 分不分区」（两者都做），而是「算好的向量和索引是<b>【内存态·易失·重启重建】</b>还是<b>【持久态·落盘·重启复用·可共享】</b>」。</div>
+
+      <h3 class="blk">3 · 那「embedding 不落库」还对不对？——拆成两层就不矛盾</h3>
+      <table class="grid">
+        <tr><th>层次</th><th>结论</th></tr>
+        <tr><td><b>持久化层（磁盘/SQLite）</b></td><td>向量<b>从不落盘</b>，SQLite 只存原文 → ✅「不落库」成立，有无向量库的真正分界就在这</td></tr>
+        <tr><td><b>进程内内存缓存层</b></td><td>PartitionedSearcher <b>会把向量缓存内存、跨查询复用</b> → 这层 Q4 没讲清，让你误以为「每查询从零算」</td></tr>
+      </table>
+      <div class="analogy"><b>🧭 一句话记忆：</b><b>①分区+建库时 embedding+预建子图+查询只搜可见子图 = PartitionedSearcher，有无向量库都这么干；②有无向量库的差别 = 向量/索引是内存态还是持久态（易失重建 vs 落盘复用共享），不是流程差别；③「embedding 不落库」指不落磁盘（对），但进程内 Partitioned 会内存缓存复用，「每查询重算」只是 PreFilter 基线的行为。</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q11 ============ -->
+<section class="qa" id="q11">
+  <div class="card">
+    <div class="q-head">
+      <span class="q-badge">Q11</span>
+      <span class="q-text">记忆质量评测需要做哪些测试？列举一下，并给出相关指标的合理区间。</span>
+    </div>
+    <div class="q-body">
+      <div class="warn" style="border-left-color:#ef4444"><b>🚨 证据边界（务必先读）：</b>本项目<b>当前只有记忆<u>安全</u>评测</b>（M3/M5/M8/M11/M12：隔离 + 防注入 + 蒸馏归属，见文末覆盖矩阵），<b>没有记忆<u>质量</u>评测</b>（压缩保真/蒸馏准确/召回效果均未建 board）。<b>所以本条是「该建哪些」的<u>设计蓝图</u> + 「合理区间」的<u>行业经验参考值</u>，不是项目实测数字。</b>面试引用时必须说「这是我规划的演进项 / 行业基准」，<b>严禁</b>说成「我测出来是这个数」——那会被当场戳穿。</div>
+
+      <div class="tldr"><b>记忆质量评测拆成 6 个维度：①压缩保真度（压完没丢关键信息）②蒸馏事实准确率（Dream 提炼没编造）③长期召回率（该记住的以后还能调出来）④时效/冲突处理（旧事实被新事实覆盖）⑤上下文预算效率（token 省了多少、答对率掉了没）⑥抗噪/去重（不把闲聊垃圾也蒸馏进长期记忆）。</b>核心方法论：<b>每个维度都要有「gold + 确定性判据」</b>，能复用项目现成的 <code class="inl">score_faithfulness</code> / <code class="inl">expected_facts</code> 骨架（<code class="inl">rag_bench.py:321/133</code>），别用 LLM-as-judge 打分。</div>
+
+      <h3 class="blk">1 · 六个维度：测什么 + 怎么判 + 合理区间</h3>
+      <table class="grid">
+        <tr><th>#</th><th>维度</th><th>测什么（含判据）</th><th>核心指标 & 合理区间<sup>*</sup></th></tr>
+        <tr><td>①</td><td><b>压缩保真度</b><br>Compression Fidelity</td><td>把 N 轮原始对话喂给多级压缩 → 压缩产物里，预置的 K 条关键事实（gold）还在几条。用 <code class="inl">expected_facts</code> AND 命中判定</td><td><b>关键事实保留率 ≥ 0.95</b>（安全/数字类事实建议 =1.0）<br><b>压缩比 5×–20×</b>（token_out/token_in 0.05–0.20）<br>二者是<b>权衡曲线</b>，不是单点</td></tr>
+        <tr><td>②</td><td><b>蒸馏事实准确率</b><br>Distillation Precision</td><td>Dream 蒸馏输出的每条「候选记忆」，是否都能在原始历史里找到出处（无捏造）。命中 <code class="inl">forbidden/incorrect_facts</code> 即判错</td><td><b>Precision ≥ 0.90</b>（捏造/幻觉率 ≤ 5–10%）<br><b>Recall 0.70–0.85</b>（宁可漏记、不可错记，与安全侧 fail-closed 一致）</td></tr>
+        <tr><td>③</td><td><b>长期召回率</b><br>Long-term Recall</td><td>第 1 轮埋事实 → 隔 M 轮无关对话 → 第 M+1 轮提问，看能否从长期记忆调出。等价「大海捞针 needle-in-haystack」</td><td><b>Recall@k ≥ 0.85</b>（近期窗口内应 ≈1.0）<br>随对话跨度衰减，<b>10 轮后 ≥ 0.90 / 100 轮后 ≥ 0.75</b> 可接受</td></tr>
+        <tr><td>④</td><td><b>时效 / 冲突消解</b><br>Recency & Conflict</td><td>先写「A 的电话是 X」，后写「改成 Y」→ 提问应答 <b>Y</b> 不答 X。旧值进 <code class="inl">incorrect_facts</code>、新值进 <code class="inl">expected_facts</code></td><td><b>冲突正确率 ≥ 0.90</b><br><b>陈旧命中率（答旧值）≤ 5%</b></td></tr>
+        <tr><td>⑤</td><td><b>上下文预算效率</b><br>Budget Efficiency</td><td>同一批任务，开压缩 vs 不压缩：token 省了多少、<b>任务答对率掉了没</b>（对照实验，单变量）</td><td><b>Token 降 40–70%</b> 且 <b>答对率下降 ≤ 2pp</b>（掉太多说明压缩伤了信息）</td></tr>
+        <tr><td>⑥</td><td><b>抗噪 / 去重</b><br>Noise & Dedup</td><td>历史里混入闲聊/寒暄/重复 → 蒸馏产物不应把噪声也提炼成长期记忆；同义重复应合并</td><td><b>噪声漏入率 ≤ 10%</b><br><b>重复条目率 ≤ 5%</b></td></tr>
+      </table>
+      <p style="font-size:13px;color:#64748b"><sup>*</sup> 区间为<b>行业常见基准的经验参考</b>（对齐 needle-in-haystack、LongMemEval、RAG 忠实度评测的通行阈值量级），非本项目实测；真实项目应先测出 baseline 再据此定档。</p>
+
+      <h3 class="blk">2 · 一条铁律：安全类事实的保留率必须钉死 = 1.0</h3>
+      <div class="warn"><b>⚠️ 与你项目哲学一致的关键区分：</b>上面①③的"保留率 ≥0.95"是<b>普通事实</b>的量级。但涉及<b>权限/归属</b>的信息（谁 own 这条记忆、哪条属 DM 不能进群），保留率与隔离正确率必须是 <b>1.0，且 fail-closed</b>——这正是项目<b>已经</b>用 M8/M11 的 <code class="inl">exposure==0</code> / owner 不被伪造测死的部分。<b>质量评测可以容忍统计性指标（0.9x），安全评测不行（必须 ==0 / ==1.0 布尔）。别把两者混成一个阈值。</b></div>
+
+      <h3 class="blk">3 · 低成本落地：复用项目现成判分骨架，别新造轮子</h3>
+      <p>这 6 个维度<b>不需要 LLM-as-judge</b>，能直接嫁接项目已有的确定性判分件：</p>
+      <table class="grid">
+        <tr><th>要复用的现成件</th><th>用在哪个维度</th></tr>
+        <tr><td><code class="inl">score_faithfulness()</code>（<code class="inl">rag_bench.py:321</code>）—— leaked 短路 → incorrect 短路 → expected 命中比例</td><td>①②④ 的核心判据直接套用</td></tr>
+        <tr><td><code class="inl">expected/forbidden/incorrect_facts</code> 三字段（<code class="inl">rag_bench.py:133-135</code>）</td><td>①保留率用 expected；②③④ 捏造/陈旧用 forbidden+incorrect</td></tr>
+        <tr><td><code class="inl">recall_at_k / mrr / ndcg_at_k</code>（<code class="inl">eval/metrics.py</code>，<code class="inl">rag_bench.py:35</code>）</td><td>③长期召回率直接算</td></tr>
+        <tr><td>冻结集版本化 + gold 标注范式（<code class="inl">rag_frozen.py</code>）</td><td>建「记忆质量冻结集」照抄这套，保证可复算</td></tr>
+      </table>
+      <div class="tldr"><b>落地顺序建议（ROI 从高到低）：</b>先做 <b>③长期召回</b>（最能体现"长期记忆"卖点、埋点最简单）→ 再 <b>①压缩保真</b>（直接护"多级压缩"这句简历）→ 然后 <b>②蒸馏准确</b>（护"Dream 蒸馏"）→ 最后 ④⑤⑥ 补全。<b>每一步都先跑出 baseline，再拿上面的经验区间当"达标线"校准。</b></div>
+
+      <h3 class="blk">4 · 面试话术（把"没建"讲成"想清楚的演进项"）</h3>
+      <div class="analogy"><b>🧭 可直接说：</b>"我的记忆评测<b>目前聚焦安全面</b>——隔离、防注入、蒸馏归属，都是确定性布尔断言（exposure==0）。<b>质量面（压缩保真/蒸馏准确/长期召回）我有清晰的评测设计但还没落地</b>：会复用我 RAG board 那套 <code class="inl">expected/forbidden/incorrect_facts</code> + <code class="inl">score_faithfulness</code> 判分骨架，建一个版本化的记忆质量冻结集，先测 baseline 再定档。<b>之所以先做安全、后做质量，是因为压缩/蒸馏的效果部分依赖上游 nanobot 与底座 LLM，而安全隔离是我职责边界内、也更稀缺的红线。</b>" <b>——诚实说"没测质量"+ 给出可落地方案 + 解释取舍理由，比假装测过强得多。</b></div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  NanoScope Q&amp;A · 2026-08-06 · RAG 评测到底测了什么（被测对象=rag 子包与 Agent 正交 · 5 组正交场景 · 鉴权先于检索 candidate_touch=0 · L3 三字段判幻觉/泄密 · L0–L3 四档矩阵）｜ 源码：eval/rag_bench.py · rag/index.py · rag/search.py
+</footer>
+
+</body>
+</html>

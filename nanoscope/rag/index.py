@@ -62,6 +62,21 @@ def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     return dot / (na * nb)
 
 
+def _scored_chunk_sort_key(
+    item: tuple[DocChunkRecord, float],
+) -> tuple[float, str, str, str, str, int, str]:
+    chunk, score = item
+    return (
+        -score,
+        chunk.content,
+        chunk.scope,
+        chunk.owner_id or "",
+        chunk.acl_group or "",
+        chunk.chunk_index,
+        chunk.id,
+    )
+
+
 def _brute_topk(
     query_vec: Sequence[float],
     chunks: Sequence[DocChunkRecord],
@@ -76,7 +91,9 @@ def _brute_topk(
         for c, v in zip(chunks, vecs)
     ]
     scored = [(c, s) for c, s in scored if s > min_score]
-    scored.sort(key=lambda cs: (-cs[1], cs[0].id))
+    # UUID 每次摄取都会变化，不能作为可复现实验的同分键。内容与运行时归属标签相同的
+    # chunk 即使完全重复，其互换也不改变语义；chunk_index 负责稳定区分同文档内顺序。
+    scored.sort(key=_scored_chunk_sort_key)
     return scored[:top_k]
 
 
@@ -373,7 +390,7 @@ class PartitionedSearcher:
             hits = _corpus_topk(corpus, q, top_k)
             merged.extend(hits)
             scored.update(c.id for c in corpus.chunks)
-        merged.sort(key=lambda cs: (-cs[1], cs[0].id))
+        merged.sort(key=_scored_chunk_sort_key)
         results = [c for c, _ in merged[:top_k]]
         if any(c.tenant_id != ctx.tenant_id for c in results):
             raise RuntimeError("partitioned search tenant isolation violation")
